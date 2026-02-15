@@ -106,3 +106,12 @@
 - [ ] Implement keyboard shortcuts
 - [x] Add loading states and animations
 - [ ] Improve mobile responsiveness
+
+
+## Navigation & Layout Improvements
+- [x] Add OmniScope logo to top left of sidebar
+- [x] Create sidebar navigation with tabs (Dashboard, Ask OmniScope, Meetings, To-Do)
+- [x] Build dedicated Meetings page with advanced filtering
+- [x] Build dedicated To-Do page with task management UI
+- [x] Ensure active tab highlighting
+- [x] Test navigation flow between all pages

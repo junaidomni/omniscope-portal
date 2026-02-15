@@ -4,23 +4,27 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import PortalLayout from "./components/PortalLayout";
 import Dashboard from "./pages/Dashboard";
 import MeetingDetail from "./pages/MeetingDetail";
-import Tasks from "./pages/Tasks";
-import Search from "./pages/Search";
+import Meetings from "./pages/Meetings";
+import ToDo from "./pages/ToDo";
 import AskOmniScope from "./pages/AskOmniScope";
 
 function Router() {
   return (
-    <Switch>
-      <Route path={"/"} component={Dashboard} />
-      <Route path={"/meetings/:id"} component={MeetingDetail} />
-      <Route path={"/tasks"} component={Tasks} />
-      <Route path={"/search"} component={Search} />
-      <Route path={"/ask"} component={AskOmniScope} />
-      <Route path={"/404"} component={NotFound} />
-      <Route component={NotFound} />
-    </Switch>
+    <PortalLayout>
+      <Switch>
+        <Route path={"/"} component={Dashboard} />
+        <Route path="/meetings" component={Meetings} />
+        <Route path="/meeting/:id" component={MeetingDetail} />
+        <Route path="/tasks" component={ToDo} />
+        <Route path="/ask" component={AskOmniScope} />
+        <Route path={"/404"} component={NotFound} />
+        {/* Final fallback route */}
+        <Route component={NotFound} />
+      </Switch>
+    </PortalLayout>
   );
 }
 
