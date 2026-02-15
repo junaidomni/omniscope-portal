@@ -204,3 +204,8 @@
 - [x] Replace logo file with tighter-cropped version (no excess black background)
 - [x] Increase login page logo size to h-48 for maximum prominence
 - [x] Test login page to ensure logo is clearly visible
+
+
+## Logo Cleanup
+- [x] Use logo with only "OMNISCOPE" text (remove "INTELLIGENCE PORTAL" subtitle from logo image)
+- [x] Keep "Intelligence Portal" as separate text element below the logo
