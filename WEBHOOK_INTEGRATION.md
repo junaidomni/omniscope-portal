@@ -8,7 +8,7 @@ This guide explains how to connect Plaud, Fathom, or other call recording servic
 
 ## Webhook Endpoint
 
-**URL:** `https://your-portal-domain.com/api/trpc/ingestion.webhook`
+**URL:** `https://your-portal-domain.com/api/webhook/plaud`
 
 **Method:** `POST`
 
@@ -129,7 +129,7 @@ The webhook expects a JSON payload with the following structure:
 4. **Add Webhook Action:**
    - Choose "Webhooks by Zapier"
    - Method: POST
-   - URL: `https://your-portal-domain.com/api/trpc/ingestion.webhook`
+   - URL: `https://your-portal-domain.com/api/webhook/plaud`
    - Data: Paste the JSON payload structure
    - Headers: `Content-Type: application/json`
 
@@ -197,7 +197,7 @@ async function sendToOmniScope(recordingData) {
   };
 
   const response = await axios.post(
-    'https://your-portal-domain.com/api/trpc/ingestion.webhook',
+    'https://your-portal-domain.com/api/webhook/plaud',
     payload,
     {
       headers: {
@@ -233,7 +233,7 @@ Once a webhook is received, the portal automatically:
 ### Using cURL:
 
 ```bash
-curl -X POST https://your-portal-domain.com/api/trpc/ingestion.webhook \
+curl -X POST https://your-portal-domain.com/api/webhook/plaud \
   -H "Content-Type: application/json" \
   -d '{
     "sourceId": "test-123",
@@ -261,7 +261,7 @@ curl -X POST https://your-portal-domain.com/api/trpc/ingestion.webhook \
 ### Using Postman:
 
 1. Create new POST request
-2. URL: `https://your-portal-domain.com/api/trpc/ingestion.webhook`
+2. URL: `https://your-portal-domain.com/api/webhook/plaud`
 3. Headers: `Content-Type: application/json`
 4. Body: Raw JSON (use sample payload above)
 5. Send

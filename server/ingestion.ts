@@ -8,37 +8,53 @@ export const IntelligenceDataSchema = z.object({
   // Metadata
   meetingDate: z.string(),
   primaryLead: z.string(),
-  participants: z.array(z.string()),
-  organizations: z.array(z.string()).optional(),
-  jurisdictions: z.array(z.string()).optional(),
+  participants: z.union([z.array(z.string()), z.string()]).transform(val => 
+    typeof val === 'string' ? [val] : val
+  ),
+  organizations: z.union([z.array(z.string()), z.string(), z.null(), z.undefined()]).optional().transform(val => 
+    val === null || val === undefined || val === '' ? [] : typeof val === 'string' ? [val] : val
+  ),
+  jurisdictions: z.union([z.array(z.string()), z.string(), z.null(), z.undefined()]).optional().transform(val => 
+    val === null || val === undefined || val === '' ? [] : typeof val === 'string' ? [val] : val
+  ),
   
   // Intelligence Content
   executiveSummary: z.string(),
-  strategicHighlights: z.array(z.string()).optional(),
-  opportunities: z.array(z.string()).optional(),
-  risks: z.array(z.string()).optional(),
-  keyQuotes: z.array(z.string()).optional(),
+  strategicHighlights: z.union([z.array(z.string()), z.string(), z.null(), z.undefined()]).optional().transform(val => 
+    val === null || val === undefined || val === '' ? [] : typeof val === 'string' ? [val] : val
+  ),
+  opportunities: z.union([z.array(z.string()), z.string(), z.null(), z.undefined()]).optional().transform(val => 
+    val === null || val === undefined || val === '' ? [] : typeof val === 'string' ? [val] : val
+  ),
+  risks: z.union([z.array(z.string()), z.string(), z.null(), z.undefined()]).optional().transform(val => 
+    val === null || val === undefined || val === '' ? [] : typeof val === 'string' ? [val] : val
+  ),
+  keyQuotes: z.union([z.array(z.string()), z.string(), z.null(), z.undefined()]).optional().transform(val => 
+    val === null || val === undefined || val === '' ? [] : typeof val === 'string' ? [val] : val
+  ),
+  actionItems: z.union([z.array(z.string()), z.string(), z.null(), z.undefined()]).optional().transform(val => 
+    val === null || val === undefined || val === '' ? [] : typeof val === 'string' ? [val] : val
+  ),
   intelligenceData: z.record(z.string(), z.any()).optional(),
   
-  // Full transcript
+  // Full transcript (accept both 'transcript' and 'fullTranscript')
+  transcript: z.string().optional(),
   fullTranscript: z.string().optional(),
   
-  // Source tracking
-  sourceType: z.enum(["plaud", "fathom", "manual"]),
+  // Source tracking (make sourceType optional and default to 'plaud')
+  sourceType: z.enum(["plaud", "fathom", "manual"]).optional().default("plaud"),
   sourceId: z.string().optional(),
   
-  // Tags
-  sectors: z.array(z.string()).optional(),
-  jurisdictionTags: z.array(z.string()).optional(),
-  
-  // Action items
-  actionItems: z.array(z.object({
-    title: z.string(),
-    description: z.string().optional(),
-    priority: z.enum(["low", "medium", "high"]).optional(),
-    assignedTo: z.string().optional(), // Name, not ID
-    dueDate: z.string().optional(),
-  })).optional(),
+  // Tags (accept both array and string formats)
+  tags: z.union([z.array(z.string()), z.string()]).optional().transform(val => 
+    val === undefined ? [] : typeof val === 'string' ? [val] : val
+  ),
+  sectors: z.union([z.array(z.string()), z.string()]).optional().transform(val => 
+    val === undefined ? [] : typeof val === 'string' ? [val] : val
+  ),
+  jurisdictionTags: z.union([z.array(z.string()), z.string()]).optional().transform(val => 
+    val === undefined ? [] : typeof val === 'string' ? [val] : val
+  ),
 });
 
 export type IntelligenceData = z.infer<typeof IntelligenceDataSchema>;
@@ -98,23 +114,40 @@ export async function processIntelligenceData(data: IntelligenceData, createdBy?
   // Process action items
   if (data.actionItems && data.actionItems.length > 0) {
     for (const item of data.actionItems) {
+      // Handle both string and object formats
+      let taskTitle: string;
+      let taskDescription: string | null = null;
+      let taskPriority: "low" | "medium" | "high" = "medium";
+      let assignedToName: string | null = null;
+      let taskDueDate: Date | null = null;
+      
+      if (typeof item === 'string') {
+        taskTitle = item;
+      } else {
+        taskTitle = (item as any).title;
+        taskDescription = (item as any).description ?? null;
+        taskPriority = (item as any).priority ?? "medium";
+        assignedToName = (item as any).assignedTo ?? null;
+        taskDueDate = (item as any).dueDate ? new Date((item as any).dueDate) : null;
+      }
+      
       // Try to find user by name if assignedTo is provided
       let assignedUserId: number | null = null;
-      if (item.assignedTo) {
+      if (assignedToName) {
         const users = await db.getAllUsers();
-        const user = users.find(u => u.name?.toLowerCase() === item.assignedTo?.toLowerCase());
+        const user = users.find(u => u.name?.toLowerCase() === assignedToName.toLowerCase());
         if (user) {
           assignedUserId = user.id;
         }
       }
 
       await db.createTask({
-        title: item.title,
-        description: item.description ?? null,
-        priority: item.priority ?? "medium",
+        title: taskTitle,
+        description: taskDescription,
+        priority: taskPriority,
         assignedTo: assignedUserId,
         meetingId: meetingId,
-        dueDate: item.dueDate ? new Date(item.dueDate) : null,
+        dueDate: taskDueDate,
         isAutoGenerated: true,
         createdBy: createdBy ?? null,
       });
