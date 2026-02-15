@@ -3,14 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Calendar, User, Building2, MapPin, ArrowLeft, AlertTriangle, TrendingUp, Target } from "lucide-react";
+import { Loader2, Calendar, User, Building2, MapPin, ArrowLeft, AlertTriangle, TrendingUp, Target, Mail } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Link, useParams } from "wouter";
 import DashboardLayout from "@/components/DashboardLayout";
+import { SendRecapDialog } from "@/components/SendRecapDialog";
+import { useState } from "react";
 
 export default function MeetingDetail() {
   const { id } = useParams<{ id: string }>();
   const { isAuthenticated } = useAuth();
+  const [sendRecapOpen, setSendRecapOpen] = useState(false);
   
   const { data: meeting, isLoading } = trpc.meetings.getById.useQuery(
     { id: Number(id) },
@@ -91,7 +94,22 @@ export default function MeetingDetail() {
                 <Badge variant="outline">{meeting.sourceType}</Badge>
               </div>
             </div>
+            <Button 
+              onClick={() => setSendRecapOpen(true)}
+              className="bg-yellow-600 text-black hover:bg-yellow-500"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Send Recap
+            </Button>
           </div>
+
+          {/* Send Recap Dialog */}
+          <SendRecapDialog
+            open={sendRecapOpen}
+            onOpenChange={setSendRecapOpen}
+            meetingId={meeting.id}
+            meetingTitle={organizations.length > 0 ? organizations.join(', ') : 'Meeting Report'}
+          />
         </div>
 
         {/* Executive Summary */}

@@ -115,3 +115,14 @@
 - [x] Build dedicated To-Do page with task management UI
 - [x] Ensure active tab highlighting
 - [x] Test navigation flow between all pages
+
+
+## Backend Integration & Email Features
+- [x] Enlarge OmniScope logo in sidebar for better visibility
+- [x] Wire Export button on dashboard to download daily summary
+- [x] Build Send Recap modal on meeting detail pages
+- [x] Add email input and recipient management for recaps
+- [ ] Implement email sending functionality (using notification API or email service)
+- [x] Document Plaud/Fathom webhook endpoint URL and payload format
+- [x] Create webhook integration guide for Zapier/n8n setup
+- [ ] Test webhook data ingestion with sample payload

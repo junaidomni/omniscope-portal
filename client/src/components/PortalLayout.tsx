@@ -71,8 +71,8 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
       <div className="w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col">
         {/* Logo */}
         <div className="p-6 border-b border-zinc-800">
-          <img src="/omniscope-logo.svg" alt="OmniScope" className="h-8" />
-          <p className="text-xs text-yellow-600 font-medium mt-2 tracking-wide">INTELLIGENCE PORTAL</p>
+          <img src="/omniscope-logo.svg" alt="OmniScope" className="h-12 w-full object-contain" />
+          <p className="text-xs text-yellow-600 font-medium mt-3 tracking-wide">INTELLIGENCE PORTAL</p>
         </div>
 
         {/* Navigation */}

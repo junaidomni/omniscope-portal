@@ -5,10 +5,35 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Users, Building2, CheckCircle2, AlertCircle, TrendingUp, FileText, Download } from "lucide-react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 export default function Dashboard() {
   const { data: metrics, isLoading: metricsLoading } = trpc.analytics.dashboard.useQuery();
   const { data: dailySummary, isLoading: dailyLoading } = trpc.analytics.dailySummary.useQuery({});
+  
+  const exportMutation = trpc.export.dailySummary.useMutation({
+    onSuccess: (data) => {
+      // Create download link
+      const blob = new Blob([data.content], { type: 'text/markdown' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Daily summary exported');
+    },
+    onError: () => {
+      toast.error('Failed to export summary');
+    },
+  });
+
+  const handleExportDailySummary = () => {
+    const today = new Date().toISOString().split('T')[0];
+    exportMutation.mutate({ date: today });
+  };
 
   if (metricsLoading || dailyLoading) {
     return (
@@ -72,9 +97,15 @@ export default function Dashboard() {
                     {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                  onClick={handleExportDailySummary}
+                  disabled={exportMutation.isPending}
+                >
                   <Download className="h-4 w-4 mr-2" />
-                  Export
+                  {exportMutation.isPending ? "Exporting..." : "Export"}
                 </Button>
               </div>
             </CardHeader>
