@@ -1,0 +1,296 @@
+import * as db from "./db";
+
+/**
+ * Analytics helper functions for dashboard metrics
+ */
+
+export interface DashboardMetrics {
+  meetingsToday: number;
+  meetingsThisWeek: number;
+  meetingsThisMonth: number;
+  totalMeetings: number;
+  uniqueParticipants: number;
+  uniqueOrganizations: number;
+  openTasks: number;
+  completedTasksToday: number;
+  topSectors: Array<{ sector: string; count: number }>;
+  topJurisdictions: Array<{ jurisdiction: string; count: number }>;
+  recentMeetings: Array<any>;
+}
+
+export async function getDashboardMetrics(): Promise<DashboardMetrics> {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // Get all meetings
+  const allMeetings = await db.getAllMeetings();
+  
+  // Calculate metrics
+  const meetingsToday = allMeetings.filter(m => 
+    new Date(m.meetingDate) >= startOfToday
+  ).length;
+  
+  const meetingsThisWeek = allMeetings.filter(m => 
+    new Date(m.meetingDate) >= startOfWeek
+  ).length;
+  
+  const meetingsThisMonth = allMeetings.filter(m => 
+    new Date(m.meetingDate) >= startOfMonth
+  ).length;
+
+  // Get unique participants and organizations
+  const allParticipants = new Set<string>();
+  const allOrganizations = new Set<string>();
+  
+  allMeetings.forEach(meeting => {
+    const participants = JSON.parse(meeting.participants || '[]');
+    participants.forEach((p: string) => allParticipants.add(p));
+    
+    const orgs = JSON.parse(meeting.organizations || '[]');
+    orgs.forEach((o: string) => allOrganizations.add(o));
+  });
+
+  // Get task metrics
+  const allTasks = await db.getAllTasks();
+  const openTasks = allTasks.filter(t => t.status !== 'completed').length;
+  const completedTasksToday = allTasks.filter(t => 
+    t.status === 'completed' && 
+    t.updatedAt && 
+    new Date(t.updatedAt) >= startOfToday
+  ).length;
+
+  // Get top sectors and jurisdictions
+  const sectorCounts: Record<string, number> = {};
+  const jurisdictionCounts: Record<string, number> = {};
+  
+  for (const meeting of allMeetings) {
+    const tags = await db.getTagsForMeeting(meeting.id);
+    tags.forEach(item => {
+      if (item.tag.type === 'sector') {
+        sectorCounts[item.tag.name] = (sectorCounts[item.tag.name] || 0) + 1;
+      } else if (item.tag.type === 'jurisdiction') {
+        jurisdictionCounts[item.tag.name] = (jurisdictionCounts[item.tag.name] || 0) + 1;
+      }
+    });
+  }
+
+  const topSectors = Object.entries(sectorCounts)
+    .map(([sector, count]) => ({ sector, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  const topJurisdictions = Object.entries(jurisdictionCounts)
+    .map(([jurisdiction, count]) => ({ jurisdiction, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // Get recent meetings (last 5)
+  const recentMeetings = allMeetings
+    .sort((a, b) => new Date(b.meetingDate).getTime() - new Date(a.meetingDate).getTime())
+    .slice(0, 5);
+
+  return {
+    meetingsToday,
+    meetingsThisWeek,
+    meetingsThisMonth,
+    totalMeetings: allMeetings.length,
+    uniqueParticipants: allParticipants.size,
+    uniqueOrganizations: allOrganizations.size,
+    openTasks,
+    completedTasksToday,
+    topSectors,
+    topJurisdictions,
+    recentMeetings,
+  };
+}
+
+export interface DailySummary {
+  date: string;
+  meetingCount: number;
+  meetings: Array<{
+    id: number;
+    time: string;
+    participants: string[];
+    organizations: string[];
+    summary: string;
+    keyHighlights: string[];
+  }>;
+  tasksCreated: number;
+  tasksCompleted: number;
+  topSectors: string[];
+  topJurisdictions: string[];
+}
+
+export async function getDailySummary(date: Date): Promise<DailySummary> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(startOfDay);
+  endOfDay.setDate(endOfDay.getDate() + 1);
+
+  const meetings = await db.getAllMeetings({
+    startDate: startOfDay,
+    endDate: endOfDay,
+  });
+
+  const meetingDetails = meetings.map(m => ({
+    id: m.id,
+    time: new Date(m.meetingDate).toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit' 
+    }),
+    participants: JSON.parse(m.participants || '[]'),
+    organizations: JSON.parse(m.organizations || '[]'),
+    summary: m.executiveSummary,
+    keyHighlights: JSON.parse(m.strategicHighlights || '[]').slice(0, 3),
+  }));
+
+  // Get tasks created/completed today
+  const allTasks = await db.getAllTasks();
+  const tasksCreated = allTasks.filter(t => 
+    new Date(t.createdAt) >= startOfDay && 
+    new Date(t.createdAt) < endOfDay
+  ).length;
+  
+  const tasksCompleted = allTasks.filter(t => 
+    t.status === 'completed' &&
+    t.updatedAt &&
+    new Date(t.updatedAt) >= startOfDay && 
+    new Date(t.updatedAt) < endOfDay
+  ).length;
+
+  // Get top sectors/jurisdictions for the day
+  const sectorSet = new Set<string>();
+  const jurisdictionSet = new Set<string>();
+  
+  for (const meeting of meetings) {
+    const tags = await db.getTagsForMeeting(meeting.id);
+    tags.forEach(item => {
+      if (item.tag.type === 'sector') sectorSet.add(item.tag.name);
+      if (item.tag.type === 'jurisdiction') jurisdictionSet.add(item.tag.name);
+    });
+  }
+
+  return {
+    date: startOfDay.toISOString(),
+    meetingCount: meetings.length,
+    meetings: meetingDetails,
+    tasksCreated,
+    tasksCompleted,
+    topSectors: Array.from(sectorSet),
+    topJurisdictions: Array.from(jurisdictionSet),
+  };
+}
+
+export interface WeeklySummary {
+  weekStart: string;
+  weekEnd: string;
+  meetingCount: number;
+  uniqueParticipants: number;
+  uniqueOrganizations: number;
+  tasksCreated: number;
+  tasksCompleted: number;
+  topSectors: Array<{ sector: string; count: number }>;
+  topJurisdictions: Array<{ jurisdiction: string; count: number }>;
+  keyOpportunities: string[];
+  keyRisks: string[];
+  dailyBreakdown: Array<{ date: string; meetingCount: number }>;
+}
+
+export async function getWeeklySummary(weekStart: Date): Promise<WeeklySummary> {
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 7);
+
+  const meetings = await db.getAllMeetings({
+    startDate: weekStart,
+    endDate: weekEnd,
+  });
+
+  // Count unique participants and organizations
+  const participantSet = new Set<string>();
+  const organizationSet = new Set<string>();
+  const allOpportunities: string[] = [];
+  const allRisks: string[] = [];
+  
+  meetings.forEach(m => {
+    JSON.parse(m.participants || '[]').forEach((p: string) => participantSet.add(p));
+    JSON.parse(m.organizations || '[]').forEach((o: string) => organizationSet.add(o));
+    allOpportunities.push(...JSON.parse(m.opportunities || '[]'));
+    allRisks.push(...JSON.parse(m.risks || '[]'));
+  });
+
+  // Get tasks
+  const allTasks = await db.getAllTasks();
+  const tasksCreated = allTasks.filter(t => 
+    new Date(t.createdAt) >= weekStart && 
+    new Date(t.createdAt) < weekEnd
+  ).length;
+  
+  const tasksCompleted = allTasks.filter(t => 
+    t.status === 'completed' &&
+    t.updatedAt &&
+    new Date(t.updatedAt) >= weekStart && 
+    new Date(t.updatedAt) < weekEnd
+  ).length;
+
+  // Get sector and jurisdiction counts
+  const sectorCounts: Record<string, number> = {};
+  const jurisdictionCounts: Record<string, number> = {};
+  
+  for (const meeting of meetings) {
+    const tags = await db.getTagsForMeeting(meeting.id);
+    tags.forEach(item => {
+      if (item.tag.type === 'sector') {
+        sectorCounts[item.tag.name] = (sectorCounts[item.tag.name] || 0) + 1;
+      } else if (item.tag.type === 'jurisdiction') {
+        jurisdictionCounts[item.tag.name] = (jurisdictionCounts[item.tag.name] || 0) + 1;
+      }
+    });
+  }
+
+  const topSectors = Object.entries(sectorCounts)
+    .map(([sector, count]) => ({ sector, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  const topJurisdictions = Object.entries(jurisdictionCounts)
+    .map(([jurisdiction, count]) => ({ jurisdiction, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // Daily breakdown
+  const dailyBreakdown = [];
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(weekStart);
+    day.setDate(day.getDate() + i);
+    const nextDay = new Date(day);
+    nextDay.setDate(nextDay.getDate() + 1);
+    
+    const dayMeetings = meetings.filter(m => {
+      const mDate = new Date(m.meetingDate);
+      return mDate >= day && mDate < nextDay;
+    });
+    
+    dailyBreakdown.push({
+      date: day.toISOString(),
+      meetingCount: dayMeetings.length,
+    });
+  }
+
+  return {
+    weekStart: weekStart.toISOString(),
+    weekEnd: weekEnd.toISOString(),
+    meetingCount: meetings.length,
+    uniqueParticipants: participantSet.size,
+    uniqueOrganizations: organizationSet.size,
+    tasksCreated,
+    tasksCompleted,
+    topSectors,
+    topJurisdictions,
+    keyOpportunities: allOpportunities.slice(0, 10),
+    keyRisks: allRisks.slice(0, 10),
+    dailyBreakdown,
+  };
+}

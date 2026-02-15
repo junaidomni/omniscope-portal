@@ -6,6 +6,10 @@ import { z } from "zod";
 import * as db from "./db";
 import { TRPCError } from "@trpc/server";
 import { processIntelligenceData, validateIntelligenceData } from "./ingestion";
+import * as analytics from "./analytics";
+import * as askOmniScope from "./askOmniScope";
+import * as recapGenerator from "./recapGenerator";
+import * as reportExporter from "./reportExporter";
 
 // ============================================================================
 // MEETINGS ROUTER
@@ -345,6 +349,152 @@ const ingestionRouter = router({
 });
 
 // ============================================================================
+// ANALYTICS ROUTER
+// ============================================================================
+
+// ============================================================================
+// ASK OMNISCOPE ROUTER (AI-Powered Search)
+// ============================================================================
+
+// ============================================================================
+// RECAP GENERATOR ROUTER
+// ============================================================================
+
+// ============================================================================
+// EXPORT ROUTER
+// ============================================================================
+
+const exportRouter = router({
+  // Export daily summary
+  dailySummary: protectedProcedure
+    .input(z.object({
+      date: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const date = input.date ? new Date(input.date) : new Date();
+      return await reportExporter.exportDailySummaryMarkdown(date);
+    }),
+  
+  // Export weekly summary
+  weeklySummary: protectedProcedure
+    .input(z.object({
+      weekStart: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      let weekStart: Date;
+      if (input.weekStart) {
+        weekStart = new Date(input.weekStart);
+      } else {
+        const now = new Date();
+        weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+      }
+      return await reportExporter.exportWeeklySummaryMarkdown(weekStart);
+    }),
+  
+  // Export custom range
+  customRange: protectedProcedure
+    .input(z.object({
+      startDate: z.string(),
+      endDate: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const startDate = new Date(input.startDate);
+      const endDate = new Date(input.endDate);
+      return await reportExporter.exportCustomRangeMarkdown(startDate, endDate);
+    }),
+});
+
+// ============================================================================
+// RECAP GENERATOR ROUTER
+// ============================================================================
+
+const recapRouter = router({
+  // Generate meeting recap
+  generate: protectedProcedure
+    .input(z.object({
+      meetingId: z.number(),
+      recipientName: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      return await recapGenerator.generateMeetingRecap(input.meetingId, input.recipientName);
+    }),
+});
+
+// ============================================================================
+// ASK OMNISCOPE ROUTER (AI-Powered Search)
+// ============================================================================
+
+const askRouter = router({
+  // Ask a natural language question
+  ask: protectedProcedure
+    .input(z.object({
+      query: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      return await askOmniScope.askOmniScope(input.query);
+    }),
+  
+  // Find meetings by participant
+  findByParticipant: protectedProcedure
+    .input(z.object({
+      name: z.string(),
+    }))
+    .query(async ({ input }) => {
+      return await askOmniScope.findMeetingsByParticipant(input.name);
+    }),
+  
+  // Find meetings by organization
+  findByOrganization: protectedProcedure
+    .input(z.object({
+      name: z.string(),
+    }))
+    .query(async ({ input }) => {
+      return await askOmniScope.findMeetingsByOrganization(input.name);
+    }),
+});
+
+// ============================================================================
+// ANALYTICS ROUTER
+// ============================================================================
+
+const analyticsRouter = router({
+  // Get dashboard metrics
+  dashboard: protectedProcedure.query(async () => {
+    return await analytics.getDashboardMetrics();
+  }),
+  
+  // Get daily summary
+  dailySummary: protectedProcedure
+    .input(z.object({
+      date: z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      const date = input.date ? new Date(input.date) : new Date();
+      return await analytics.getDailySummary(date);
+    }),
+  
+  // Get weekly summary
+  weeklySummary: protectedProcedure
+    .input(z.object({
+      weekStart: z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      let weekStart: Date;
+      if (input.weekStart) {
+        weekStart = new Date(input.weekStart);
+      } else {
+        const now = new Date();
+        weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+      }
+      return await analytics.getWeeklySummary(weekStart);
+    }),
+});
+
+// ============================================================================
 // MAIN APP ROUTER
 // ============================================================================
 
@@ -365,6 +515,10 @@ export const appRouter = router({
   tags: tagsRouter,
   users: usersRouter,
   ingestion: ingestionRouter,
+  analytics: analyticsRouter,
+  ask: askRouter,
+  recap: recapRouter,
+  export: exportRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -11,7 +11,7 @@
 - [x] Implement tRPC procedures for task management
 - [x] Implement tRPC procedures for full-text search
 - [x] Implement tRPC procedures for filtering by date, sector, jurisdiction
-- [ ] Implement tRPC procedures for daily/weekly summaries
+- [x] Implement tRPC procedures for daily/weekly summaries
 
 ## Authentication & Authorization
 - [ ] Configure Manus OAuth to restrict to @omniscopex.ae domain
@@ -26,15 +26,15 @@
 - [ ] Create pagination for report list
 - [x] Build meeting detail page with all intelligence sections
 - [x] Implement full-text search interface
-- [ ] Create daily summary view
-- [ ] Create weekly summary view
+- [x] Create daily summary view (integrated in dashboard)
+- [x] Create weekly summary view (available via analytics)
 
 ## Task Management System
 - [x] Build task list view with status filters
 - [ ] Implement task creation form (manual)
 - [ ] Implement task assignment to team members
 - [x] Implement task status updates (open/in-progress/completed)
-- [ ] Create automated task extraction from report action items
+- [x] Create automated task extraction from report action items
 - [ ] Build task detail modal/page
 
 ## Data Ingestion Pipeline
@@ -51,6 +51,10 @@
 - [x] Write vitest tests for search functionality
 - [x] Write vitest tests for data ingestion
 - [x] Write vitest tests for tag management
+- [x] Write vitest tests for analytics features
+- [x] Write vitest tests for Ask OmniScope
+- [x] Write vitest tests for recap generation
+- [x] Write vitest tests for export functionality
 - [x] Verify all tests pass
 
 ## Security & Access Controls
@@ -61,5 +65,44 @@
 - [ ] Create API documentation for webhook integration
 - [ ] Write user guide for portal usage
 - [ ] Document admin procedures
-- [ ] Create checkpoint for deployment
+- [x] Create checkpoint for deployment
 - [ ] Provide integration instructions for Zapier/n8n
+
+## Dashboard Analytics & Metrics
+- [x] Create analytics summary cards (meetings today, total people contacted, etc.)
+- [x] Build meeting timeline/calendar view
+- [x] Implement daily summary widget
+- [x] Implement weekly summary widget
+- [x] Create quick stats overview section
+- [x] Add visual charts for meeting trends (sector/jurisdiction bars)
+
+## Ask OmniScope - AI-Powered Search
+- [x] Build Ask OmniScope search interface
+- [x] Implement natural language query processing with LLM
+- [x] Create meeting finder by participant name
+- [x] Build contextual search across all intelligence data
+- [x] Add suggested follow-up questions
+- [x] Add example questions for users
+
+## Automated Task Distribution & Meeting Recaps
+- [x] Enhance task auto-assignment logic
+- [ ] Build task notification system
+- [x] Create meeting recap template (OmniScope branded)
+- [x] Implement external meeting recap email generation (HTML + plain text)
+- [ ] Build recipient management for external recaps
+- [ ] Build UI to generate and send recaps
+
+## Report Export Functionality
+- [x] Create daily report export (Markdown)
+- [x] Create weekly report export (Markdown)
+- [x] Build custom date range report generator
+- [ ] Add export buttons to UI
+- [ ] Implement file download functionality
+- [ ] Add PDF export option
+
+## UX Enhancements
+- [x] Redesign dashboard layout (analytics left, meetings right)
+- [ ] Add quick actions menu
+- [ ] Implement keyboard shortcuts
+- [x] Add loading states and animations
+- [ ] Improve mobile responsiveness
