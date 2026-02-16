@@ -48,6 +48,36 @@ function TimezoneClock({ zone, city }: { zone: string; label: string; city: stri
   );
 }
 
+function LocalClock() {
+  const [time, setTime] = useState("");
+  const [info, setInfo] = useState({ city: "Local", tz: "" });
+
+  useEffect(() => {
+    const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const city = userTz.split("/").pop()?.replace(/_/g, " ") || "Local";
+    const abbr = new Date().toLocaleTimeString("en-US", { timeZoneName: "short" }).split(" ").pop() || "";
+    setInfo({ city, tz: abbr });
+
+    const update = () => {
+      setTime(new Date().toLocaleTimeString("en-US", {
+        hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true,
+      }));
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="text-center flex-shrink-0 pl-2">
+      <p className="text-[10px] text-yellow-600 font-semibold uppercase tracking-wider">
+        {info.city} ({info.tz})
+      </p>
+      <p className="text-base font-bold text-yellow-500 tabular-nums">{time}</p>
+    </div>
+  );
+}
+
 // ============================================================================
 // CALENDAR PAGE
 // ============================================================================
@@ -286,6 +316,9 @@ export default function CalendarView() {
                 )}
               </div>
             ))}
+            <div className="flex-1" />
+            <Separator orientation="vertical" className="h-6 bg-zinc-700 mx-1" />
+            <LocalClock />
           </div>
         </div>
       </div>

@@ -17,6 +17,7 @@ import AccessDenied from "./pages/AccessDenied";
 import DailyReport from "./pages/DailyReport";
 import WeeklyReport from "./pages/WeeklyReport";
 import ContactProfile from "./pages/ContactProfile";
+import Contacts from "./pages/Contacts";
 import Onboarding from "./pages/Onboarding";
 
 function Router() {
@@ -26,6 +27,7 @@ function Router() {
         <Route path={"/"} component={Dashboard} />
         <Route path="/meetings" component={Meetings} />
         <Route path="/meeting/:id" component={MeetingDetail} />
+        <Route path="/contacts" component={Contacts} />
         <Route path="/contact/:id" component={ContactProfile} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/tasks" component={ToDo} />

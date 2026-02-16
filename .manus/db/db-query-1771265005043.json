@@ -1,0 +1,9 @@
+{
+  "query": "DELETE FROM tasks WHERE id IN (90116, 90117, 90118, 90119, 90123, 90124, 90125, 90127);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute DELETE FROM tasks WHERE id IN (90116, 90117, 90118, 90119, 90123, 90124, 90125, 90127);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 368
+}

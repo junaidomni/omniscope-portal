@@ -47,6 +47,37 @@ function MiniClock({ zone, city }: { zone: string; city: string }) {
   );
 }
 
+function LocalClock() {
+  const [time, setTime] = useState("");
+  const [info, setInfo] = useState({ city: "Local", tz: "" });
+
+  useEffect(() => {
+    // Detect user's timezone and resolve city name
+    const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone; // e.g. "America/New_York"
+    const city = userTz.split("/").pop()?.replace(/_/g, " ") || "Local";
+    const abbr = new Date().toLocaleTimeString("en-US", { timeZoneName: "short" }).split(" ").pop() || "";
+    setInfo({ city, tz: abbr });
+
+    const update = () => {
+      setTime(new Date().toLocaleTimeString("en-US", {
+        hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true,
+      }));
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="text-center flex-shrink-0 pl-2">
+      <p className="text-[10px] text-yellow-600 font-semibold uppercase tracking-wider">
+        {info.city} ({info.tz})
+      </p>
+      <p className="text-base font-bold text-yellow-500 tabular-nums">{time}</p>
+    </div>
+  );
+}
+
 // ============================================================================
 // LAYOUT SYSTEM - Widget ordering with drag-and-drop
 // ============================================================================
@@ -344,6 +375,9 @@ export default function Dashboard() {
               {idx < TIMEZONES.length - 1 && <Separator orientation="vertical" className="h-6 bg-zinc-800" />}
             </div>
           ))}
+          <div className="flex-1" />
+          <Separator orientation="vertical" className="h-6 bg-zinc-700" />
+          <LocalClock />
         </div>
       </div>
 

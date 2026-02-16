@@ -1,0 +1,58 @@
+{
+  "query": "SELECT id, meetingTitle FROM meetings WHERE meetingTitle LIKE '%test%' OR meetingTitle LIKE '%Test%'; SELECT id, title FROM tasks WHERE title LIKE '%test%' OR title LIKE '%Test%' OR title LIKE '%Kanban%' OR title LIKE '%sample%' OR title LIKE '%Sample%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, meetingTitle FROM meetings WHERE meetingTitle LIKE '%test%' OR meetingTitle LIKE '%Test%'; SELECT id, title FROM tasks WHERE title LIKE '%test%' OR title LIKE '%Test%' OR title LIKE '%Kanban%' OR title LIKE '%sample%' OR title LIKE '%Sample%';",
+  "rows": [
+    {
+      "id": "30014",
+      "title": "Send 1-pager to Sania/Junaid: pricing, MOQ, lead times, materials, payment, shipping; then ship samples (Assigned to: Noor Nabi Shaikh)"
+    },
+    {
+      "id": "30015",
+      "title": "Send 1-pager to Noor/Rehan: MOQ, payment, shipping; then confirm samples (Assigned to: Sania Owais)"
+    },
+    {
+      "id": "90011",
+      "title": "Forward Steven’s A/B test email to Junaid; then update PPP 4-pager (Assigned to: Kyle Jackson)"
+    },
+    {
+      "id": "90012",
+      "title": "Email A/B test/CIS bullet points to Joanne (Assigned to: Kyle Jackson)"
+    },
+    {
+      "id": "90116",
+      "title": "Kanban test task - open"
+    },
+    {
+      "id": "90117",
+      "title": "Kanban test - to in_progress"
+    },
+    {
+      "id": "90118",
+      "title": "Kanban test - to completed"
+    },
+    {
+      "id": "90119",
+      "title": "Kanban test - reopen"
+    },
+    {
+      "id": "90123",
+      "title": "Test task with notes"
+    },
+    {
+      "id": "90124",
+      "title": "Priority change test"
+    },
+    {
+      "id": "90125",
+      "title": "Test task without notes"
+    },
+    {
+      "id": "90127",
+      "title": "Category change test"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\n30014\tSend 1-pager to Sania/Junaid: pricing, MOQ, lead times, materials, payment, shipping; then ship samples (Assigned to: Noor Nabi Shaikh)\n30015\tSend 1-pager to Noor/Rehan: MOQ, payment, shipping; then confirm samples (Assigned to: Sania Owais)\n90011\tForward Steven’s A/B test email to Junaid; then update PPP 4-pager (Assigned to: Kyle Jackson)\n90012\tEmail A/B test/CIS bullet points to Joanne (Assigned to: Kyle Jackson)\n90116\tKanban test task - open\n90117\tKanban test - to in_progress\n90118\tKanban test - to completed\n90119\tKanban test - reopen\n90123\tTest task with notes\n90124\tPriority change test\n90125\tTest task without notes\n90127\tCategory change test\n",
+  "stderr": "",
+  "execution_time_ms": 433
+}

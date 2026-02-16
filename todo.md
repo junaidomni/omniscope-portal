@@ -594,3 +594,22 @@
 - [x] Remove all test meetings from database (3 test meetings deleted)
 - [x] Remove all test to-do items from database (11 test tasks deleted)
 - [x] Ensure only real data remains (11 meetings, 43 real tasks)
+
+## v14 — Bug Fixes & UX Polish
+
+### Contacts Page Fix
+- [x] Fix Contacts page not loading/working (created Contacts.tsx list page + added /contacts route)
+
+### Google Calendar Redirect URI
+- [x] Verified code correctly uses window.location.origin for redirect URI
+- [ ] User action required: Add published site callback URL to Google Cloud Console (Authorized redirect URIs)
+
+### PDF Filename Fix
+- [x] Fix PDF download filename — now uses "OmniScope Intelligence Report - Hassan x Jake - 2026-02-16.pdf" from Content-Disposition header
+
+### Timezone Bar Enhancement
+- [x] Add current local time and city on the right side of the timezone bar (Dashboard + Calendar)
+- [x] Show user's detected timezone city with abbreviation (e.g., New York (EST))
+
+### Test Data Cleanup
+- [x] Removed 8 test/kanban tasks (IDs 90116-90127), 60 real tasks remain

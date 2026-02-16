@@ -86,10 +86,23 @@ export default function MeetingDetail() {
       const response = await fetch(`/api/meeting/${meeting.id}/pdf`);
       if (!response.ok) throw new Error('Failed to generate PDF');
       const blob = await response.blob();
+      
+      // Extract filename from Content-Disposition header, or build from meeting data
+      let filename = 'OmniScope Intelligence Report.pdf';
+      const disposition = response.headers.get('Content-Disposition');
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match) filename = match[1];
+      } else if (meeting.meetingTitle) {
+        const dateStr = new Date(meeting.meetingDate).toISOString().split('T')[0];
+        const cleanTitle = (meeting.meetingTitle || 'Meeting').replace(/[^a-zA-Z0-9\s-]/g, '').trim();
+        filename = `OmniScope Intelligence Report - ${cleanTitle} - ${dateStr}.pdf`;
+      }
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `omniscope-report-${meeting.id}.pdf`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
