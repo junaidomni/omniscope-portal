@@ -1,0 +1,60 @@
+{
+  "query": "SELECT id, title, meetingId FROM tasks WHERE meetingId IS NOT NULL LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, title, meetingId FROM tasks WHERE meetingId IS NOT NULL LIMIT 10;",
+  "rows": [
+    {
+      "id": "30004",
+      "title": "Email Francis re: St. Lucia villa dev; if no appetite, request marina-dev intros (Assigned to: Noah Jerome)",
+      "meetingId": "30012"
+    },
+    {
+      "id": "30005",
+      "title": "Email JD NCNDA + engagement letter; request signature (Assigned to: Kyle Jackson)",
+      "meetingId": "30012"
+    },
+    {
+      "id": "30006",
+      "title": "Grant Kyle + Noah data room access (Assigned to: Oliver J D)",
+      "meetingId": "30012"
+    },
+    {
+      "id": "30007",
+      "title": "Schedule follow-up w/ JD + Noah for Feb 13 or Feb 16 (Assigned to: Kyle Jackson)",
+      "meetingId": "30012"
+    },
+    {
+      "id": "30008",
+      "title": "Schedule Fri call w/ Johnny, Kyle, Jake, Junaid; send invite (Assigned to: JT Huskins)",
+      "meetingId": "30013"
+    },
+    {
+      "id": "30009",
+      "title": "Email JT info-request outline; then draft 1–3 pager + structure options; send to Talib (Assigned to: JAKE RYAN)",
+      "meetingId": "30013"
+    },
+    {
+      "id": "30010",
+      "title": "Email Talib Mon update re: progress (Assigned to: JAKE RYAN)",
+      "meetingId": "30013"
+    },
+    {
+      "id": "30011",
+      "title": "Email Kyle/Junaid: NDA-signed 1-pager + insurance carrier/process + wallet address/forensics; then update post-call (Assigned to: H T)",
+      "meetingId": "30014"
+    },
+    {
+      "id": "30012",
+      "title": "Email Kyle/Junaid: secondary opps list (Assigned to: H T)",
+      "meetingId": "30014"
+    },
+    {
+      "id": "30013",
+      "title": "Email Justin: AI investment vehicle details (Assigned to: H T)",
+      "meetingId": "30014"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\tmeetingId\n30004\tEmail Francis re: St. Lucia villa dev; if no appetite, request marina-dev intros (Assigned to: Noah Jerome)\t30012\n30005\tEmail JD NCNDA + engagement letter; request signature (Assigned to: Kyle Jackson)\t30012\n30006\tGrant Kyle + Noah data room access (Assigned to: Oliver J D)\t30012\n30007\tSchedule follow-up w/ JD + Noah for Feb 13 or Feb 16 (Assigned to: Kyle Jackson)\t30012\n30008\tSchedule Fri call w/ Johnny, Kyle, Jake, Junaid; send invite (Assigned to: JT Huskins)\t30013\n30009\tEmail JT info-request outline; then draft 1–3 pager + structure options; send to Talib (Assigned to: JAKE RYAN)\t30013\n30010\tEmail Talib Mon update re: progress (Assigned to: JAKE RYAN)\t30013\n30011\tEmail Kyle/Junaid: NDA-signed 1-pager + insurance carrier/process + wallet address/forensics; then update post-call (Assigned to: H T)\t30014\n30012\tEmail Kyle/Junaid: secondary opps list (Assigned to: H T)\t30014\n30013\tEmail Justin: AI investment vehicle details (Assigned to: H T)\t30014\n",
+  "stderr": "",
+  "execution_time_ms": 351
+}

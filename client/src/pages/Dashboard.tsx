@@ -156,9 +156,13 @@ export default function Dashboard() {
     }
   };
 
-  // Fetch upcoming Google Calendar events
+  // Auto-sync from Google Calendar then fetch upcoming events
   useEffect(() => {
-    const fetchUpcoming = async () => {
+    const syncAndFetch = async () => {
+      try {
+        // Sync from Google Calendar first (silent, no toast)
+        await fetch('/api/calendar/sync', { method: 'POST' }).catch(() => {});
+      } catch {}
       try {
         const now = new Date();
         const weekLater = new Date(now);
@@ -178,7 +182,7 @@ export default function Dashboard() {
         setEventsLoading(false);
       }
     };
-    fetchUpcoming();
+    syncAndFetch();
   }, []);
 
   const parseMeetingParticipants = (m: any) => {

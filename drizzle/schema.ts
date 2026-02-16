@@ -238,6 +238,27 @@ export type MeetingCategory = typeof meetingCategories.$inferSelect;
 export type InsertMeetingCategory = typeof meetingCategories.$inferInsert;
 
 /**
+ * Google OAuth tokens - stores refresh tokens for Google Calendar/Gmail API access
+ */
+export const googleTokens = mysqlTable("google_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  accessToken: text("accessToken").notNull(),
+  refreshToken: text("refreshToken"),
+  tokenType: varchar("tokenType", { length: 50 }).default("Bearer").notNull(),
+  scope: text("scope"),
+  expiresAt: timestamp("expiresAt"),
+  email: varchar("email", { length: 320 }), // Google account email
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userIdx: index("google_token_user_idx").on(table.userId),
+}));
+
+export type GoogleToken = typeof googleTokens.$inferSelect;
+export type InsertGoogleToken = typeof googleTokens.$inferInsert;
+
+/**
  * Relations
  */
 export const meetingsRelations = relations(meetings, ({ many, one }) => ({

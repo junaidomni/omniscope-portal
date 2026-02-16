@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,43 @@ export default function CalendarView() {
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [showNewEvent, setShowNewEvent] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [googleConnected, setGoogleConnected] = useState<boolean | null>(null);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+
+  // Check Google connection status
+  useEffect(() => {
+    fetch('/api/google/status')
+      .then(r => r.json())
+      .then(data => {
+        setGoogleConnected(data.connected);
+        setGoogleEmail(data.email || null);
+      })
+      .catch(() => setGoogleConnected(false));
+    // Check URL params for Google connection callback
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('google') === 'connected') {
+      setGoogleConnected(true);
+      toast.success('Google Calendar connected successfully!');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (params.get('google') === 'error') {
+      toast.error(params.get('message') || 'Failed to connect Google Calendar');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  const connectGoogle = async () => {
+    try {
+      const response = await fetch(`/api/google/auth?origin=${encodeURIComponent(window.location.origin)}`);
+      const data = await response.json();
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
+      } else {
+        toast.error('Failed to start Google authorization');
+      }
+    } catch {
+      toast.error('Failed to connect to Google');
+    }
+  };
 
   const syncFromGoogle = async () => {
     setIsSyncing(true);
@@ -120,7 +157,19 @@ export default function CalendarView() {
     }
   };
 
-  useEffect(() => { fetchEvents(); }, [currentMonth]);
+  // Auto-sync from Google Calendar on first load, then fetch events
+  const hasSynced = useRef(false);
+  useEffect(() => {
+    if (!hasSynced.current) {
+      hasSynced.current = true;
+      // Sync from Google Calendar first, then fetch
+      fetch('/api/calendar/sync', { method: 'POST' })
+        .then(() => fetchEvents())
+        .catch(() => fetchEvents());
+    } else {
+      fetchEvents();
+    }
+  }, [currentMonth]);
 
   // Group events by LOCAL date (not UTC) so they appear on the correct calendar day
   const getLocalDateKey = (isoString: string): string => {
@@ -175,6 +224,23 @@ export default function CalendarView() {
             <p className="text-sm text-zinc-500 mt-1">Schedule and manage meetings across time zones</p>
           </div>
           <div className="flex items-center gap-2">
+            {googleConnected === false && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={connectGoogle}
+                className="border-yellow-600/50 text-yellow-600 hover:bg-yellow-600/10"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Connect Google
+              </Button>
+            )}
+            {googleConnected && googleEmail && (
+              <Badge variant="outline" className="border-green-600/50 text-green-500 text-xs py-1">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                {googleEmail}
+              </Badge>
+            )}
             <Button
               variant="outline"
               size="sm"

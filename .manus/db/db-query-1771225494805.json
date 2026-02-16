@@ -1,0 +1,19 @@
+{
+  "query": "SELECT COUNT(*) as remaining_tasks FROM tasks; SELECT COUNT(*) as all_have_meeting FROM tasks WHERE meetingId IS NOT NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT COUNT(*) as remaining_tasks FROM tasks; SELECT COUNT(*) as all_have_meeting FROM tasks WHERE meetingId IS NOT NULL;",
+  "rows": [
+    {
+      "remaining_tasks": "19"
+    },
+    {
+      "remaining_tasks": "all_have_meeting"
+    },
+    {
+      "remaining_tasks": "19"
+    }
+  ],
+  "messages": [],
+  "stdout": "remaining_tasks\n19\nall_have_meeting\n19\n",
+  "stderr": "",
+  "execution_time_ms": 410
+}

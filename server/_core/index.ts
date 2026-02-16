@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { webhookRouter } from "../webhookRoute";
 import { calendarRouter } from "../calendarRoute";
+import { sdk } from "./sdk";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -39,6 +40,31 @@ async function startServer() {
   registerOAuthRoutes(app);
   // Webhook endpoint for Plaud/Fathom integration
   app.use("/api", webhookRouter);
+  // Auth middleware for non-tRPC API routes
+  app.use("/api/google", async (req: any, _res, next) => {
+    try {
+      req.user = await sdk.authenticateRequest(req);
+    } catch {
+      req.user = null;
+    }
+    next();
+  });
+  app.use("/api/calendar", async (req: any, _res, next) => {
+    try {
+      req.user = await sdk.authenticateRequest(req);
+    } catch {
+      req.user = null;
+    }
+    next();
+  });
+  app.use("/api/gmail", async (req: any, _res, next) => {
+    try {
+      req.user = await sdk.authenticateRequest(req);
+    } catch {
+      req.user = null;
+    }
+    next();
+  });
   // Google Calendar API proxy
   app.use("/api", calendarRouter);
   // tRPC API

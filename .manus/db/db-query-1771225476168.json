@@ -1,0 +1,15 @@
+{
+  "query": "SELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN meetingId IS NOT NULL THEN 1 ELSE 0 END) as from_fathom,\n  SUM(CASE WHEN meetingId IS NULL THEN 1 ELSE 0 END) as manual\nFROM tasks;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN meetingId IS NOT NULL THEN 1 ELSE 0 END) as from_fathom,\n  SUM(CASE WHEN meetingId IS NULL THEN 1 ELSE 0 END) as manual\nFROM tasks;",
+  "rows": [
+    {
+      "total": "124",
+      "from_fathom": "19",
+      "manual": "105"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\tfrom_fathom\tmanual\n124\t19\t105\n",
+  "stderr": "",
+  "execution_time_ms": 356
+}

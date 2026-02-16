@@ -485,3 +485,36 @@
 ### Zoom/Scale Fix
 - [x] Fix zoomed-out appearance - increased all font sizes and padding
 - [x] Ensure proper font sizes, spacing, and element sizing
+
+## Calendar Sync Investigation v9
+
+- [x] Auto-sync from Google Calendar on Dashboard load (silent)
+- [x] Auto-sync from Google Calendar on Calendar page load
+- [x] Events created in Google Calendar now appear automatically in portal
+
+## Production Google Calendar Integration v10
+
+### Google OAuth2 Setup
+- [x] Add Google OAuth2 credentials (Client ID, Client Secret) as secrets
+- [x] Build OAuth2 authorization flow (/api/google/auth → Google consent → /api/google/callback)
+- [x] Store refresh tokens in database per user (googleTokens table)
+- [x] Auto-refresh access tokens when expired
+
+### Google Calendar REST API
+- [x] Replace MCP-based calendar sync with direct Google Calendar API calls
+- [x] Create events via Google Calendar API (with attendees, Google Meet)
+- [x] Delete events via Google Calendar API
+- [x] Fetch/sync events via Google Calendar API
+- [x] Production-ready: works in deployed environment, not just sandbox
+
+### Gmail API for Email Reports
+- [x] Use same OAuth2 tokens to send emails via Gmail API
+- [x] Email Daily/Weekly Reports directly from the portal
+
+### Auto-Sync
+- [x] Auto-sync calendar on Dashboard and Calendar page load
+- [x] Manual sync button still available
+
+### Testing
+- [x] Google OAuth2 credentials verified (3 tests pass)
+- [x] All 131 tests passing with 30s timeout

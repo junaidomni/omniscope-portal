@@ -1,0 +1,25 @@
+{
+  "query": "SELECT COUNT(*) as total FROM tasks; SELECT COUNT(*) as fathom_tasks FROM tasks WHERE meetingId IS NOT NULL; SELECT COUNT(*) as manual_tasks FROM tasks WHERE meetingId IS NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT COUNT(*) as total FROM tasks; SELECT COUNT(*) as fathom_tasks FROM tasks WHERE meetingId IS NOT NULL; SELECT COUNT(*) as manual_tasks FROM tasks WHERE meetingId IS NULL;",
+  "rows": [
+    {
+      "total": "124"
+    },
+    {
+      "total": "fathom_tasks"
+    },
+    {
+      "total": "19"
+    },
+    {
+      "total": "manual_tasks"
+    },
+    {
+      "total": "105"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\n124\nfathom_tasks\n19\nmanual_tasks\n105\n",
+  "stderr": "",
+  "execution_time_ms": 450
+}
