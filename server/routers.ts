@@ -513,6 +513,287 @@ ${taskSummary || 'No tasks assigned'}`
       await db.updateContact(input.id, { aiSummary: summary });
       return { summary };
     }),
+
+  // AI Enrichment - extract contact info from meeting transcripts
+  enrichWithAI: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const contact = await db.getContactById(input.id);
+      if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+
+      // Get all meetings involving this contact
+      const contactMeetings = await db.getMeetingsForContact(input.id);
+      const allMeetings = await db.getAllMeetings({ limit: 500 });
+      const nameMatches = allMeetings.filter(m => {
+        try {
+          const participants = JSON.parse(m.participants || '[]');
+          return participants.some((p: string) =>
+            p.toLowerCase().includes(contact.name.toLowerCase()) ||
+            contact.name.toLowerCase().includes(p.toLowerCase())
+          );
+        } catch { return false; }
+      });
+
+      const meetingIds = new Set<number>();
+      const allRelevantMeetings: any[] = [];
+      for (const mc of contactMeetings) {
+        if (!meetingIds.has(mc.meeting.id)) {
+          meetingIds.add(mc.meeting.id);
+          allRelevantMeetings.push(mc.meeting);
+        }
+      }
+      for (const m of nameMatches) {
+        if (!meetingIds.has(m.id)) {
+          meetingIds.add(m.id);
+          allRelevantMeetings.push(m);
+        }
+      }
+
+      // Check if this contact is also an employee
+      const employee = await db.getEmployeeByContactId(input.id);
+
+      // Build context from all meeting transcripts and summaries
+      const meetingContext = allRelevantMeetings
+        .sort((a, b) => new Date(b.meetingDate).getTime() - new Date(a.meetingDate).getTime())
+        .slice(0, 10)
+        .map(m => {
+          const date = new Date(m.meetingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const summary = m.executiveSummary?.substring(0, 500) || '';
+          const transcript = m.fullTranscript?.substring(0, 1000) || '';
+          return `Meeting (${date}): ${m.meetingTitle || 'Untitled'}\nSummary: ${summary}\nTranscript excerpt: ${transcript}`;
+        })
+        .join('\n\n');
+
+      const { invokeLLM } = await import("./_core/llm");
+      const result = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: `You are an AI assistant for OmniScope, a sovereign-grade financial infrastructure platform. Analyze meeting transcripts and summaries to extract contact information. Return a JSON object with ONLY the fields you can confidently extract. Do not guess or fabricate information. Only include a field if you find clear evidence in the text.
+
+Return JSON with these optional fields:
+- email: email address
+- phone: phone number
+- organization: company/org name
+- title: job title/role
+- website: company or personal website
+- linkedin: LinkedIn profile URL
+- address: physical address
+- notes: key relationship context (2-3 sentences)
+
+IMPORTANT: Only include fields where you have high confidence from the meeting data. Return {} if nothing can be extracted.`
+          },
+          {
+            role: "user",
+            content: `Extract contact information for "${contact.name}" from these meeting records:\n\n${meetingContext || 'No meeting data available'}\n\nCurrent known info: email=${contact.email || 'unknown'}, phone=${contact.phone || 'unknown'}, org=${contact.organization || 'unknown'}, title=${contact.title || 'unknown'}${employee ? `\n\nNote: This person is also an employee (${employee.firstName} ${employee.lastName}, ${employee.jobTitle}, ${employee.email})` : ''}`
+          }
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "contact_enrichment",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                email: { type: "string", description: "Email address" },
+                phone: { type: "string", description: "Phone number" },
+                organization: { type: "string", description: "Company/org" },
+                title: { type: "string", description: "Job title" },
+                website: { type: "string", description: "Website URL" },
+                linkedin: { type: "string", description: "LinkedIn URL" },
+                address: { type: "string", description: "Physical address" },
+                notes: { type: "string", description: "Key relationship context" },
+              },
+              required: [],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+
+      let extracted: any = {};
+      try {
+        extracted = JSON.parse((result.choices[0]?.message?.content as string) || '{}');
+      } catch { extracted = {}; }
+
+      // Only update fields that are currently empty and AI found something
+      const updates: any = {};
+      if (!contact.email && extracted.email) updates.email = extracted.email;
+      if (!contact.phone && extracted.phone) updates.phone = extracted.phone;
+      if (!contact.organization && extracted.organization) updates.organization = extracted.organization;
+      if (!contact.title && extracted.title) updates.title = extracted.title;
+      if (!contact.website && extracted.website) updates.website = extracted.website;
+      if (!contact.linkedin && extracted.linkedin) updates.linkedin = extracted.linkedin;
+      if (!contact.address && extracted.address) updates.address = extracted.address;
+
+      // If employee is linked, sync employee data to contact
+      if (employee) {
+        if (!contact.email && employee.email) updates.email = employee.email;
+        if (!contact.phone && employee.phone) updates.phone = employee.phone;
+        if (!contact.address && employee.address) updates.address = employee.address;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await db.updateContact(input.id, updates);
+      }
+
+      // Also generate AI summary
+      const summaryResult = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: `You are an intelligence analyst for OmniScope. Write a concise, institutional-grade relationship summary. Focus on: relationship context, key topics, business opportunities, and engagement level. Be specific and factual. Write 3-5 sentences.`
+          },
+          {
+            role: "user",
+            content: `Generate a relationship intelligence summary for ${contact.name}${contact.organization ? ` (${contact.organization})` : ''}.\n\nMeeting History (${allRelevantMeetings.length} meetings):\n${meetingContext || 'No meetings found'}`
+          }
+        ],
+      });
+
+      const aiSummary = (summaryResult.choices[0]?.message?.content as string) || "";
+      if (aiSummary) {
+        await db.updateContact(input.id, { aiSummary });
+      }
+
+      return { updated: Object.keys(updates), extracted, summary: aiSummary };
+    }),
+
+  // Bulk AI enrichment for all contacts
+  enrichAllWithAI: protectedProcedure
+    .mutation(async () => {
+      const allContacts = await db.getAllContacts();
+      let enriched = 0;
+      let errors = 0;
+      for (const contact of allContacts) {
+        try {
+          // Only enrich contacts that are missing key fields
+          if (!contact.email || !contact.organization || !contact.title) {
+            const contactMeetings = await db.getMeetingsForContact(contact.id);
+            if (contactMeetings.length === 0) continue; // Skip contacts with no meetings
+            
+            // Check if employee is linked
+            const employee = await db.getEmployeeByContactId(contact.id);
+            const updates: any = {};
+            
+            if (employee) {
+              if (!contact.email && employee.email) updates.email = employee.email;
+              if (!contact.phone && employee.phone) updates.phone = employee.phone;
+              if (!contact.address && employee.address) updates.address = employee.address;
+            }
+            
+            if (Object.keys(updates).length > 0) {
+              await db.updateContact(contact.id, updates);
+              enriched++;
+            }
+          }
+        } catch {
+          errors++;
+        }
+      }
+      return { enriched, errors, total: allContacts.length };
+    }),
+
+  // Link employee to contact
+  linkEmployee: protectedProcedure
+    .input(z.object({ contactId: z.number(), employeeId: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.linkEmployeeToContact(input.employeeId, input.contactId);
+      // Sync employee data to contact
+      const employee = await db.getEmployeeById(input.employeeId);
+      const contact = await db.getContactById(input.contactId);
+      if (employee && contact) {
+        const updates: any = {};
+        if (!contact.email && employee.email) updates.email = employee.email;
+        if (!contact.phone && employee.phone) updates.phone = employee.phone;
+        if (!contact.address && employee.address) updates.address = employee.address;
+        if (Object.keys(updates).length > 0) {
+          await db.updateContact(input.contactId, updates);
+        }
+      }
+      return { success: true };
+    }),
+
+  // Auto-link employees to contacts by name matching
+  autoLinkEmployees: protectedProcedure
+    .mutation(async () => {
+      const allEmployees = await db.getAllEmployees();
+      const allContacts = await db.getAllContacts();
+      let linked = 0;
+      for (const emp of allEmployees) {
+        if (emp.contactId) continue; // Already linked
+        const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
+        const match = allContacts.find(c => {
+          const cName = c.name.toLowerCase().trim();
+          return cName === fullName ||
+            cName.includes(fullName) ||
+            fullName.includes(cName) ||
+            (cName.split(/\s+/)[0] === emp.firstName.toLowerCase() && cName.split(/\s+/).pop() === emp.lastName.toLowerCase());
+        });
+        if (match) {
+          await db.linkEmployeeToContact(emp.id, match.id);
+          // Sync employee data to contact
+          const updates: any = {};
+          if (!match.email && emp.email) updates.email = emp.email;
+          if (!match.phone && emp.phone) updates.phone = emp.phone;
+          if (!match.address && emp.address) updates.address = emp.address;
+          if (Object.keys(updates).length > 0) {
+            await db.updateContact(match.id, updates);
+          }
+          linked++;
+        }
+      }
+      return { linked, total: allEmployees.length };
+    }),
+
+  // Contact documents
+  getDocuments: protectedProcedure
+    .input(z.object({ contactId: z.number(), category: z.string().optional() }))
+    .query(async ({ input }) => {
+      return await db.getDocumentsForContact(input.contactId, input.category);
+    }),
+
+  uploadDocument: protectedProcedure
+    .input(z.object({
+      contactId: z.number(),
+      title: z.string().min(1),
+      category: z.enum(["ncnda", "contract", "agreement", "proposal", "invoice", "kyc", "compliance", "correspondence", "other"]).default("other"),
+      fileData: z.string(), // base64
+      fileName: z.string(),
+      mimeType: z.string(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const buffer = Buffer.from(input.fileData, 'base64');
+      const suffix = Math.random().toString(36).substring(2, 10);
+      const fileKey = `contact-docs/${input.contactId}/${input.fileName}-${suffix}`;
+      const { url } = await storagePut(fileKey, buffer, input.mimeType);
+      const id = await db.createContactDocument({
+        contactId: input.contactId,
+        title: input.title,
+        category: input.category,
+        fileUrl: url,
+        fileKey,
+        notes: input.notes ?? null,
+        uploadedBy: ctx.user.id,
+      });
+      return { id, url };
+    }),
+
+  deleteDocument: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.deleteContactDocument(input.id);
+      return { success: true };
+    }),
+
+  // Get linked employee for a contact
+  getLinkedEmployee: protectedProcedure
+    .input(z.object({ contactId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getEmployeeByContactId(input.contactId);
+    }),
 });
 
 // ============================================================================

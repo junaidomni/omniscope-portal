@@ -71,6 +71,28 @@ export type ContactNote = typeof contactNotes.$inferSelect;
 export type InsertContactNote = typeof contactNotes.$inferInsert;
 
 /**
+ * Contact documents - documents associated with contacts (NCNDAs, contracts, etc.)
+ */
+export const contactDocuments = mysqlTable("contact_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  contactId: int("contactId").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 500 }).notNull(),
+  category: mysqlEnum("contactDocCategory", ["ncnda", "contract", "agreement", "proposal", "invoice", "kyc", "compliance", "correspondence", "other"]).default("other").notNull(),
+  fileUrl: varchar("fileUrl", { length: 1000 }).notNull(),
+  fileKey: varchar("fileKey", { length: 500 }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  uploadedBy: int("uploadedBy").references(() => users.id),
+}, (table) => ({
+  contactIdx: index("cd_contact_idx").on(table.contactId),
+  categoryIdx: index("cd_category_idx").on(table.category),
+}));
+
+export type ContactDocument = typeof contactDocuments.$inferSelect;
+export type InsertContactDocument = typeof contactDocuments.$inferInsert;
+
+/**
  * Employees table - HR employee database
  */
 export const employees = mysqlTable("employees", {
@@ -408,6 +430,18 @@ export const meetingsRelations = relations(meetings, ({ many, one }) => ({
 export const contactsRelations = relations(contacts, ({ many }) => ({
   meetings: many(meetingContacts),
   notes: many(contactNotes),
+  documents: many(contactDocuments),
+}));
+
+export const contactDocumentsRelations = relations(contactDocuments, ({ one }) => ({
+  contact: one(contacts, {
+    fields: [contactDocuments.contactId],
+    references: [contacts.id],
+  }),
+  uploader: one(users, {
+    fields: [contactDocuments.uploadedBy],
+    references: [users.id],
+  }),
 }));
 
 export const contactNotesRelations = relations(contactNotes, ({ one }) => ({

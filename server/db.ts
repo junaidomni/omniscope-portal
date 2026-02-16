@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, like, lte, or, sql, inArray, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument } from "../drizzle/schema";
+import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -845,5 +845,66 @@ export async function getHrDocumentById(id: number) {
   const db = await getDb();
   if (!db) return null;
   const result = await db.select().from(hrDocuments).where(eq(hrDocuments.id, id)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+// ============================================================================
+// CONTACT DOCUMENTS
+// ============================================================================
+
+export async function getDocumentsForContact(contactId: number, category?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [eq(contactDocuments.contactId, contactId)];
+  if (category) conditions.push(eq(contactDocuments.category, category as any));
+  return await db.select().from(contactDocuments).where(and(...conditions)).orderBy(desc(contactDocuments.createdAt));
+}
+
+export async function createContactDocument(data: Omit<InsertContactDocument, "id" | "createdAt" | "updatedAt">) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(contactDocuments).values(data);
+  return Number(result[0].insertId);
+}
+
+export async function deleteContactDocument(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(contactDocuments).where(eq(contactDocuments.id, id));
+}
+
+export async function getContactDocumentById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(contactDocuments).where(eq(contactDocuments.id, id)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+// ============================================================================
+// EMPLOYEE-CONTACT LINKING
+// ============================================================================
+
+export async function linkEmployeeToContact(employeeId: number, contactId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(employees).set({ contactId }).where(eq(employees.id, employeeId));
+}
+
+export async function getEmployeeByContactId(contactId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(employees).where(eq(employees.contactId, contactId)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getEmployeeByName(firstName: string, lastName: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(employees)
+    .where(and(
+      eq(employees.firstName, firstName),
+      eq(employees.lastName, lastName)
+    ))
+    .limit(1);
   return result.length > 0 ? result[0] : null;
 }

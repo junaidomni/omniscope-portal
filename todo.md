@@ -717,3 +717,27 @@
 - [x] Remove duplicate meeting_contacts rows
 - [x] Merge duplicate contacts in database
 - [x] Verify no test data remains
+
+## v18 — AI Contact Enrichment, Employee-Contact Linking, Document Uploads & Data Cleanup
+
+### AI Contact Enrichment
+- [x] Build AI procedure to extract contact info (email, phone, website, company, title) from meeting transcripts
+- [x] Auto-enrich contacts after meeting sync — fill in missing fields using AI reasoning
+- [x] Add "Enrich with AI" button on contact profile to manually trigger enrichment
+- [x] AI should cross-reference across all meetings to build the most complete profile
+
+### Employee-Contact Linking
+- [x] Auto-link employees (Junaid, Kyle, Jake, Sania) to their contact profiles
+- [x] Sync employee data to contact fields (email, phone, etc.)
+- [x] Show employee badge on contact cards for team members
+
+### Document Uploads on Contact Profiles
+- [x] Add contact_documents table (contactId, title, category, fileUrl, uploadedBy)
+- [x] Build document upload/list/delete procedures for contacts
+- [x] Add document section to ContactProfile page (upload NCNDAs, contracts, etc.)
+
+### Data Cleanup
+- [x] Remove all test tasks (should be ~130 real tasks, not 114+ test ones)
+- [x] Remove all test meetings
+- [x] Remove all test contacts
+- [x] Verify final data counts are accurate
