@@ -10,7 +10,9 @@ import {
   Calendar,
   LogOut,
   Loader2,
-  Shield
+  Shield,
+  Settings,
+  Users
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -80,6 +82,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
     { path: "/meetings", icon: FileText, label: "Meetings" },
     { path: "/calendar", icon: Calendar, label: "Calendar" },
     { path: "/tasks", icon: CheckSquare, label: "To-Do" },
+    { path: "/contacts", icon: Users, label: "Contacts" },
   ];
 
   const isAdmin = user?.role === 'admin';
@@ -121,7 +124,21 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
           })}
         </nav>
 
-        {/* Admin Panel - Bottom of sidebar above user */}
+        {/* Setup & Admin - Bottom of sidebar above user */}
+        <div className="px-4 pb-2 space-y-1">
+          <Link href="/onboarding">
+            <button
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                location === '/onboarding'
+                  ? "bg-yellow-600 text-black font-medium"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+              }`}
+            >
+              <Settings className="h-5 w-5" />
+              <span>Setup</span>
+            </button>
+          </Link>
+        </div>
         {isAdmin && (
           <div className="px-4 pb-2">
             <Link href="/admin">

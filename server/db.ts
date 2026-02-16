@@ -219,6 +219,47 @@ export async function getMeetingsForContact(contactId: number) {
     .orderBy(desc(meetings.meetingDate));
 }
 
+export async function getTasksForContact(contactName: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.assignedName, contactName))
+    .orderBy(desc(tasks.createdAt));
+}
+
+export async function getContactProfile(contactId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const contact = await getContactById(contactId);
+  if (!contact) return null;
+  
+  const contactMeetings = await getMeetingsForContact(contactId);
+  const contactTasks = await getTasksForContact(contact.name);
+  
+  // Calculate last meeting date and days since
+  let lastMeetingDate: Date | null = null;
+  let daysSinceLastMeeting: number | null = null;
+  if (contactMeetings.length > 0) {
+    lastMeetingDate = contactMeetings[0].meeting.meetingDate;
+    const now = new Date();
+    daysSinceLastMeeting = Math.floor((now.getTime() - lastMeetingDate.getTime()) / (1000 * 60 * 60 * 24));
+  }
+  
+  return {
+    ...contact,
+    meetings: contactMeetings,
+    tasks: contactTasks,
+    meetingCount: contactMeetings.length,
+    taskCount: contactTasks.length,
+    openTaskCount: contactTasks.filter(t => t.status !== 'completed').length,
+    lastMeetingDate,
+    daysSinceLastMeeting,
+  };
+}
+
 export async function getContactMeetingCount(contactId: number) {
   const db = await getDb();
   if (!db) return 0;

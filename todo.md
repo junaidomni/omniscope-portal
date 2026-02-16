@@ -543,3 +543,54 @@
 - [x] Meeting "Hassan x Jake" now correctly shows 11:00 AM EST (was showing 6:00 AM)
 - [x] Set process.env.TZ='UTC' in server entry point for consistent timestamp handling
 - [x] Corrected existing database timestamps by adding 5-hour offset to fix historical data
+
+## v13 — Smart Task Intelligence & UX Overhaul
+
+### Smart Task Extraction & Assignment
+- [x] Split compound action items into individual tasks (Hassan x Jake now has 3 separate tasks instead of 1)
+- [x] Use LLM reasoning to assign tasks to the correct person (Hassan→Hassan Askari, Jake→JAKE RYAN, Junaid→Junaid Qureshi)
+- [x] Clean task titles (short, actionable) with detailed descriptions in a separate field
+- [x] Auto-extract due dates from meeting context; default to 2-day deadline if none mentioned (Feb 18 for Hassan x Jake)
+- [x] dueDate and description fields already present in tasks schema
+
+### Meeting Sector Tagging Intelligence
+- [x] Fix sector tagging: LLM prompt now considers meeting context for intelligent tagging
+- [x] Add topic-based tags (AI, New Client, etc.) based on meeting content
+- [x] Improve LLM prompt to consider meeting context (first meeting = New Client, topic-based tagging)
+
+### To-Do Section — Overdue & Due Date Filtering
+- [x] Add overdue task indicator/section to To-Do page
+- [x] Add due date filter controls (due today, tomorrow, 1 day, 2 days, overdue)
+- [x] Make To-Do section user-friendly with clear visual hierarchy
+
+### Contact Profile Pages
+- [x] Create dedicated contact profile page (/contact/:id)
+- [x] Show all associated meetings for each contact
+- [x] Show all associated tasks for each contact
+- [x] Show last meeting date and "days since last contact" metric
+- [x] Link contacts from meeting people section to their profile pages
+
+### Meeting People Section Enhancement
+- [x] Show last meeting date with each person in the meeting detail view
+- [x] Show "days since last contact" for each participant
+
+### Google Calendar Sync Fix
+- [x] Debug Google Calendar sync — sync infrastructure works correctly, auto-syncs on Dashboard and Calendar page load
+- [x] Set TZ=UTC on server for consistent timestamp handling going forward
+- [ ] Wednesday meeting will appear after next sync from production (Google OAuth tokens are per-user)
+
+### Onboarding Flow
+- [x] Build onboarding wizard for new users (/onboarding)
+- [x] Step-by-step instructions to connect Fathom account
+- [x] Step-by-step instructions to connect Plaud account
+- [x] Step-by-step instructions to connect Google email/calendar
+- [x] Simple, clean UI with progress bar and collapsible instructions
+
+### Fathom Webhook Registration
+- [x] Webhook endpoint already exists at /api/webhook/fathom
+- [ ] Register production webhook URL in Fathom account settings (requires published site URL)
+
+### Test Data Cleanup
+- [x] Remove all test meetings from database (3 test meetings deleted)
+- [x] Remove all test to-do items from database (11 test tasks deleted)
+- [x] Ensure only real data remains (11 meetings, 43 real tasks)

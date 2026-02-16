@@ -58,6 +58,19 @@ const meetingsRouter = router({
       return await db.getTasksForMeeting(input.meetingId);
     }),
 
+  getContacts: protectedProcedure
+    .input(z.object({ meetingId: z.number() }))
+    .query(async ({ input }) => {
+      const contactsForMeeting = await db.getContactsForMeeting(input.meetingId);
+      // Enrich each contact with last meeting date
+      const enriched = await Promise.all(contactsForMeeting.map(async (mc: any) => {
+        const contactMeetings = await db.getMeetingsForContact(mc.contact.id);
+        const lastMeetingDate = contactMeetings.length > 0 ? contactMeetings[0].meeting.meetingDate : null;
+        return { ...mc, lastMeetingDate };
+      }));
+      return enriched;
+    }),
+
   search: protectedProcedure
     .input(z.object({
       query: z.string().min(1),
@@ -179,6 +192,14 @@ const contactsRouter = router({
       const contact = await db.getContactById(input.id);
       if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
       return contact;
+    }),
+
+  getProfile: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      const profile = await db.getContactProfile(input.id);
+      if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+      return profile;
     }),
 
   getMeetings: protectedProcedure

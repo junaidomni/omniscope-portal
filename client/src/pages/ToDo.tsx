@@ -870,6 +870,7 @@ export default function ToDo() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPerson, setFilterPerson] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterDue, setFilterDue] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [showNewTask, setShowNewTask] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
@@ -893,6 +894,12 @@ export default function ToDo() {
   // Filter tasks
   const filteredTasks = useMemo(() => {
     if (!allTasks) return [];
+    const now = new Date();
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const tomorrowEnd = new Date(todayEnd.getTime() + 86400000);
+    const twoDaysEnd = new Date(todayEnd.getTime() + 2 * 86400000);
+    const weekEnd = new Date(todayEnd.getTime() + 7 * 86400000);
+
     return allTasks.filter(t => {
       if (searchTerm) {
         const lower = searchTerm.toLowerCase();
@@ -900,9 +907,29 @@ export default function ToDo() {
       }
       if (filterPerson !== "all" && t.assignedName !== filterPerson) return false;
       if (filterCategory !== "all" && t.category !== filterCategory) return false;
+      
+      // Due date filter
+      if (filterDue !== "all" && t.status !== "completed") {
+        const dueDate = t.dueDate ? new Date(t.dueDate) : null;
+        if (filterDue === "overdue") {
+          if (!dueDate || dueDate >= now) return false;
+        } else if (filterDue === "today") {
+          if (!dueDate || dueDate > todayEnd || dueDate < now) return false;
+        } else if (filterDue === "tomorrow") {
+          if (!dueDate || dueDate > tomorrowEnd || dueDate <= todayEnd) return false;
+        } else if (filterDue === "2days") {
+          if (!dueDate || dueDate > twoDaysEnd) return false;
+        } else if (filterDue === "week") {
+          if (!dueDate || dueDate > weekEnd) return false;
+        } else if (filterDue === "no_date") {
+          if (dueDate) return false;
+        }
+      } else if (filterDue !== "all" && t.status === "completed") {
+        return false; // Hide completed tasks when filtering by due date
+      }
       return true;
     });
-  }, [allTasks, searchTerm, filterPerson, filterCategory]);
+  }, [allTasks, searchTerm, filterPerson, filterCategory, filterDue]);
 
   // Group by status for Kanban
   const tasksByStatus = useMemo(() => {
@@ -1091,6 +1118,33 @@ export default function ToDo() {
               </button>
             );
           })}
+        </div>
+
+        <div className="h-5 w-px bg-zinc-800 hidden md:block" />
+
+        {/* Due Date Filters */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <Calendar className="h-3.5 w-3.5 text-zinc-600 flex-shrink-0" />
+          {[
+            { id: "all", label: "All" },
+            { id: "overdue", label: `Overdue${stats.overdue > 0 ? ` (${stats.overdue})` : ""}`, urgent: stats.overdue > 0 },
+            { id: "today", label: "Due Today" },
+            { id: "tomorrow", label: "Tomorrow" },
+            { id: "2days", label: "Next 2 Days" },
+            { id: "week", label: "This Week" },
+            { id: "no_date", label: "No Date" },
+          ].map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => setFilterDue(filterDue === opt.id ? "all" : opt.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap
+                ${filterDue === opt.id
+                  ? opt.urgent ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-yellow-600/20 text-yellow-500 border border-yellow-600/30"
+                  : opt.urgent ? "bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse" : "bg-zinc-900 text-zinc-500 border border-zinc-800 hover:border-zinc-700"}`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
 
         <div className="h-5 w-px bg-zinc-800 hidden md:block" />

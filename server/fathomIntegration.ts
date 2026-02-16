@@ -211,6 +211,17 @@ function determinePrimaryLead(payload: FathomWebhookPayload): string {
 }
 
 /**
+ * Structured action item from LLM analysis
+ */
+interface AnalyzedActionItem {
+  title: string;
+  description: string;
+  assignedTo: string;
+  priority: "low" | "medium" | "high";
+  dueDate: string | null; // ISO date string or null
+}
+
+/**
  * Use LLM to analyze the meeting transcript and extract OmniScope intelligence
  */
 async function analyzeMeetingWithLLM(payload: FathomWebhookPayload): Promise<{
@@ -221,30 +232,58 @@ async function analyzeMeetingWithLLM(payload: FathomWebhookPayload): Promise<{
   keyQuotes: string[];
   sectors: string[];
   jurisdictions: string[];
+  actionItems: AnalyzedActionItem[];
+  meetingType: string;
 }> {
   const title = payload.title || payload.meeting_title || "Untitled Meeting";
   const summary = payload.default_summary?.markdown_formatted || "";
   const transcript = payload.transcript ? buildTranscriptText(payload.transcript) : "";
   const participants = extractParticipants(payload);
-  const actionItems = payload.action_items?.map((a) => a.description).join("\n- ") || "";
+  const rawActionItems = payload.action_items?.map((a) => {
+    let text = a.description;
+    if (a.assignee?.name) text += ` (Fathom assignee: ${a.assignee.name})`;
+    return text;
+  }).join("\n- ") || "";
 
   // Truncate transcript to avoid token limits (keep first ~8000 chars)
   const truncatedTranscript = transcript.length > 8000
     ? transcript.substring(0, 8000) + "\n\n[Transcript truncated for analysis...]"
     : transcript;
 
+  // Calculate default due date (2 days from now)
+  const defaultDueDate = new Date();
+  defaultDueDate.setDate(defaultDueDate.getDate() + 2);
+  const defaultDueDateStr = defaultDueDate.toISOString().split('T')[0];
+
   const systemPrompt = `You are an intelligence analyst for OmniScope, a sovereign-grade financial infrastructure platform operating across OTC Brokerage, Bitcoin & Digital Asset OTC, Stablecoin Liquidity, Commodities, Real Estate Capital, and Payment Rails.
 
-Your job is to analyze meeting transcripts and extract structured intelligence data. Be precise, institutional, and compliance-aware. Focus on:
-- Business opportunities and deal flow
-- Strategic relationships and partnerships
-- Market intelligence and sector insights
-- Compliance considerations and risks
-- Key quotes that capture important commitments or insights
+Your job is to analyze meeting transcripts and extract structured intelligence data. Be precise, institutional, and compliance-aware.
 
-OmniScope's core verticals: OTC Brokerage & Execution, Bitcoin & Digital Asset OTC, Stablecoin Liquidity & Settlement, Commodities (Gold, Oil, Energy), Real Estate Capital & Tokenization, Payment Rails & Remittance Infrastructure.
+CRITICAL RULES FOR ACTION ITEMS:
+1. SPLIT compound action items into separate, atomic tasks. Example: "Create group chat w/ Hassan & Jake; prompt Hassan for deck + visuals" becomes TWO tasks: one for creating the group chat, one for requesting the deck.
+2. Each task gets a CLEAN, SHORT title (max 80 chars) — just the action, no assignee info in the title.
+3. Put detailed context in the description field.
+4. ASSIGN tasks to the correct person based on WHO should do the work, not who recorded the meeting. Read the transcript carefully to determine who volunteered or was asked to do each task.
+5. If a specific date/deadline is mentioned in the meeting, use that as the due date. If no date is mentioned, use "${defaultDueDateStr}" (2 days from now).
+6. Set priority based on urgency discussed in the meeting.
 
-Relevant jurisdictions: USA, UAE (Dubai/ADGM), GCC, Europe, Asia, Pakistan, and emerging markets.`;
+CRITICAL RULES FOR MEETING TYPE:
+- "New Client" = first meeting with a new contact/company, introductory call, getting-to-know-you
+- "Follow-Up" = continuing a previous conversation or deal
+- "Internal" = team-only meeting, no external participants
+- "Deal Review" = reviewing terms, contracts, or transaction details
+- "Partnership" = exploring or formalizing a partnership
+- "General" = doesn't fit other categories
+
+CRITICAL RULES FOR SECTORS:
+- Only tag sectors that are ACTUALLY discussed in the meeting content
+- If the meeting is about AI, technology, or software → use "Technology" or "AI"
+- If it's a new client intro where no specific OmniScope vertical is discussed → use the sector most relevant to what was discussed
+- Do NOT default to "OTC Brokerage" unless OTC trading is explicitly discussed
+
+OmniScope's core verticals: OTC Brokerage & Execution, Bitcoin & Digital Assets, Stablecoin Liquidity, Commodities (Gold, Oil, Energy), Real Estate Capital, Payment Rails, Technology, AI, Compliance, General.
+
+Relevant jurisdictions: USA, UAE (Dubai/ADGM), GCC, Europe, Asia, Pakistan, Global.`;
 
   const userPrompt = `Analyze this meeting and extract intelligence data:
 
@@ -254,8 +293,8 @@ Relevant jurisdictions: USA, UAE (Dubai/ADGM), GCC, Europe, Asia, Pakistan, and 
 **Fathom Summary:**
 ${summary}
 
-**Action Items:**
-- ${actionItems || "None recorded"}
+**Raw Action Items from Fathom (may need splitting/reassignment):**
+- ${rawActionItems || "None recorded"}
 
 **Transcript:**
 ${truncatedTranscript || "No transcript available"}
@@ -266,8 +305,15 @@ Return a JSON object with these fields:
 - opportunities: Array of business opportunities identified (empty array if none)
 - risks: Array of risks, red flags, or compliance concerns (empty array if none)
 - keyQuotes: Array of notable direct quotes from participants (empty array if none)
-- sectors: Array of OmniScope sectors this meeting relates to (from: "OTC Brokerage", "Bitcoin & Digital Assets", "Stablecoin Liquidity", "Commodities", "Real Estate Capital", "Payment Rails", "Technology", "Compliance", "General")
-- jurisdictions: Array of jurisdictions discussed or relevant (from: "UAE", "USA", "UK", "GCC", "Europe", "Asia", "Pakistan", "Global")`;
+- sectors: Array of relevant sectors from the list above — be accurate based on actual content discussed
+- jurisdictions: Array of jurisdictions discussed or relevant
+- meetingType: One of "New Client", "Follow-Up", "Internal", "Deal Review", "Partnership", "General"
+- actionItems: Array of structured action items, each with:
+  - title: Short, clean task title (max 80 chars, NO assignee info)
+  - description: Detailed context about what needs to be done
+  - assignedTo: Name of the person who should do this task (from participants list)
+  - priority: "low", "medium", or "high"
+  - dueDate: ISO date string (YYYY-MM-DD) if a deadline was mentioned, or "${defaultDueDateStr}" if not`;
 
   try {
     const result = await invokeLLM({
@@ -287,11 +333,28 @@ Return a JSON object with these fields:
               strategicHighlights: { type: "array", items: { type: "string" }, description: "Key strategic points" },
               opportunities: { type: "array", items: { type: "string" }, description: "Business opportunities" },
               risks: { type: "array", items: { type: "string" }, description: "Risks and red flags" },
-              keyQuotes: { type: "array", items: { type: "string" }, description: "Notable quotes" },
-              sectors: { type: "array", items: { type: "string" }, description: "Relevant OmniScope sectors" },
+              keyQuotes: { type: "array", items: { type: "string" }, description: "Notable direct quotes" },
+              sectors: { type: "array", items: { type: "string" }, description: "Relevant sectors" },
               jurisdictions: { type: "array", items: { type: "string" }, description: "Relevant jurisdictions" },
+              meetingType: { type: "string", description: "Type of meeting" },
+              actionItems: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string", description: "Short clean task title" },
+                    description: { type: "string", description: "Detailed task description" },
+                    assignedTo: { type: "string", description: "Person responsible" },
+                    priority: { type: "string", description: "low, medium, or high" },
+                    dueDate: { type: ["string", "null"], description: "ISO date or null" },
+                  },
+                  required: ["title", "description", "assignedTo", "priority", "dueDate"],
+                  additionalProperties: false,
+                },
+                description: "Structured action items",
+              },
             },
-            required: ["executiveSummary", "strategicHighlights", "opportunities", "risks", "keyQuotes", "sectors", "jurisdictions"],
+            required: ["executiveSummary", "strategicHighlights", "opportunities", "risks", "keyQuotes", "sectors", "jurisdictions", "meetingType", "actionItems"],
             additionalProperties: false,
           },
         },
@@ -300,14 +363,31 @@ Return a JSON object with these fields:
 
     const content = result.choices[0]?.message?.content;
     if (typeof content === "string") {
-      return JSON.parse(content);
+      const parsed = JSON.parse(content);
+      // Normalize action items
+      parsed.actionItems = (parsed.actionItems || []).map((item: any) => ({
+        title: (item.title || "").substring(0, 80),
+        description: item.description || "",
+        assignedTo: item.assignedTo || "Unassigned",
+        priority: ["low", "medium", "high"].includes(item.priority) ? item.priority : "medium",
+        dueDate: item.dueDate || defaultDueDateStr,
+      }));
+      return parsed;
     }
 
     throw new Error("Unexpected LLM response format");
   } catch (error) {
     console.error("[Fathom] LLM analysis failed:", error);
 
-    // Fallback: use Fathom's own summary
+    // Fallback: use Fathom's own summary and raw action items
+    const fallbackItems: AnalyzedActionItem[] = (payload.action_items || []).map(a => ({
+      title: a.description.substring(0, 80),
+      description: a.description,
+      assignedTo: a.assignee?.name || "Unassigned",
+      priority: "medium" as const,
+      dueDate: defaultDueDateStr,
+    }));
+
     return {
       executiveSummary: summary || `Meeting "${title}" with ${participants.join(", ")}.`,
       strategicHighlights: [],
@@ -316,6 +396,8 @@ Return a JSON object with these fields:
       keyQuotes: [],
       sectors: ["General"],
       jurisdictions: [],
+      actionItems: fallbackItems,
+      meetingType: "General",
     };
   }
 }
@@ -354,21 +436,17 @@ export async function processFathomWebhook(payload: FathomWebhookPayload): Promi
     ? buildTranscriptText(payload.transcript)
     : null;
 
-  // Extract action items as strings
-  const actionItems = payload.action_items
-    ? payload.action_items.map((item) => {
-        let text = item.description;
-        if (item.assignee?.name) {
-          text += ` (Assigned to: ${item.assignee.name})`;
-        }
-        return text;
-      })
-    : [];
+  // Action items will come from LLM analysis (structured format)
+  // We keep raw items as fallback only
 
   // Use LLM to analyze the meeting and extract intelligence
   console.log(`[Fathom] Running LLM analysis for "${title}"...`);
   const analysis = await analyzeMeetingWithLLM(payload);
   console.log(`[Fathom] LLM analysis complete. Summary: ${analysis.executiveSummary.substring(0, 100)}...`);
+
+  // Use LLM-analyzed structured action items (properly split, assigned, with due dates)
+  const structuredActionItems = analysis.actionItems || [];
+  console.log(`[Fathom] LLM produced ${structuredActionItems.length} structured action items for "${title}"`);
 
   // Build the intelligence data object
   const intelligenceData: IntelligenceData = {
@@ -383,7 +461,7 @@ export async function processFathomWebhook(payload: FathomWebhookPayload): Promi
     opportunities: analysis.opportunities,
     risks: analysis.risks,
     keyQuotes: analysis.keyQuotes,
-    actionItems,
+    actionItems: structuredActionItems as any, // Pass structured items (ingestion handles both string and object)
     intelligenceData: {
       fathomUrl: payload.url,
       fathomShareUrl: payload.share_url,
@@ -391,6 +469,7 @@ export async function processFathomWebhook(payload: FathomWebhookPayload): Promi
       fathomSummary: payload.default_summary?.markdown_formatted,
       recordingStartTime: payload.recording_start_time,
       recordingEndTime: payload.recording_end_time,
+      meetingType: analysis.meetingType,
     },
     fullTranscript: fullTranscript ?? undefined,
     sourceType: "fathom",

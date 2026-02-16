@@ -45,6 +45,11 @@ export default function MeetingDetail() {
     { enabled: isAuthenticated && !!id }
   );
 
+  const { data: meetingContacts } = trpc.meetings.getContacts.useQuery(
+    { meetingId: Number(id) },
+    { enabled: isAuthenticated && !!id }
+  );
+
   const { data: categories = [], refetch: refetchCategories } = trpc.meetingCategories.getForMeeting.useQuery(
     { meetingId: Number(id) },
     { enabled: isAuthenticated && !!id }
@@ -335,8 +340,34 @@ export default function MeetingDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {participants.map((p: string, i: number) => (
+              <div className="space-y-2">
+                {(meetingContacts && meetingContacts.length > 0) ? meetingContacts.map((mc: any) => {
+                  const c = mc.contact;
+                  const lastMeetingDate = mc.lastMeetingDate;
+                  const daysSince = lastMeetingDate ? Math.floor((Date.now() - new Date(lastMeetingDate).getTime()) / 86400000) : null;
+                  return (
+                    <Link key={c.id} href={`/contact/${c.id}`}>
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-800/40 border border-zinc-800 hover:border-yellow-600/30 transition-colors cursor-pointer group">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-yellow-600/20 flex items-center justify-center">
+                            <span className="text-xs font-bold text-yellow-500">{c.name?.charAt(0)?.toUpperCase()}</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-white group-hover:text-yellow-500 transition-colors">{c.name}</p>
+                            {c.organization && <p className="text-xs text-zinc-500">{c.organization}</p>}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {daysSince !== null && (
+                            <p className={`text-xs ${daysSince > 14 ? 'text-red-400' : daysSince > 7 ? 'text-yellow-500' : 'text-zinc-500'}`}>
+                              {daysSince === 0 ? 'Today' : daysSince === 1 ? 'Yesterday' : `${daysSince}d ago`}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                }) : participants.map((p: string, i: number) => (
                   <Badge key={i} variant="outline" className="border-zinc-700 bg-zinc-800/50 text-zinc-200">{p}</Badge>
                 ))}
               </div>

@@ -1,0 +1,9 @@
+{
+  "query": "DELETE FROM tasks WHERE meetingId IN (SELECT id FROM meetings WHERE sourceId LIKE 'test%' OR sourceId LIKE 'duplicate-test%');\nDELETE FROM meetings WHERE sourceId LIKE 'test%' OR sourceId LIKE 'duplicate-test%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute DELETE FROM tasks WHERE meetingId IN (SELECT id FROM meetings WHERE sourceId LIKE 'test%' OR sourceId LIKE 'duplicate-test%');\nDELETE FROM meetings WHERE sourceId LIKE 'test%' OR sourceId LIKE 'duplicate-test%';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 441
+}

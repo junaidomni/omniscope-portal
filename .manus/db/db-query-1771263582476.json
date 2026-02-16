@@ -1,0 +1,94 @@
+{
+  "query": "SELECT id, meetingTitle, meetingDate, sourceId FROM meetings ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, meetingTitle, meetingDate, sourceId FROM meetings ORDER BY id;",
+  "rows": [
+    {
+      "id": "30012",
+      "meetingTitle": "JD x Noah",
+      "meetingDate": "2026-02-11 00:18:22",
+      "sourceId": "fathom-121305081"
+    },
+    {
+      "id": "30013",
+      "meetingTitle": "Pakistan x Comet Cash x OmniScope",
+      "meetingDate": "2026-02-05 08:00:18",
+      "sourceId": "fathom-119902499"
+    },
+    {
+      "id": "30014",
+      "meetingTitle": "Intro Meeting",
+      "meetingDate": "2026-01-28 19:31:28",
+      "sourceId": "fathom-117782780"
+    },
+    {
+      "id": "30015",
+      "meetingTitle": "Apparel Discussion : : Hoodies",
+      "meetingDate": "2026-01-16 22:00:34",
+      "sourceId": "fathom-114941686"
+    },
+    {
+      "id": "30016",
+      "meetingTitle": "Little Miracles Website Meeting ",
+      "meetingDate": "2025-12-17 21:19:07",
+      "sourceId": "fathom-109445645"
+    },
+    {
+      "id": "30017",
+      "meetingTitle": "Little Miracles - Web Design",
+      "meetingDate": "2025-12-15 23:30:57",
+      "sourceId": "fathom-108815712"
+    },
+    {
+      "id": "30018",
+      "meetingTitle": "Steven X Raj ",
+      "meetingDate": "2025-11-22 03:30:01",
+      "sourceId": "fathom-103635855"
+    },
+    {
+      "id": "90002",
+      "meetingTitle": "OffTake x OmniScope",
+      "meetingDate": "2026-01-28 00:00:52",
+      "sourceId": "fathom-117554203"
+    },
+    {
+      "id": "90003",
+      "meetingTitle": "Obi x OmniScope",
+      "meetingDate": "2026-01-21 00:00:40",
+      "sourceId": "fathom-115708811"
+    },
+    {
+      "id": "90004",
+      "meetingTitle": "Team Meeting",
+      "meetingDate": "2025-12-31 04:06:08",
+      "sourceId": "fathom-111327697"
+    },
+    {
+      "id": "90009",
+      "meetingTitle": "Hassan x Jake ",
+      "meetingDate": "2026-02-16 21:01:38",
+      "sourceId": "fathom-122682330"
+    },
+    {
+      "id": "90010",
+      "meetingTitle": "NULL",
+      "meetingDate": "2026-02-16 17:09:26",
+      "sourceId": "test-recap-meeting"
+    },
+    {
+      "id": "90012",
+      "meetingTitle": "NULL",
+      "meetingDate": "2026-02-16 17:09:29",
+      "sourceId": "test-1771261768848"
+    },
+    {
+      "id": "90013",
+      "meetingTitle": "NULL",
+      "meetingDate": "2026-02-16 17:09:30",
+      "sourceId": "duplicate-test-1771261769682"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tmeetingTitle\tmeetingDate\tsourceId\n30012\tJD x Noah\t2026-02-11 00:18:22\tfathom-121305081\n30013\tPakistan x Comet Cash x OmniScope\t2026-02-05 08:00:18\tfathom-119902499\n30014\tIntro Meeting\t2026-01-28 19:31:28\tfathom-117782780\n30015\tApparel Discussion : : Hoodies\t2026-01-16 22:00:34\tfathom-114941686\n30016\tLittle Miracles Website Meeting \t2025-12-17 21:19:07\tfathom-109445645\n30017\tLittle Miracles - Web Design\t2025-12-15 23:30:57\tfathom-108815712\n30018\tSteven X Raj \t2025-11-22 03:30:01\tfathom-103635855\n90002\tOffTake x OmniScope\t2026-01-28 00:00:52\tfathom-117554203\n90003\tObi x OmniScope\t2026-01-21 00:00:40\tfathom-115708811\n90004\tTeam Meeting\t2025-12-31 04:06:08\tfathom-111327697\n90009\tHassan x Jake \t2026-02-16 21:01:38\tfathom-122682330\n90010\tNULL\t2026-02-16 17:09:26\ttest-recap-meeting\n90012\tNULL\t2026-02-16 17:09:29\ttest-1771261768848\n90013\tNULL\t2026-02-16 17:09:30\tduplicate-test-1771261769682\n",
+  "stderr": "",
+  "execution_time_ms": 365
+}
