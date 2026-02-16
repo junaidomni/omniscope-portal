@@ -310,3 +310,8 @@
 - [x] Build proper PDF export with OmniScope branding (jsPDF server-side)
 - [x] PDF includes: branded header, executive summary, highlights, opportunities, risks, key quotes, action items, jurisdictions
 - [x] PDF endpoint at /api/meeting/:id/pdf
+
+
+## Timezone Label Fix
+- [x] Change "KARACHI" to "ISLAMABAD" in Dashboard timezone strip
+- [x] Also updated CalendarView timezone strip

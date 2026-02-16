@@ -22,7 +22,7 @@ const TIMEZONES = [
   { label: "PST", zone: "America/Los_Angeles", city: "LA" },
   { label: "GMT", zone: "Europe/London", city: "London" },
   { label: "GST", zone: "Asia/Dubai", city: "Dubai" },
-  { label: "PKT", zone: "Asia/Karachi", city: "Karachi" },
+  { label: "PKT", zone: "Asia/Karachi", city: "Islamabad" },
   { label: "JST", zone: "Asia/Tokyo", city: "Tokyo" },
 ];
 
