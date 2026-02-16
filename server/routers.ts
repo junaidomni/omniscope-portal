@@ -10,6 +10,7 @@ import * as analytics from "./analytics";
 import * as askOmniScope from "./askOmniScope";
 import * as recapGenerator from "./recapGenerator";
 import * as reportExporter from "./reportExporter";
+import * as fathomIntegration from "./fathomIntegration";
 
 // ============================================================================
 // MEETINGS ROUTER
@@ -513,6 +514,43 @@ const adminRouter = router({
     }))
     .mutation(async ({ input }) => {
       await db.deleteUser(input.userId);
+      return { success: true };
+    }),
+
+  // Import meetings from Fathom API
+  importFathomMeetings: adminProcedure
+    .input(z.object({
+      limit: z.number().min(1).max(50).default(10),
+      cursor: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      return await fathomIntegration.importFathomMeetings({
+        limit: input.limit,
+        cursor: input.cursor,
+      });
+    }),
+
+  // Register Fathom webhook
+  registerFathomWebhook: adminProcedure
+    .input(z.object({
+      webhookUrl: z.string().url(),
+    }))
+    .mutation(async ({ input }) => {
+      return await fathomIntegration.registerFathomWebhook(input.webhookUrl);
+    }),
+
+  // List Fathom webhooks
+  listFathomWebhooks: adminProcedure.query(async () => {
+    return await fathomIntegration.listFathomWebhooks();
+  }),
+
+  // Delete Fathom webhook
+  deleteFathomWebhook: adminProcedure
+    .input(z.object({
+      webhookId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      await fathomIntegration.deleteFathomWebhook(input.webhookId);
       return { success: true };
     }),
 });

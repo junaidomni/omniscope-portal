@@ -238,3 +238,19 @@
 - [x] Add Send via Email button on meeting detail page
 - [x] Write comprehensive portal test suite (48 tests passing)
 - [x] Fix intelligence test (actionItems format)
+
+
+## Fathom API Integration (Native Webhook)
+- [x] Store Fathom API key securely
+- [x] Research Fathom API endpoints and data format (base URL: api.fathom.ai/external/v1)
+- [x] Build Fathom webhook handler at /api/webhook/fathom
+- [x] Build LLM-powered Fathom data transformer (extracts intelligence from transcripts)
+- [x] Build universal webhook endpoint at /api/webhook/ingest (auto-detects source)
+- [x] Build Fathom meeting import function (pull existing meetings from API)
+- [x] Add Fathom management UI to Admin Panel (import + webhook registration)
+- [x] Test full pipeline end-to-end (Fathom API → LLM analysis → DB ingestion → branded report)
+- [x] Verify meeting appears in portal with correct formatting (tested with "JD x Noah" meeting)
+- [x] Write comprehensive Fathom integration tests (11 tests passing)
+- [x] Validate Fathom API key connectivity
+- [ ] Register Fathom webhook in Fathom Settings UI (manual step - webhook API returns 404)
+- [ ] Import all existing Fathom meetings via Admin Panel

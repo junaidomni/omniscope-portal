@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Shield, UserPlus, Trash2, Crown } from "lucide-react";
+import { Shield, UserPlus, Trash2, Crown, Zap, Download, Webhook, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -28,8 +28,15 @@ export default function AdminPanel() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"user" | "admin">("user");
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [importLimit, setImportLimit] = useState("10");
+  const [importResult, setImportResult] = useState<{
+    imported: number;
+    skipped: number;
+    errors: number;
+  } | null>(null);
 
   const { data: users, isLoading, refetch } = trpc.admin.getAllUsers.useQuery();
+  
   const inviteUser = trpc.admin.inviteUser.useMutation({
     onSuccess: () => {
       toast.success("User invited successfully");
@@ -63,12 +70,51 @@ export default function AdminPanel() {
     },
   });
 
+  const importFathom = trpc.admin.importFathomMeetings.useMutation({
+    onSuccess: (data) => {
+      setImportResult(data);
+      if (data.imported > 0) {
+        toast.success(`Imported ${data.imported} meeting(s) from Fathom`);
+      } else if (data.skipped > 0) {
+        toast.info(`All ${data.skipped} meeting(s) already imported`);
+      }
+      if (data.errors > 0) {
+        toast.error(`${data.errors} meeting(s) failed to import`);
+      }
+    },
+    onError: (error) => {
+      toast.error(`Fathom import failed: ${error.message}`);
+    },
+  });
+
+  const registerWebhook = trpc.admin.registerFathomWebhook.useMutation({
+    onSuccess: (data) => {
+      toast.success("Fathom webhook registered successfully");
+      console.log("Webhook registered:", data);
+    },
+    onError: (error) => {
+      toast.error(`Webhook registration failed: ${error.message}`);
+    },
+  });
+
   const handleInvite = () => {
     if (!inviteEmail || !inviteEmail.includes("@")) {
       toast.error("Please enter a valid email");
       return;
     }
     inviteUser.mutate({ email: inviteEmail, role: inviteRole });
+  };
+
+  const handleImportFathom = () => {
+    const limit = parseInt(importLimit) || 10;
+    setImportResult(null);
+    importFathom.mutate({ limit });
+  };
+
+  const handleRegisterWebhook = () => {
+    // Use the current origin for the webhook URL
+    const webhookUrl = `${window.location.origin}/api/webhook/fathom`;
+    registerWebhook.mutate({ webhookUrl });
   };
 
   if (isLoading) {
@@ -81,11 +127,11 @@ export default function AdminPanel() {
 
   return (
     <div className="p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+      <div className="max-w-6xl mx-auto space-y-8">
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Admin Panel</h1>
-            <p className="text-zinc-400">Manage user access and permissions</p>
+            <p className="text-zinc-400">Manage users, integrations, and system settings</p>
           </div>
           
           <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
@@ -139,6 +185,151 @@ export default function AdminPanel() {
           </Dialog>
         </div>
 
+        {/* Fathom Integration Card */}
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Zap className="h-5 w-5 text-yellow-600" />
+              Fathom Integration
+            </CardTitle>
+            <CardDescription className="text-zinc-400">
+              Import meetings from Fathom and configure automatic ingestion
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Import Section */}
+            <div className="bg-zinc-800/50 rounded-lg p-5 border border-zinc-700/50">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-white font-medium flex items-center gap-2">
+                    <Download className="h-4 w-4 text-yellow-600" />
+                    Import Meetings
+                  </h3>
+                  <p className="text-zinc-400 text-sm mt-1">
+                    Pull existing meetings from your Fathom account. Each meeting is analyzed by AI to extract intelligence data.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-zinc-400">Meetings to import:</label>
+                  <Select value={importLimit} onValueChange={setImportLimit}>
+                    <SelectTrigger className="w-24 h-9 bg-zinc-800 border-zinc-700 text-white text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-800 border-zinc-700">
+                      <SelectItem value="5" className="text-white">5</SelectItem>
+                      <SelectItem value="10" className="text-white">10</SelectItem>
+                      <SelectItem value="20" className="text-white">20</SelectItem>
+                      <SelectItem value="50" className="text-white">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleImportFathom}
+                  disabled={importFathom.isPending}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-black"
+                >
+                  {importFathom.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      Import from Fathom
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Import Results */}
+              {importResult && (
+                <div className="mt-4 p-3 rounded-lg bg-zinc-900/50 border border-zinc-700/50">
+                  <div className="flex items-center gap-4 text-sm">
+                    {importResult.imported > 0 && (
+                      <span className="flex items-center gap-1 text-green-400">
+                        <CheckCircle className="h-4 w-4" />
+                        {importResult.imported} imported
+                      </span>
+                    )}
+                    {importResult.skipped > 0 && (
+                      <span className="flex items-center gap-1 text-zinc-400">
+                        <AlertCircle className="h-4 w-4" />
+                        {importResult.skipped} already existed
+                      </span>
+                    )}
+                    {importResult.errors > 0 && (
+                      <span className="flex items-center gap-1 text-red-400">
+                        <AlertCircle className="h-4 w-4" />
+                        {importResult.errors} errors
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {importFathom.isPending && (
+                <div className="mt-4 p-3 rounded-lg bg-zinc-900/50 border border-yellow-600/20">
+                  <p className="text-sm text-yellow-600/80 flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Processing meetings through AI analysis. This may take 30-60 seconds per meeting...
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Webhook Section */}
+            <div className="bg-zinc-800/50 rounded-lg p-5 border border-zinc-700/50">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-white font-medium flex items-center gap-2">
+                    <Webhook className="h-4 w-4 text-yellow-600" />
+                    Automatic Webhook
+                  </h3>
+                  <p className="text-zinc-400 text-sm mt-1">
+                    Register a webhook with Fathom to automatically ingest new meetings as they happen.
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-zinc-400">Webhook URL:</span>
+                  <code className="bg-zinc-900 px-2 py-1 rounded text-yellow-600 text-xs font-mono">
+                    {window.location.origin}/api/webhook/fathom
+                  </code>
+                </div>
+                <Button
+                  onClick={handleRegisterWebhook}
+                  disabled={registerWebhook.isPending}
+                  variant="outline"
+                  className="border-yellow-600/30 text-yellow-600 hover:bg-yellow-600/10"
+                >
+                  {registerWebhook.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Registering...
+                    </>
+                  ) : (
+                    <>
+                      <Webhook className="h-4 w-4 mr-2" />
+                      Register Webhook with Fathom
+                    </>
+                  )}
+                </Button>
+                {registerWebhook.isSuccess && (
+                  <p className="text-sm text-green-400 flex items-center gap-1">
+                    <CheckCircle className="h-4 w-4" />
+                    Webhook registered. New meetings will be automatically ingested.
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* User Management Card */}
         <Card className="bg-zinc-900/50 border-zinc-800">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
