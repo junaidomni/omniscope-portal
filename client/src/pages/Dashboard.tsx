@@ -156,11 +156,29 @@ export default function Dashboard() {
     }
   };
 
-  // Auto-sync from Google Calendar then fetch upcoming events
+  // Auto-sync: Fathom meetings + Google Calendar on page load
+  const fathomSync = trpc.ingestion.syncFathom.useMutation();
+  const utils = trpc.useUtils();
+  const fathomSyncedRef = useRef(false);
+
+  useEffect(() => {
+    // Sync Fathom meetings (once per page load)
+    if (!fathomSyncedRef.current) {
+      fathomSyncedRef.current = true;
+      fathomSync.mutateAsync().then((result) => {
+        if (result.imported > 0) {
+          toast.success(`${result.imported} new meeting(s) synced from Fathom`);
+          utils.meetings.list.invalidate();
+          utils.analytics.dashboard.invalidate();
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
   useEffect(() => {
     const syncAndFetch = async () => {
       try {
-        // Sync from Google Calendar first (silent, no toast)
+        // Sync from Google Calendar (silent)
         await fetch('/api/calendar/sync', { method: 'POST' }).catch(() => {});
       } catch {}
       try {

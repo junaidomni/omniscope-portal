@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,23 @@ export default function Meetings() {
     return params.get('tab') || 'recent';
   });
   // Reports are now full pages at /reports/daily and /reports/weekly
+
+  // Auto-sync Fathom meetings on page load
+  const fathomSync = trpc.ingestion.syncFathom.useMutation();
+  const utils = trpc.useUtils();
+  const fathomSyncedRef = useRef(false);
+
+  useEffect(() => {
+    if (!fathomSyncedRef.current) {
+      fathomSyncedRef.current = true;
+      fathomSync.mutateAsync().then((result) => {
+        if (result.imported > 0) {
+          toast.success(`${result.imported} new meeting(s) synced from Fathom`);
+          utils.meetings.list.invalidate();
+        }
+      }).catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

@@ -395,6 +395,17 @@ const ingestionRouter = router({
       const result = await processIntelligenceData(data);
       return result;
     }),
+
+  syncFathom: protectedProcedure
+    .mutation(async () => {
+      try {
+        const result = await fathomIntegration.importFathomMeetings({ limit: 10 });
+        return { success: true, imported: result.imported, skipped: result.skipped, errors: result.errors };
+      } catch (error: any) {
+        console.error("[Fathom Sync] Error:", error.message);
+        return { success: false, imported: 0, skipped: 0, errors: 1 };
+      }
+    }),
 });
 
 // ============================================================================

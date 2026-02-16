@@ -518,3 +518,10 @@
 ### Testing
 - [x] Google OAuth2 credentials verified (3 tests pass)
 - [x] All 131 tests passing with 30s timeout
+
+## Fathom Auto-Ingestion Fix v11
+
+- [x] Add server-side auto-sync endpoint that polls Fathom API for new meetings
+- [x] Auto-trigger Fathom sync on Dashboard and Meetings page load
+- [x] Import today's Hassan x Jake meeting immediately (visible in Recent Intelligence)
+- [x] Ensure new meetings auto-ingest without manual intervention
