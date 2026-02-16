@@ -89,12 +89,12 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
       {/* Sidebar - Fixed */}
       <div className="w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col fixed left-0 top-0 h-screen">
         {/* Logo */}
-        <div className="p-6 border-b border-zinc-800 flex flex-col items-center justify-center">
+        <div className="p-5 border-b border-zinc-800 flex flex-col items-center justify-center">
           <img 
-            src="/omniscope-logo-unified.svg" 
+            src="https://files.manuscdn.com/user_upload_by_module/session_file/310519663324311854/aUIAZnyLEIqVCmUk.png" 
             alt="OmniScope Intelligence Portal" 
-            className="w-full" 
-            style={{ maxWidth: '180px' }}
+            className="w-full object-contain" 
+            style={{ maxWidth: '160px', height: 'auto' }}
           />
         </div>
 

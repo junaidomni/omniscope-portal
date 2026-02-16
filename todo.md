@@ -409,3 +409,31 @@
 ### Seamless User Experience
 - [x] Everything works from one place - calendar, email, tasks
 - [x] No manual configuration needed after sign-up
+
+## Portal Improvements v5
+
+### Sidebar Logo Update
+- [x] Upload OmniScope branded logo image to S3
+- [x] Update sidebar to display logo image instead of text
+- [x] Ensure proportional sizing in sidebar
+
+### Enhanced Daily/Weekly Reports
+- [x] Include all meeting summaries with participants, orgs, highlights
+- [x] Include all tasks (open, in-progress, completed) in reports
+- [x] Full Breakdown view showing complete intelligence summary
+- [x] Email Report button to send report via Gmail MCP
+- [x] Always up-to-date with latest data from meetings and tasks
+
+### To-Do Kanban Redesign
+- [x] Kanban board with columns: To Do, In Progress, Completed
+- [x] Drag-and-drop between columns to change status
+- [x] Tasks grouped by priority (High, Medium, Low) within columns
+- [x] Best-in-class UI for task management
+- [x] Keep existing list view as alternative option
+- [x] Clickable tasks open Airtable-style expanded detail view
+- [x] Full inline editing of all task fields in expanded view
+- [x] Notes field for each task
+- [x] Gamified dashboard with XP-style progress bar (0-100%)
+- [x] Per-user stats when filtered by team member
+- [x] Animated progress bar that fills as tasks complete
+- [x] Personal productivity metrics

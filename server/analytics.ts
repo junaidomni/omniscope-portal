@@ -113,16 +113,36 @@ export interface DailySummary {
   meetingCount: number;
   meetings: Array<{
     id: number;
+    title: string;
     time: string;
     participants: string[];
     organizations: string[];
     summary: string;
     keyHighlights: string[];
+    opportunities: string[];
+    risks: string[];
+    keyQuotes: string[];
+    sourceType: string;
   }>;
   tasksCreated: number;
   tasksCompleted: number;
+  openTasksCount: number;
+  inProgressTasksCount: number;
+  allTasks: Array<{
+    id: number;
+    title: string;
+    description: string | null;
+    priority: string;
+    status: string;
+    assignedName: string | null;
+    category: string | null;
+    dueDate: string | null;
+    meetingId: number | null;
+  }>;
   topSectors: string[];
   topJurisdictions: string[];
+  allOpportunities: string[];
+  allRisks: string[];
 }
 
 export async function getDailySummary(date: Date): Promise<DailySummary> {
@@ -135,19 +155,34 @@ export async function getDailySummary(date: Date): Promise<DailySummary> {
     endDate: endOfDay,
   });
 
-  const meetingDetails = meetings.map(m => ({
-    id: m.id,
-    time: new Date(m.meetingDate).toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit' 
-    }),
-    participants: JSON.parse(m.participants || '[]'),
-    organizations: JSON.parse(m.organizations || '[]'),
-    summary: m.executiveSummary,
-    keyHighlights: JSON.parse(m.strategicHighlights || '[]').slice(0, 3),
-  }));
+  const allOpportunities: string[] = [];
+  const allRisks: string[] = [];
 
-  // Get tasks created/completed today
+  const meetingDetails = meetings.map(m => {
+    const opps = JSON.parse(m.opportunities || '[]');
+    const risks = JSON.parse(m.risks || '[]');
+    allOpportunities.push(...opps);
+    allRisks.push(...risks);
+    const participants = JSON.parse(m.participants || '[]');
+    return {
+      id: m.id,
+      title: m.meetingTitle || participants.join(', ') || 'Untitled Meeting',
+      time: new Date(m.meetingDate).toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit' 
+      }),
+      participants,
+      organizations: JSON.parse(m.organizations || '[]'),
+      summary: m.executiveSummary,
+      keyHighlights: JSON.parse(m.strategicHighlights || '[]'),
+      opportunities: opps,
+      risks,
+      keyQuotes: JSON.parse(m.keyQuotes || '[]'),
+      sourceType: m.sourceType,
+    };
+  });
+
+  // Get ALL tasks (not just today's)
   const allTasks = await db.getAllTasks();
   const tasksCreated = allTasks.filter(t => 
     new Date(t.createdAt) >= startOfDay && 
@@ -160,6 +195,22 @@ export async function getDailySummary(date: Date): Promise<DailySummary> {
     new Date(t.updatedAt) >= startOfDay && 
     new Date(t.updatedAt) < endOfDay
   ).length;
+
+  const openTasksCount = allTasks.filter(t => t.status === 'open').length;
+  const inProgressTasksCount = allTasks.filter(t => t.status === 'in_progress').length;
+
+  // Map all active tasks for the report
+  const activeTasks = allTasks.filter(t => t.status !== 'completed').map(t => ({
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    priority: t.priority,
+    status: t.status,
+    assignedName: t.assignedName,
+    category: t.category,
+    dueDate: t.dueDate ? new Date(t.dueDate).toISOString() : null,
+    meetingId: t.meetingId,
+  }));
 
   // Get top sectors/jurisdictions for the day
   const sectorSet = new Set<string>();
@@ -179,8 +230,13 @@ export async function getDailySummary(date: Date): Promise<DailySummary> {
     meetings: meetingDetails,
     tasksCreated,
     tasksCompleted,
+    openTasksCount,
+    inProgressTasksCount,
+    allTasks: activeTasks,
     topSectors: Array.from(sectorSet),
     topJurisdictions: Array.from(jurisdictionSet),
+    allOpportunities,
+    allRisks,
   };
 }
 
@@ -192,11 +248,34 @@ export interface WeeklySummary {
   uniqueOrganizations: number;
   tasksCreated: number;
   tasksCompleted: number;
+  openTasksCount: number;
+  inProgressTasksCount: number;
   topSectors: Array<{ sector: string; count: number }>;
   topJurisdictions: Array<{ jurisdiction: string; count: number }>;
   keyOpportunities: string[];
   keyRisks: string[];
   dailyBreakdown: Array<{ date: string; meetingCount: number }>;
+  meetings: Array<{
+    id: number;
+    title: string;
+    date: string;
+    participants: string[];
+    organizations: string[];
+    summary: string;
+    keyHighlights: string[];
+    sourceType: string;
+  }>;
+  allTasks: Array<{
+    id: number;
+    title: string;
+    description: string | null;
+    priority: string;
+    status: string;
+    assignedName: string | null;
+    category: string | null;
+    dueDate: string | null;
+    meetingId: number | null;
+  }>;
 }
 
 export async function getWeeklySummary(weekStart: Date): Promise<WeeklySummary> {
@@ -214,11 +293,23 @@ export async function getWeeklySummary(weekStart: Date): Promise<WeeklySummary> 
   const allOpportunities: string[] = [];
   const allRisks: string[] = [];
   
-  meetings.forEach(m => {
-    JSON.parse(m.participants || '[]').forEach((p: string) => participantSet.add(p));
-    JSON.parse(m.organizations || '[]').forEach((o: string) => organizationSet.add(o));
+  const meetingDetails = meetings.map(m => {
+    const participants = JSON.parse(m.participants || '[]');
+    const organizations = JSON.parse(m.organizations || '[]');
+    participants.forEach((p: string) => participantSet.add(p));
+    organizations.forEach((o: string) => organizationSet.add(o));
     allOpportunities.push(...JSON.parse(m.opportunities || '[]'));
     allRisks.push(...JSON.parse(m.risks || '[]'));
+    return {
+      id: m.id,
+      title: m.meetingTitle || participants.join(', ') || 'Untitled Meeting',
+      date: new Date(m.meetingDate).toISOString(),
+      participants,
+      organizations,
+      summary: m.executiveSummary,
+      keyHighlights: JSON.parse(m.strategicHighlights || '[]'),
+      sourceType: m.sourceType,
+    };
   });
 
   // Get tasks
@@ -279,6 +370,21 @@ export async function getWeeklySummary(weekStart: Date): Promise<WeeklySummary> 
     });
   }
 
+  const openTasksCount = allTasks.filter(t => t.status === 'open').length;
+  const inProgressTasksCount = allTasks.filter(t => t.status === 'in_progress').length;
+
+  const activeTasks = allTasks.filter(t => t.status !== 'completed').map(t => ({
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    priority: t.priority,
+    status: t.status,
+    assignedName: t.assignedName,
+    category: t.category,
+    dueDate: t.dueDate ? new Date(t.dueDate).toISOString() : null,
+    meetingId: t.meetingId,
+  }));
+
   return {
     weekStart: weekStart.toISOString(),
     weekEnd: weekEnd.toISOString(),
@@ -287,10 +393,14 @@ export async function getWeeklySummary(weekStart: Date): Promise<WeeklySummary> 
     uniqueOrganizations: organizationSet.size,
     tasksCreated,
     tasksCompleted,
+    openTasksCount,
+    inProgressTasksCount,
     topSectors,
     topJurisdictions,
     keyOpportunities: allOpportunities.slice(0, 10),
     keyRisks: allRisks.slice(0, 10),
     dailyBreakdown,
+    meetings: meetingDetails,
+    allTasks: activeTasks,
   };
 }
