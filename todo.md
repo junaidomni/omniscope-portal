@@ -474,3 +474,14 @@
 - [x] Visual feedback during drag (yellow border, scale, drop indicator)
 - [x] Proper boundary checking for drag leave events
 - [ ] Visual feedback when dragging
+
+## Portal Fixes v8
+
+### Dashboard Drag-and-Drop Fix
+- [x] Fix widget reordering - rebuilt with DraggableWidget wrapper component
+- [x] Ensure drag-and-drop properly swaps widget positions
+- [x] Visual feedback during widget drag (ring highlight, scale, labels)
+
+### Zoom/Scale Fix
+- [x] Fix zoomed-out appearance - increased all font sizes and padding
+- [x] Ensure proper font sizes, spacing, and element sizing
