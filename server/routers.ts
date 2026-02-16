@@ -183,7 +183,21 @@ const meetingsRouter = router({
 
 const contactsRouter = router({
   list: protectedProcedure.query(async () => {
-    return await db.getAllContacts();
+    const allContacts = await db.getAllContacts();
+    const enriched = await Promise.all(allContacts.map(async (c: any) => {
+      const contactMeetings = await db.getMeetingsForContact(c.id);
+      const lastMeetingDate = contactMeetings.length > 0 ? contactMeetings[0].meeting.meetingDate : null;
+      const daysSinceLastMeeting = lastMeetingDate
+        ? Math.floor((Date.now() - new Date(lastMeetingDate).getTime()) / 86400000)
+        : null;
+      return {
+        ...c,
+        meetingCount: contactMeetings.length,
+        lastMeetingDate,
+        daysSinceLastMeeting,
+      };
+    }));
+    return enriched;
   }),
 
   getById: protectedProcedure
@@ -244,6 +258,10 @@ const contactsRouter = router({
       organization: z.string().nullable().optional(),
       title: z.string().nullable().optional(),
       notes: z.string().nullable().optional(),
+      dateOfBirth: z.string().nullable().optional(),
+      address: z.string().nullable().optional(),
+      website: z.string().nullable().optional(),
+      linkedin: z.string().nullable().optional(),
     }))
     .mutation(async ({ input }) => {
       const { id, ...updates } = input;
@@ -260,6 +278,111 @@ const contactsRouter = router({
     .mutation(async ({ input }) => {
       await db.deleteContact(input.id);
       return { success: true };
+    }),
+
+  syncFromMeetings: protectedProcedure
+    .mutation(async () => {
+      const allMeetings = await db.getAllMeetings({ limit: 500 });
+      let created = 0;
+      let linked = 0;
+      for (const meeting of allMeetings) {
+        try {
+          const participants = JSON.parse(meeting.participants || '[]');
+          for (const name of participants) {
+            if (!name || typeof name !== 'string' || name.trim() === '') continue;
+            const contact = await db.getOrCreateContact(name.trim());
+            if (contact) {
+              try {
+                await db.linkContactToMeeting(meeting.id, contact.id);
+                linked++;
+              } catch (e: any) {
+                // Ignore duplicate link errors
+              }
+            }
+          }
+        } catch (e) {
+          // Skip meetings with invalid participants JSON
+        }
+      }
+      return { success: true, created, linked, meetings: allMeetings.length };
+    }),
+
+  generateAiSummary: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const contact = await db.getContactById(input.id);
+      if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
+
+      const contactMeetings = await db.getMeetingsForContact(input.id);
+      
+      // Also check meetings by participant name
+      const allMeetings = await db.getAllMeetings({ limit: 500 });
+      const nameMatches = allMeetings.filter(m => {
+        try {
+          const participants = JSON.parse(m.participants || '[]');
+          return participants.some((p: string) => 
+            p.toLowerCase().includes(contact.name.toLowerCase()) ||
+            contact.name.toLowerCase().includes(p.toLowerCase())
+          );
+        } catch { return false; }
+      });
+
+      const meetingIds = new Set<number>();
+      const allRelevantMeetings: any[] = [];
+      for (const mc of contactMeetings) {
+        if (!meetingIds.has(mc.meeting.id)) {
+          meetingIds.add(mc.meeting.id);
+          allRelevantMeetings.push(mc.meeting);
+        }
+      }
+      for (const m of nameMatches) {
+        if (!meetingIds.has(m.id)) {
+          meetingIds.add(m.id);
+          allRelevantMeetings.push(m);
+        }
+      }
+
+      if (allRelevantMeetings.length === 0) {
+        return { summary: "No meetings recorded with this contact yet." };
+      }
+
+      const meetingSummaries = allRelevantMeetings
+        .sort((a, b) => new Date(b.meetingDate).getTime() - new Date(a.meetingDate).getTime())
+        .slice(0, 15)
+        .map(m => {
+          const date = new Date(m.meetingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          return `- ${date}: "${m.meetingTitle || 'Untitled'}" — ${m.executiveSummary?.substring(0, 200) || 'No summary'}`;
+        })
+        .join('\n');
+
+      const contactTasks = await db.getTasksForContact(contact.name);
+      const taskSummary = contactTasks.slice(0, 10).map(t => 
+        `- [${t.status}] ${t.title}`
+      ).join('\n');
+
+      const { invokeLLM } = await import("./_core/llm");
+      const result = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: `You are an intelligence analyst for OmniScope, a sovereign-grade financial infrastructure platform. Write a concise, institutional-grade relationship summary about a contact based on meeting history. Focus on: relationship context, key topics discussed, business opportunities, and engagement level. Be specific and factual. Write 3-5 sentences.`
+          },
+          {
+            role: "user",
+            content: `Generate a relationship intelligence summary for ${contact.name}${contact.organization ? ` (${contact.organization})` : ''}.
+
+Meeting History (${allRelevantMeetings.length} meetings):
+${meetingSummaries || 'No meetings found'}
+
+Assigned Tasks:
+${taskSummary || 'No tasks assigned'}`
+          }
+        ],
+      });
+
+      const summary = (result.choices[0]?.message?.content as string) || "Unable to generate summary.";
+      await db.updateContact(input.id, { aiSummary: summary });
+      return { summary };
     }),
 });
 
@@ -368,6 +491,15 @@ const tasksRouter = router({
     .mutation(async ({ input }) => {
       await db.deleteTask(input.id);
       return { success: true };
+    }),
+
+  bulkDelete: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()).min(1) }))
+    .mutation(async ({ input }) => {
+      for (const id of input.ids) {
+        await db.deleteTask(id);
+      }
+      return { success: true, deleted: input.ids.length };
     }),
 });
 

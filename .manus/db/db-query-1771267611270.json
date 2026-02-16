@@ -1,0 +1,35 @@
+{
+  "query": "SELECT id, name, email FROM contacts WHERE name LIKE '%Test%' OR name LIKE '%Vitest%' OR email LIKE '%test%' LIMIT 20",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, name, email FROM contacts WHERE name LIKE '%Test%' OR name LIKE '%Vitest%' OR email LIKE '%test%' LIMIT 20",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Test Contact",
+      "email": "test@example.com"
+    },
+    {
+      "id": "2",
+      "name": "Searchable Person",
+      "email": "search@test.com"
+    },
+    {
+      "id": "3",
+      "name": "Test Contact",
+      "email": "test@example.com"
+    },
+    {
+      "id": "4",
+      "name": "Searchable Person",
+      "email": "search@test.com"
+    },
+    {
+      "id": "30018",
+      "name": "Test Client",
+      "email": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\temail\n1\tTest Contact\ttest@example.com\n2\tSearchable Person\tsearch@test.com\n3\tTest Contact\ttest@example.com\n4\tSearchable Person\tsearch@test.com\n30018\tTest Client\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 383
+}

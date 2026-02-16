@@ -613,3 +613,35 @@
 
 ### Test Data Cleanup
 - [x] Removed 8 test/kanban tasks (IDs 90116-90127), 60 real tasks remain
+
+## v15 — Contacts Pipeline & To-Do Enhancements
+
+### Contacts Pipeline
+- [x] Add new contact fields: dateOfBirth, address, website, linkedin, aiSummary to schema
+- [x] Push schema migration for new contact fields
+- [x] Create syncFromMeetings procedure to auto-create contacts from meeting participants
+- [x] Create generateAiSummary procedure to generate AI relationship summary per contact
+- [x] Rebuild Contacts list page with enriched data (meeting count, last meeting, sync button)
+- [x] Build full Contact Profile page with editable fields (email, phone, DOB, address, website, LinkedIn)
+- [x] Show all meetings for a contact on their profile page
+- [x] Show AI-generated relationship summary on contact profile
+- [x] Add "Generate AI Summary" button on contact profile
+- [x] Auto-create contacts from meeting participants during ingestion
+
+### To-Do Team Member Filter Fix
+- [x] Fix team member filter to use case-insensitive partial matching (startsWith)
+- [x] "Junaid" filter now matches "Junaid Qureshi", "Jake" matches "JAKE RYAN", etc.
+- [x] Fix filter badge counts to use same matching logic
+
+### To-Do Bulk Delete
+- [x] Add bulkDelete procedure to tasks router
+- [x] Add "Select" mode toggle button in To-Do header
+- [x] Add "Select All" and "Delete Selected" buttons when in select mode
+- [x] Add checkboxes to list view items when in select mode
+- [x] Clicking task in select mode toggles selection instead of opening detail
+
+### Test Data Cleanup
+- [x] Removed test contacts (IDs 1-4, 30018)
+- [x] Removed test tasks (Test task with/without notes)
+- [x] Removed test meetings (Test Intelligence, duplicate-test)
+- [x] All 152 tests passing (7 new contact/task tests)

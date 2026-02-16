@@ -29,7 +29,12 @@ export const contacts = mysqlTable("contacts", {
   phone: varchar("phone", { length: 50 }),
   organization: varchar("organization", { length: 255 }),
   title: varchar("title", { length: 255 }), // Job title
-  notes: text("notes"), // AI-generated summary of interactions
+  notes: text("notes"), // Manual notes
+  dateOfBirth: varchar("dateOfBirth", { length: 20 }),
+  address: text("address"),
+  website: varchar("website", { length: 500 }),
+  linkedin: varchar("linkedin", { length: 500 }),
+  aiSummary: text("aiSummary"), // AI-generated relationship summary
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({

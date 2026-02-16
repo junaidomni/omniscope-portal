@@ -877,6 +877,8 @@ export default function ToDo() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const draggedTaskRef = useRef<any>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
 
   // Mutations
   const updateTask = trpc.tasks.update.useMutation({
@@ -890,6 +892,34 @@ export default function ToDo() {
     },
     onError: () => toast.error("Failed to delete task"),
   });
+  const bulkDeleteTask = trpc.tasks.bulkDelete.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Deleted ${data.deleted} tasks`);
+      setSelectedIds(new Set());
+      setSelectMode(false);
+      utils.tasks.list.invalidate();
+    },
+    onError: () => toast.error("Failed to delete tasks"),
+  });
+
+  const toggleSelectId = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllFiltered = () => {
+    setSelectedIds(new Set(filteredTasks.map(t => t.id)));
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.size === 0) return;
+    if (confirm(`Are you sure you want to delete ${selectedIds.size} task(s)?`)) {
+      bulkDeleteTask.mutate({ ids: Array.from(selectedIds) });
+    }
+  };
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
@@ -905,7 +935,7 @@ export default function ToDo() {
         const lower = searchTerm.toLowerCase();
         if (!t.title.toLowerCase().includes(lower) && !t.description?.toLowerCase().includes(lower)) return false;
       }
-      if (filterPerson !== "all" && t.assignedName !== filterPerson) return false;
+      if (filterPerson !== "all" && !(t.assignedName && t.assignedName.toLowerCase().startsWith(filterPerson.toLowerCase()))) return false;
       if (filterCategory !== "all" && t.category !== filterCategory) return false;
       
       // Due date filter
@@ -952,7 +982,7 @@ export default function ToDo() {
 
   // Compute stats
   const stats = useMemo(() => {
-    const tasks = filterPerson === "all" ? (allTasks || []) : (allTasks || []).filter(t => t.assignedName === filterPerson);
+    const tasks = filterPerson === "all" ? (allTasks || []) : (allTasks || []).filter(t => t.assignedName && t.assignedName.toLowerCase().startsWith(filterPerson.toLowerCase()));
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
@@ -1037,6 +1067,29 @@ export default function ToDo() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Bulk actions */}
+          {selectMode ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-400">{selectedIds.size} selected</span>
+              <Button size="sm" variant="outline" onClick={selectAllFiltered} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs">
+                Select All ({filteredTasks.length})
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleBulkDelete} disabled={selectedIds.size === 0 || bulkDeleteTask.isPending}
+                className="border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs">
+                <Trash2 className="h-3 w-3 mr-1" />
+                {bulkDeleteTask.isPending ? "Deleting..." : `Delete (${selectedIds.size})`}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }} className="text-zinc-400 text-xs">
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setSelectMode(true)} className="border-zinc-700 text-zinc-400 hover:bg-zinc-800 text-xs">
+              <Checkbox className="h-3 w-3 mr-1.5 border-zinc-600" />
+              Select
+            </Button>
+          )}
+
           {/* View toggle */}
           <div className="flex bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
             <button
@@ -1096,7 +1149,7 @@ export default function ToDo() {
             All Team
           </button>
           {TEAM_MEMBERS.map(name => {
-            const personTasks = allTasks?.filter(t => t.assignedName === name) || [];
+            const personTasks = allTasks?.filter(t => t.assignedName && t.assignedName.toLowerCase().startsWith(name.toLowerCase())) || [];
             const personCompleted = personTasks.filter(t => t.status === "completed").length;
             const personTotal = personTasks.length;
             return (
@@ -1226,12 +1279,22 @@ export default function ToDo() {
             </div>
           ) : (
             filteredTasks.map(task => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                onToggle={() => toggleComplete(task)}
-                onClick={() => handleTaskClick(task)}
-              />
+              <div key={task.id} className="flex items-center gap-2">
+                {selectMode && (
+                  <Checkbox
+                    checked={selectedIds.has(task.id)}
+                    onCheckedChange={() => toggleSelectId(task.id)}
+                    className="border-zinc-600 data-[state=checked]:bg-yellow-600 data-[state=checked]:border-yellow-600 flex-shrink-0"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <TaskRow
+                    task={task}
+                    onToggle={() => toggleComplete(task)}
+                    onClick={() => selectMode ? toggleSelectId(task.id) : handleTaskClick(task)}
+                  />
+                </div>
+              </div>
             ))
           )}
         </div>

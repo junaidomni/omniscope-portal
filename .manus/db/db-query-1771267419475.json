@@ -1,0 +1,22 @@
+{
+  "query": "SELECT DISTINCT assignedName FROM tasks WHERE assignedName IS NOT NULL LIMIT 20",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT DISTINCT assignedName FROM tasks WHERE assignedName IS NOT NULL LIMIT 20",
+  "rows": [
+    {
+      "assignedName": "Hassan Askari"
+    },
+    {
+      "assignedName": "Junaid Qureshi"
+    },
+    {
+      "assignedName": "Junaid"
+    },
+    {
+      "assignedName": "JAKE RYAN"
+    }
+  ],
+  "messages": [],
+  "stdout": "assignedName\nHassan Askari\nJunaid Qureshi\nJunaid\nJAKE RYAN\n",
+  "stderr": "",
+  "execution_time_ms": 359
+}
