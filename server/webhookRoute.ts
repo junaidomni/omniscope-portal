@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { validateIntelligenceData, processIntelligenceData } from "./ingestion";
 import { isFathomWebhookPayload, processFathomWebhook } from "./fathomIntegration";
-import { generateMeetingPDF } from "./pdfGenerator";
+import { generateMeetingPDF, generateDailyBriefPDF } from "./pdfGenerator";
 
 export const webhookRouter = Router();
 
@@ -28,6 +28,31 @@ webhookRouter.get("/meeting/:id/pdf", async (req, res) => {
       return res.status(404).json({ error: "Meeting not found" });
     }
     return res.status(500).json({ error: "Failed to generate PDF" });
+  }
+});
+
+/**
+ * PDF download endpoint for daily brief
+ * GET /api/daily-brief/pdf?date=YYYY-MM-DD
+ */
+webhookRouter.get("/daily-brief/pdf", async (req, res) => {
+  try {
+    const dateStr = req.query.date as string;
+    const date = dateStr ? new Date(dateStr) : new Date();
+    if (isNaN(date.getTime())) {
+      return res.status(400).json({ error: "Invalid date" });
+    }
+
+    const pdfBuffer = await generateDailyBriefPDF(date);
+    const filename = `omniscope-daily-brief-${date.toISOString().split("T")[0]}.pdf`;
+    
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Length", pdfBuffer.length);
+    return res.send(pdfBuffer);
+  } catch (error) {
+    console.error("[PDF] Error generating daily brief PDF:", error);
+    return res.status(500).json({ error: "Failed to generate daily brief PDF" });
   }
 });
 

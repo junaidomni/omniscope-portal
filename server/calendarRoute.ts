@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { getDb } from "./db";  // getDb is exported from db.ts
+import { getDb } from "./db";
 import { calendarEvents } from "../drizzle/schema";
-import { and, gte, lte, asc, like, sql } from "drizzle-orm";
+import { and, gte, lte, asc, like, sql, eq } from "drizzle-orm";
 
 export const calendarRouter = Router();
 
@@ -27,7 +27,6 @@ calendarRouter.get("/calendar/events", async (req, res) => {
       .orderBy(asc(calendarEvents.startTime))
       .limit(parseInt(maxResults as string));
     
-    // Transform to frontend format
     const formatted = events.map((e: typeof calendarEvents.$inferSelect) => ({
       id: e.googleEventId,
       summary: e.summary,
@@ -39,12 +38,95 @@ calendarRouter.get("/calendar/events", async (req, res) => {
       attendees: (() => { try { return JSON.parse(e.attendees || "[]"); } catch { return []; } })(),
       hangoutLink: e.hangoutLink,
       htmlLink: e.htmlLink,
+      source: e.googleEventId.startsWith("local-") ? "local" : "google",
     }));
     
     return res.status(200).json({ events: formatted });
   } catch (error) {
     console.error("[Calendar] Error fetching events:", error);
     return res.status(500).json({ error: "Failed to fetch calendar events" });
+  }
+});
+
+/**
+ * POST /api/calendar/events - Create a new calendar event
+ * Stores in database. Google Calendar sync happens via scheduled task.
+ */
+calendarRouter.post("/calendar/events", async (req, res) => {
+  try {
+    const db = await getDb();
+    if (!db) return res.status(500).json({ error: "Database not available" });
+
+    const { summary, description, startTime, endTime, location, attendees, addGoogleMeet, timezone } = req.body;
+
+    if (!summary || !startTime || !endTime) {
+      return res.status(400).json({ error: "Missing required fields: summary, startTime, endTime" });
+    }
+
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ error: "Invalid date format" });
+    }
+
+    const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    
+    // Build a Google Meet link placeholder if requested
+    const hangoutLink = addGoogleMeet ? `https://meet.google.com/new` : null;
+
+    await db.insert(calendarEvents).values({
+      googleEventId: localId,
+      summary: summary.trim(),
+      description: description?.trim() || null,
+      startTime: start,
+      endTime: end,
+      isAllDay: false,
+      location: location?.trim() || null,
+      attendees: JSON.stringify(attendees || []),
+      hangoutLink,
+      htmlLink: null,
+      calendarId: "primary",
+      syncedAt: new Date(),
+    });
+
+    console.log(`[Calendar] Created local event: ${summary} (${localId})`);
+
+    return res.status(201).json({
+      success: true,
+      event: {
+        id: localId,
+        summary: summary.trim(),
+        start: start.toISOString(),
+        end: end.toISOString(),
+        location: location?.trim() || null,
+        attendees: attendees || [],
+        hangoutLink,
+        source: "local",
+      },
+    });
+  } catch (error) {
+    console.error("[Calendar] Error creating event:", error);
+    return res.status(500).json({ error: "Failed to create event" });
+  }
+});
+
+/**
+ * DELETE /api/calendar/events/:eventId - Delete a calendar event
+ */
+calendarRouter.delete("/calendar/events/:eventId", async (req, res) => {
+  try {
+    const db = await getDb();
+    if (!db) return res.status(500).json({ error: "Database not available" });
+
+    const { eventId } = req.params;
+    
+    await db.delete(calendarEvents).where(eq(calendarEvents.googleEventId, eventId));
+    
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("[Calendar] Error deleting event:", error);
+    return res.status(500).json({ error: "Failed to delete event" });
   }
 });
 

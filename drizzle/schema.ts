@@ -199,6 +199,42 @@ export type CalendarEvent = typeof calendarEvents.$inferSelect;
 export type InsertCalendarEvent = typeof calendarEvents.$inferInsert;
 
 /**
+ * Invitations table - invite-only access control
+ */
+export const invitations = mysqlTable("invitations", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  fullName: varchar("fullName", { length: 255 }).notNull(),
+  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  invitedBy: int("invitedBy").references(() => users.id),
+  acceptedAt: timestamp("acceptedAt"),
+  userId: int("userId").references(() => users.id), // linked after they sign up
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  emailIdx: index("invitation_email_idx").on(table.email),
+}));
+
+export type Invitation = typeof invitations.$inferSelect;
+export type InsertInvitation = typeof invitations.$inferInsert;
+
+/**
+ * Meeting categories - predefined categories for tagging
+ */
+export const meetingCategories = mysqlTable("meeting_categories", {
+  id: int("id").autoincrement().primaryKey(),
+  meetingId: int("meetingId").notNull().references(() => meetings.id, { onDelete: "cascade" }),
+  category: varchar("category", { length: 255 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  meetingCatMeetingIdx: index("mc_cat_meeting_idx").on(table.meetingId),
+  meetingCatCategoryIdx: index("mc_cat_category_idx").on(table.category),
+}));
+
+export type MeetingCategory = typeof meetingCategories.$inferSelect;
+export type InsertMeetingCategory = typeof meetingCategories.$inferInsert;
+
+/**
  * Relations
  */
 export const meetingsRelations = relations(meetings, ({ many, one }) => ({

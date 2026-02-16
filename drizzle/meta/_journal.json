@@ -43,6 +43,13 @@
       "when": 1771215264476,
       "tag": "0005_hard_wiccan",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1771217138097,
+      "tag": "0006_outgoing_karen_page",
+      "breakpoints": true
     }
   ]
 }

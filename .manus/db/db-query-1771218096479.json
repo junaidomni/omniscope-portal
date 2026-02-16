@@ -1,0 +1,115 @@
+{
+  "query": "SELECT id, meetingTitle, participants, sourceType, meetingDate FROM meetings ORDER BY meetingDate DESC",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, meetingTitle, participants, sourceType, meetingDate FROM meetings ORDER BY meetingDate DESC",
+  "rows": [
+    {
+      "id": "60026",
+      "meetingTitle": "NULL",
+      "participants": "[\"Kyle\",\"Test Client\"]",
+      "sourceType": "plaud",
+      "meetingDate": "2026-02-16 05:00:36"
+    },
+    {
+      "id": "60024",
+      "meetingTitle": "NULL",
+      "participants": "[\"Kyle\",\"Client B\"]",
+      "sourceType": "plaud",
+      "meetingDate": "2026-02-16 05:00:36"
+    },
+    {
+      "id": "60023",
+      "meetingTitle": "NULL",
+      "participants": "[\"Kyle\",\"Client A\"]",
+      "sourceType": "plaud",
+      "meetingDate": "2026-02-16 05:00:35"
+    },
+    {
+      "id": "60021",
+      "meetingTitle": "NULL",
+      "participants": "[\"Kyle\",\"Test Client\"]",
+      "sourceType": "plaud",
+      "meetingDate": "2026-02-16 04:59:25"
+    },
+    {
+      "id": "60020",
+      "meetingTitle": "NULL",
+      "participants": "[\"Kyle\",\"Client B\"]",
+      "sourceType": "plaud",
+      "meetingDate": "2026-02-16 04:59:25"
+    },
+    {
+      "id": "60019",
+      "meetingTitle": "NULL",
+      "participants": "[\"Kyle\",\"Client A\"]",
+      "sourceType": "plaud",
+      "meetingDate": "2026-02-16 04:59:24"
+    },
+    {
+      "id": "60016",
+      "meetingTitle": "NULL",
+      "participants": "[\"Kyle\",\"Test Client\"]",
+      "sourceType": "plaud",
+      "meetingDate": "2026-02-16 04:25:33"
+    },
+    {
+      "id": "60015",
+      "meetingTitle": "NULL",
+      "participants": "[\"Kyle\",\"Client A\"]",
+      "sourceType": "plaud",
+      "meetingDate": "2026-02-16 04:25:32"
+    },
+    {
+      "id": "30012",
+      "meetingTitle": "JD x Noah",
+      "participants": "[\"Kyle Jackson\",\"Junaid Qureshi\",\"Oliver J D\",\"Noah Jerome\"]",
+      "sourceType": "fathom",
+      "meetingDate": "2026-02-10 19:18:22"
+    },
+    {
+      "id": "30013",
+      "meetingTitle": "Pakistan x Comet Cash x OmniScope",
+      "participants": "[\"Jake Ryan\",\"JT Huskins\",\"Kyle Jackson\",\"Talib Rizvi\",\"Junaid Qureshi\",\"JAKE RYAN\"]",
+      "sourceType": "fathom",
+      "meetingDate": "2026-02-05 03:00:18"
+    },
+    {
+      "id": "30014",
+      "meetingTitle": "Intro Meeting",
+      "participants": "[\"Kyle Jackson\",\"Justin Hunter\",\"Junaid Qureshi\",\"H T\"]",
+      "sourceType": "fathom",
+      "meetingDate": "2026-01-28 14:31:28"
+    },
+    {
+      "id": "30015",
+      "meetingTitle": "Apparel Discussion : : Hoodies",
+      "participants": "[\"Sania Owais\",\"Rehan Ahmed\",\"Noor Nabi Shaikh\",\"Junaid Qureshi\"]",
+      "sourceType": "fathom",
+      "meetingDate": "2026-01-16 17:00:34"
+    },
+    {
+      "id": "30016",
+      "meetingTitle": "Little Miracles Website Meeting ",
+      "participants": "[\"Junaid Qureshi\",\"Usman Raza\"]",
+      "sourceType": "fathom",
+      "meetingDate": "2025-12-17 16:19:07"
+    },
+    {
+      "id": "30017",
+      "meetingTitle": "Little Miracles - Web Design",
+      "participants": "[\"Sania Owais\",\"Junaid Qureshi\"]",
+      "sourceType": "fathom",
+      "meetingDate": "2025-12-15 18:30:57"
+    },
+    {
+      "id": "30018",
+      "meetingTitle": "Steven X Raj ",
+      "participants": "[\"Kyle Jackson\",\"Raj Patel\",\"Junaid Qureshi\",\"Steven Schwartz\"]",
+      "sourceType": "fathom",
+      "meetingDate": "2025-11-21 22:30:01"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tmeetingTitle\tparticipants\tsourceType\tmeetingDate\n60026\tNULL\t[\"Kyle\",\"Test Client\"]\tplaud\t2026-02-16 05:00:36\n60024\tNULL\t[\"Kyle\",\"Client B\"]\tplaud\t2026-02-16 05:00:36\n60023\tNULL\t[\"Kyle\",\"Client A\"]\tplaud\t2026-02-16 05:00:35\n60021\tNULL\t[\"Kyle\",\"Test Client\"]\tplaud\t2026-02-16 04:59:25\n60020\tNULL\t[\"Kyle\",\"Client B\"]\tplaud\t2026-02-16 04:59:25\n60019\tNULL\t[\"Kyle\",\"Client A\"]\tplaud\t2026-02-16 04:59:24\n60016\tNULL\t[\"Kyle\",\"Test Client\"]\tplaud\t2026-02-16 04:25:33\n60015\tNULL\t[\"Kyle\",\"Client A\"]\tplaud\t2026-02-16 04:25:32\n30012\tJD x Noah\t[\"Kyle Jackson\",\"Junaid Qureshi\",\"Oliver J D\",\"Noah Jerome\"]\tfathom\t2026-02-10 19:18:22\n30013\tPakistan x Comet Cash x OmniScope\t[\"Jake Ryan\",\"JT Huskins\",\"Kyle Jackson\",\"Talib Rizvi\",\"Junaid Qureshi\",\"JAKE RYAN\"]\tfathom\t2026-02-05 03:00:18\n30014\tIntro Meeting\t[\"Kyle Jackson\",\"Justin Hunter\",\"Junaid Qureshi\",\"H T\"]\tfathom\t2026-01-28 14:31:28\n30015\tApparel Discussion : : Hoodies\t[\"Sania Owais\",\"Rehan Ahmed\",\"Noor Nabi Shaikh\",\"Junaid Qureshi\"]\tfathom\t2026-01-16 17:00:34\n30016\tLittle Miracles Website Meeting \t[\"Junaid Qureshi\",\"Usman Raza\"]\tfathom\t2025-12-17 16:19:07\n30017\tLittle Miracles - Web Design\t[\"Sania Owais\",\"Junaid Qureshi\"]\tfathom\t2025-12-15 18:30:57\n30018\tSteven X Raj \t[\"Kyle Jackson\",\"Raj Patel\",\"Junaid Qureshi\",\"Steven Schwartz\"]\tfathom\t2025-11-21 22:30:01\n",
+  "stderr": "",
+  "execution_time_ms": 366
+}

@@ -504,3 +504,103 @@ export async function getTasksForMeeting(meetingId: number) {
   if (!db) return [];
   return await db.select().from(tasks).where(eq(tasks.meetingId, meetingId));
 }
+
+
+// ============================================================================
+// INVITATION OPERATIONS
+// ============================================================================
+
+import { invitations, InsertInvitation, meetingCategories, InsertMeetingCategory } from "../drizzle/schema";
+
+export async function createInvitation(invitation: InsertInvitation) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(invitations).values(invitation);
+  return Number(result[0].insertId);
+}
+
+export async function getInvitationByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(invitations).where(eq(invitations.email, email.toLowerCase())).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getAllInvitations() {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(invitations).orderBy(desc(invitations.createdAt));
+}
+
+export async function updateInvitation(id: number, updates: Partial<InsertInvitation>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(invitations).set(updates).where(eq(invitations.id, id));
+}
+
+export async function deleteInvitation(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(invitations).where(eq(invitations.id, id));
+}
+
+export async function acceptInvitation(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(invitations).set({ acceptedAt: new Date(), userId }).where(eq(invitations.id, id));
+}
+
+// ============================================================================
+// MEETING CATEGORY OPERATIONS
+// ============================================================================
+
+export async function addCategoryToMeeting(meetingId: number, category: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  try {
+    await db.insert(meetingCategories).values({ meetingId, category });
+  } catch (e: any) {
+    if (!e.message?.includes('Duplicate')) throw e;
+  }
+}
+
+export async function removeCategoryFromMeeting(meetingId: number, category: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(meetingCategories).where(
+    and(eq(meetingCategories.meetingId, meetingId), eq(meetingCategories.category, category))
+  );
+}
+
+export async function getCategoriesForMeeting(meetingId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(meetingCategories).where(eq(meetingCategories.meetingId, meetingId));
+}
+
+export async function getAllMeetingCategories() {
+  const db = await getDb();
+  if (!db) return [];
+  const result = await db
+    .select({ category: meetingCategories.category, count: sql<number>`count(*)`.as('count') })
+    .from(meetingCategories)
+    .groupBy(meetingCategories.category)
+    .orderBy(desc(sql`count`));
+  return result;
+}
+
+export async function getMeetingsByCategory(category: string) {
+  const db = await getDb();
+  if (!db) return [];
+  const result = await db
+    .select({ meetingId: meetingCategories.meetingId })
+    .from(meetingCategories)
+    .where(eq(meetingCategories.category, category));
+  if (result.length === 0) return [];
+  const meetingIds = result.map(r => r.meetingId);
+  return await db
+    .select()
+    .from(meetings)
+    .where(inArray(meetings.id, meetingIds))
+    .orderBy(desc(meetings.meetingDate));
+}

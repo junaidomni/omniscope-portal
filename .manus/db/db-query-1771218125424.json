@@ -1,0 +1,45 @@
+{
+  "query": "SELECT id, meetingTitle, sourceType FROM meetings ORDER BY id",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, meetingTitle, sourceType FROM meetings ORDER BY id",
+  "rows": [
+    {
+      "id": "30012",
+      "meetingTitle": "JD x Noah",
+      "sourceType": "fathom"
+    },
+    {
+      "id": "30013",
+      "meetingTitle": "Pakistan x Comet Cash x OmniScope",
+      "sourceType": "fathom"
+    },
+    {
+      "id": "30014",
+      "meetingTitle": "Intro Meeting",
+      "sourceType": "fathom"
+    },
+    {
+      "id": "30015",
+      "meetingTitle": "Apparel Discussion : : Hoodies",
+      "sourceType": "fathom"
+    },
+    {
+      "id": "30016",
+      "meetingTitle": "Little Miracles Website Meeting ",
+      "sourceType": "fathom"
+    },
+    {
+      "id": "30017",
+      "meetingTitle": "Little Miracles - Web Design",
+      "sourceType": "fathom"
+    },
+    {
+      "id": "30018",
+      "meetingTitle": "Steven X Raj ",
+      "sourceType": "fathom"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tmeetingTitle\tsourceType\n30012\tJD x Noah\tfathom\n30013\tPakistan x Comet Cash x OmniScope\tfathom\n30014\tIntro Meeting\tfathom\n30015\tApparel Discussion : : Hoodies\tfathom\n30016\tLittle Miracles Website Meeting \tfathom\n30017\tLittle Miracles - Web Design\tfathom\n30018\tSteven X Raj \tfathom\n",
+  "stderr": "",
+  "execution_time_ms": 351
+}

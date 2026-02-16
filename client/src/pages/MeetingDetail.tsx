@@ -1,9 +1,9 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Loader2, Calendar, User, Building2, MapPin, ArrowLeft, AlertTriangle, TrendingUp, Target, Mail, Download, FileText, Quote, CheckSquare, Clock } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Calendar, User, Building2, MapPin, ArrowLeft, AlertTriangle, TrendingUp, Target, Mail, Download, FileText, Quote, CheckSquare, Clock, Tag, X, Plus } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Link, useParams, useLocation } from "wouter";
 import { SendRecapDialog } from "@/components/SendRecapDialog";
@@ -22,11 +22,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Trash2 } from "lucide-react";
 
+const PRESET_CATEGORIES = [
+  "Gold", "BTC", "Private Placement", "Real Estate", "Stablecoin",
+  "Oil & Energy", "Little Miracles", "Payment Rails", "Compliance", "Partnership"
+];
+
 export default function MeetingDetail() {
   const { id } = useParams<{ id: string }>();
   const { isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
   const [sendRecapOpen, setSendRecapOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
+  const [showCategoryInput, setShowCategoryInput] = useState(false);
   
   const { data: meeting, isLoading } = trpc.meetings.getById.useQuery(
     { id: Number(id) },
@@ -38,7 +45,25 @@ export default function MeetingDetail() {
     { enabled: isAuthenticated && !!id }
   );
 
-  // Delete meeting
+  const { data: categories = [], refetch: refetchCategories } = trpc.meetingCategories.getForMeeting.useQuery(
+    { meetingId: Number(id) },
+    { enabled: isAuthenticated && !!id }
+  );
+
+  const addCategoryMutation = trpc.meetingCategories.add.useMutation({
+    onSuccess: () => {
+      refetchCategories();
+      setNewCategory("");
+      setShowCategoryInput(false);
+    },
+    onError: () => toast.error("Failed to add category"),
+  });
+
+  const removeCategoryMutation = trpc.meetingCategories.remove.useMutation({
+    onSuccess: () => refetchCategories(),
+    onError: () => toast.error("Failed to remove category"),
+  });
+
   const deleteMutation = trpc.meetings.delete.useMutation({
     onSuccess: () => {
       toast.success('Meeting deleted');
@@ -53,7 +78,6 @@ export default function MeetingDetail() {
     if (!meeting) return;
     setIsDownloading(true);
     try {
-      // Download branded PDF from server
       const response = await fetch(`/api/meeting/${meeting.id}/pdf`);
       if (!response.ok) throw new Error('Failed to generate PDF');
       const blob = await response.blob();
@@ -73,6 +97,16 @@ export default function MeetingDetail() {
     }
   };
 
+  const handleAddCategory = (category: string) => {
+    const cat = category.trim();
+    if (!cat || !meeting) return;
+    if (categories.some((c: any) => c.category === cat)) {
+      toast.error("Category already added");
+      return;
+    }
+    addCategoryMutation.mutate({ meetingId: meeting.id, category: cat });
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-24">
@@ -87,10 +121,10 @@ export default function MeetingDetail() {
         <FileText className="h-16 w-16 text-zinc-700 mb-4" />
         <h2 className="text-xl font-semibold text-white mb-2">Meeting not found</h2>
         <p className="text-zinc-400 mb-6">This meeting may have been removed or the ID is invalid.</p>
-        <Link href="/">
+        <Link href="/meetings">
           <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+            Back to Meetings
           </Button>
         </Link>
       </div>
@@ -120,15 +154,15 @@ export default function MeetingDetail() {
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
       {/* Back Button */}
-      <Link href="/">
+      <Link href="/meetings">
         <Button variant="ghost" size="sm" className="mb-6 text-zinc-400 hover:text-white hover:bg-zinc-800">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Dashboard
+          Back to Meetings
         </Button>
       </Link>
 
       {/* OmniScope Branded Report Header */}
-      <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 border border-zinc-800 rounded-xl overflow-hidden mb-8">
+      <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 border border-zinc-800 rounded-xl overflow-hidden mb-6">
         {/* Top Bar */}
         <div className="flex items-center justify-between px-8 py-5 border-b border-zinc-800/80">
           <div className="flex items-center gap-3">
@@ -163,6 +197,78 @@ export default function MeetingDetail() {
               {meeting.sourceType.toUpperCase()}
             </Badge>
           </div>
+        </div>
+
+        {/* Categories / Tags */}
+        <div className="px-8 pb-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Tag className="h-4 w-4 text-zinc-500" />
+            {categories.map((cat: any) => (
+              <Badge
+                key={cat.id}
+                className="bg-yellow-600/15 text-yellow-500 border border-yellow-600/30 gap-1 pr-1.5"
+              >
+                {cat.category}
+                <button
+                  onClick={() => removeCategoryMutation.mutate({ meetingId: meeting.id, category: cat.category })}
+                  className="ml-1 hover:text-red-400 transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+            {/* Quick-add preset categories */}
+            {!showCategoryInput && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCategoryInput(true)}
+                className="text-zinc-500 hover:text-yellow-500 h-6 px-2 text-xs"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add Tag
+              </Button>
+            )}
+            {showCategoryInput && (
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Category name..."
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(newCategory); }
+                    if (e.key === 'Escape') { setShowCategoryInput(false); setNewCategory(""); }
+                  }}
+                  className="h-7 w-36 bg-zinc-800 border-zinc-700 text-white text-xs"
+                  autoFocus
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setShowCategoryInput(false); setNewCategory(""); }}
+                  className="text-zinc-500 h-6 w-6 p-0"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
+          {/* Preset suggestions */}
+          {showCategoryInput && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {PRESET_CATEGORIES
+                .filter(p => !categories.some((c: any) => c.category === p))
+                .map(preset => (
+                  <button
+                    key={preset}
+                    onClick={() => handleAddCategory(preset)}
+                    className="text-xs px-2 py-1 rounded bg-zinc-800 text-zinc-400 hover:text-yellow-500 hover:bg-zinc-700 transition-colors border border-zinc-700/50"
+                  >
+                    {preset}
+                  </button>
+                ))}
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -256,7 +362,7 @@ export default function MeetingDetail() {
                   </Badge>
                 ))}
                 {organizations.length === 0 && jurisdictions.length === 0 && (
-                  <span className="text-zinc-500 text-sm">No organizations or jurisdictions recorded</span>
+                  <span className="text-zinc-500 text-sm">No organizations or jurisdictions identified</span>
                 )}
               </div>
             </CardContent>
@@ -295,7 +401,7 @@ export default function MeetingDetail() {
           </Card>
         )}
 
-        {/* Opportunities & Risks - Side by Side */}
+        {/* Opportunities & Risks */}
         {(opportunities.length > 0 || risks.length > 0) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {opportunities.length > 0 && (

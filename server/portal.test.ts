@@ -258,7 +258,7 @@ describe("Portal Router Tests", () => {
       const ctx = createUserContext();
       const caller = appRouter.createCaller(ctx);
       await expect(
-        caller.admin.inviteUser({ email: "test@example.com", role: "user" })
+        caller.admin.createInvitation({ email: "test@example.com", fullName: "Test User", role: "user" })
       ).rejects.toThrow("Admin access required");
     });
 

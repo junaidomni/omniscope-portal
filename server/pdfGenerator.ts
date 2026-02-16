@@ -360,3 +360,281 @@ export async function generateMeetingPDF(meetingId: number): Promise<Buffer> {
   const arrayBuffer = doc.output("arraybuffer");
   return Buffer.from(arrayBuffer);
 }
+
+/**
+ * Generate a branded OmniScope Daily Brief PDF
+ */
+export async function generateDailyBriefPDF(date: Date): Promise<Buffer> {
+  const { getDailySummary } = await import("./analytics");
+  const summary = await getDailySummary(date);
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 20;
+  const contentWidth = pageWidth - margin * 2;
+  let y = 0;
+
+  function checkPage(needed: number) {
+    if (y + needed > pageHeight - 25) {
+      addFooter();
+      doc.addPage();
+      y = 20;
+    }
+  }
+
+  function addFooter() {
+    doc.setFontSize(8);
+    doc.setTextColor(...hexToRGB(COLORS.lightGray));
+    doc.text("OmniScope Intelligence Portal  |  omniscopex.ae  |  Confidential & Proprietary", pageWidth / 2, pageHeight - 10, { align: "center" });
+    const pageNum = doc.getNumberOfPages();
+    doc.text(`Page ${pageNum}`, pageWidth - margin, pageHeight - 10, { align: "right" });
+  }
+
+  function drawHR() {
+    doc.setDrawColor(...hexToRGB(COLORS.medGray));
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 4;
+  }
+
+  function sectionHeading(title: string, color: string = COLORS.gold) {
+    checkPage(15);
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...hexToRGB(color));
+    doc.text(title, margin, y);
+    y += 7;
+  }
+
+  function bodyText(text: string, indent: number = 0) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...hexToRGB(COLORS.text));
+    const lines = doc.splitTextToSize(text, contentWidth - indent);
+    for (const line of lines) {
+      checkPage(5);
+      doc.text(line, margin + indent, y);
+      y += 5;
+    }
+    y += 2;
+  }
+
+  function bulletPoint(text: string, bulletColor: string = COLORS.gold) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const lines = doc.splitTextToSize(text, contentWidth - 8);
+    checkPage(lines.length * 5 + 2);
+    doc.setFillColor(...hexToRGB(bulletColor));
+    doc.circle(margin + 2, y - 1.2, 1, "F");
+    doc.setTextColor(...hexToRGB(COLORS.text));
+    for (const line of lines) {
+      doc.text(line, margin + 8, y);
+      y += 5;
+    }
+    y += 1;
+  }
+
+  const dateStr = date.toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+
+  // =========================================================================
+  // HEADER
+  // =========================================================================
+  doc.setFillColor(...hexToRGB(COLORS.darkGray));
+  doc.rect(0, 0, pageWidth, 65, "F");
+  doc.setFillColor(...hexToRGB(COLORS.gold));
+  doc.rect(0, 0, pageWidth, 2, "F");
+
+  y = 18;
+  doc.setFontSize(22);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(255, 255, 255);
+  doc.text("OMNISCOPE", margin, y);
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...hexToRGB(COLORS.gold));
+  doc.text("ALL MARKETS. ONE SCOPE.", margin, y + 6);
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...hexToRGB(COLORS.gold));
+  doc.text("DAILY INTELLIGENCE BRIEF", pageWidth - margin, y, { align: "right" });
+
+  // Date in header
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(255, 255, 255);
+  doc.text(dateStr, margin, y + 18);
+
+  doc.setFillColor(...hexToRGB(COLORS.gold));
+  doc.rect(0, 63, pageWidth, 0.5, "F");
+
+  // =========================================================================
+  // OVERVIEW METRICS
+  // =========================================================================
+  y = 78;
+  sectionHeading("Daily Overview");
+
+  // Metrics row
+  const metricsData = [
+    { label: "Meetings", value: String(summary.meetingCount) },
+    { label: "Tasks Created", value: String(summary.tasksCreated) },
+    { label: "Tasks Completed", value: String(summary.tasksCompleted) },
+  ];
+
+  const metricWidth = contentWidth / metricsData.length;
+  for (let i = 0; i < metricsData.length; i++) {
+    const x = margin + i * metricWidth;
+    // Metric box
+    doc.setFillColor(...hexToRGB("#f4f4f5"));
+    doc.roundedRect(x, y, metricWidth - 4, 18, 2, 2, "F");
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...hexToRGB(COLORS.gold));
+    doc.text(metricsData[i].value, x + (metricWidth - 4) / 2, y + 10, { align: "center" });
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...hexToRGB(COLORS.lightGray));
+    doc.text(metricsData[i].label, x + (metricWidth - 4) / 2, y + 15, { align: "center" });
+  }
+  y += 26;
+
+  // Sectors & Jurisdictions
+  if (summary.topSectors.length > 0) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...hexToRGB(COLORS.lightGray));
+    doc.text("Active Sectors: ", margin, y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...hexToRGB(COLORS.text));
+    doc.text(summary.topSectors.join(", "), margin + doc.getTextWidth("Active Sectors: "), y);
+    y += 6;
+  }
+  if (summary.topJurisdictions.length > 0) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...hexToRGB(COLORS.lightGray));
+    doc.text("Jurisdictions: ", margin, y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...hexToRGB(COLORS.text));
+    doc.text(summary.topJurisdictions.join(", "), margin + doc.getTextWidth("Jurisdictions: "), y);
+    y += 6;
+  }
+  y += 4;
+  drawHR();
+  y += 4;
+
+  // =========================================================================
+  // MEETING SUMMARIES
+  // =========================================================================
+  if (summary.meetings.length > 0) {
+    sectionHeading("Meeting Intelligence");
+
+    for (const m of summary.meetings) {
+      checkPage(30);
+
+      // Meeting header
+      const meeting = await db.getMeetingById(m.id);
+      const displayTitle = meeting?.meetingTitle || m.participants.join(", ") || "Untitled Meeting";
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(10, 10, 10);
+      const mtLines = doc.splitTextToSize(displayTitle, contentWidth);
+      for (const line of mtLines) {
+        checkPage(6);
+        doc.text(line, margin, y);
+        y += 6;
+      }
+
+      // Participants & time
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...hexToRGB(COLORS.gold));
+      doc.text(`${m.participants.join(", ")}  |  ${m.time}`, margin, y);
+      y += 5;
+
+      if (m.organizations.length > 0) {
+        doc.setTextColor(...hexToRGB(COLORS.lightGray));
+        doc.text(`Organizations: ${m.organizations.join(", ")}`, margin, y);
+        y += 5;
+      }
+      y += 2;
+
+      // Summary
+      if (m.summary) {
+        bodyText(m.summary);
+      }
+
+      // Key highlights
+      if (m.keyHighlights.length > 0) {
+        for (const h of m.keyHighlights) {
+          bulletPoint(h);
+        }
+      }
+
+      y += 4;
+      // Light separator between meetings
+      doc.setDrawColor(...hexToRGB("#e4e4e7"));
+      doc.setLineWidth(0.2);
+      doc.line(margin + 10, y, pageWidth - margin - 10, y);
+      y += 6;
+    }
+  } else {
+    sectionHeading("Meeting Intelligence");
+    bodyText("No meetings recorded for this date.");
+    y += 4;
+  }
+
+  // =========================================================================
+  // OPEN TASKS
+  // =========================================================================
+  const allTasks = await db.getAllTasks({ status: "open" });
+  const highPriorityTasks = allTasks.filter(t => t.priority === "high").slice(0, 10);
+
+  if (highPriorityTasks.length > 0) {
+    drawHR();
+    y += 4;
+    sectionHeading("Priority Action Items", COLORS.red);
+    for (const task of highPriorityTasks) {
+      const taskLines = doc.splitTextToSize(task.title, contentWidth - 12);
+      checkPage(taskLines.length * 5 + 8);
+
+      doc.setFillColor(...hexToRGB(COLORS.red));
+      doc.circle(margin + 2, y - 1.2, 1.2, "F");
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(10, 10, 10);
+      for (const line of taskLines) {
+        doc.text(line, margin + 8, y);
+        y += 5;
+      }
+
+      const meta: string[] = [];
+      if (task.assignedTo) meta.push(`Assigned: ${task.assignedTo}`);
+      if (task.category) meta.push(`Category: ${task.category}`);
+      if (task.dueDate) meta.push(`Due: ${new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`);
+      if (meta.length > 0) {
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...hexToRGB(COLORS.lightGray));
+        doc.text(meta.join("  |  "), margin + 8, y);
+        y += 5;
+      }
+      y += 2;
+    }
+  }
+
+  // =========================================================================
+  // FOOTER
+  // =========================================================================
+  addFooter();
+  doc.setFillColor(...hexToRGB(COLORS.gold));
+  doc.rect(0, pageHeight - 3, pageWidth, 0.5, "F");
+
+  const arrayBuffer = doc.output("arraybuffer");
+  return Buffer.from(arrayBuffer);
+}

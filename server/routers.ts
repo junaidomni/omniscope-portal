@@ -484,21 +484,41 @@ const adminRouter = router({
     return await db.getAllUsers();
   }),
 
-  inviteUser: adminProcedure
+  // Invitation-based user management
+  createInvitation: adminProcedure
     .input(z.object({
       email: z.string().email(),
+      fullName: z.string().min(1),
       role: z.enum(["user", "admin"]).default("user"),
     }))
-    .mutation(async ({ input }) => {
-      const existingUsers = await db.getAllUsers();
-      if (existingUsers.some(u => u.email === input.email)) {
-        throw new TRPCError({ code: 'CONFLICT', message: 'User already exists' });
+    .mutation(async ({ input, ctx }) => {
+      // Check if email already has an invitation
+      const existing = await db.getInvitationByEmail(input.email);
+      if (existing) {
+        throw new TRPCError({ code: 'CONFLICT', message: 'An invitation already exists for this email' });
       }
-      await db.upsertUser({
-        openId: `pending-${input.email}`,
-        email: input.email,
+      // Check if user already exists
+      const existingUsers = await db.getAllUsers();
+      if (existingUsers.some(u => u.email?.toLowerCase() === input.email.toLowerCase())) {
+        throw new TRPCError({ code: 'CONFLICT', message: 'A user with this email already exists' });
+      }
+      const id = await db.createInvitation({
+        email: input.email.toLowerCase(),
+        fullName: input.fullName,
         role: input.role,
+        invitedBy: ctx.user.id,
       });
+      return { id, success: true };
+    }),
+
+  listInvitations: adminProcedure.query(async () => {
+    return await db.getAllInvitations();
+  }),
+
+  deleteInvitation: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.deleteInvitation(input.id);
       return { success: true };
     }),
 
@@ -543,6 +563,42 @@ const adminRouter = router({
     .mutation(async ({ input }) => {
       await fathomIntegration.deleteFathomWebhook(input.webhookId);
       return { success: true };
+    }),
+});
+
+// ============================================================================
+// MEETING CATEGORIES ROUTER
+// ============================================================================
+
+const meetingCategoriesRouter = router({
+  getForMeeting: protectedProcedure
+    .input(z.object({ meetingId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getCategoriesForMeeting(input.meetingId);
+    }),
+
+  add: protectedProcedure
+    .input(z.object({ meetingId: z.number(), category: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      await db.addCategoryToMeeting(input.meetingId, input.category);
+      return { success: true };
+    }),
+
+  remove: protectedProcedure
+    .input(z.object({ meetingId: z.number(), category: z.string() }))
+    .mutation(async ({ input }) => {
+      await db.removeCategoryFromMeeting(input.meetingId, input.category);
+      return { success: true };
+    }),
+
+  listAll: protectedProcedure.query(async () => {
+    return await db.getAllMeetingCategories();
+  }),
+
+  getMeetingsByCategory: protectedProcedure
+    .input(z.object({ category: z.string() }))
+    .query(async ({ input }) => {
+      return await db.getMeetingsByCategory(input.category);
     }),
 });
 
@@ -603,6 +659,7 @@ export const appRouter = router({
   recap: recapRouter,
   export: exportRouter,
   admin: adminRouter,
+  meetingCategories: meetingCategoriesRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -401,10 +401,19 @@ function MeetingsCalendar() {
 // ============================================================================
 
 function PeopleDirectory() {
-  const { data: contacts, isLoading: contactsLoading } = trpc.contacts.list.useQuery();
+  const { data: contacts, isLoading: contactsLoading, refetch: refetchContacts } = trpc.contacts.list.useQuery();
   const { data: meetings, isLoading: meetingsLoading } = trpc.meetings.list.useQuery({ limit: 100, offset: 0 });
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
+
+  const deleteContactMutation = trpc.contacts.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Contact deleted");
+      refetchContacts();
+      setSelectedPerson(null);
+    },
+    onError: () => toast.error("Failed to delete contact"),
+  });
 
   const isLoading = contactsLoading || meetingsLoading;
 
@@ -597,6 +606,27 @@ function PeopleDirectory() {
                     <span>Last seen: {new Date(selectedPersonData.lastMeeting).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                   </div>
                 </div>
+
+                <Separator className="bg-zinc-800" />
+
+                {/* Delete Contact */}
+                {contacts?.find(c => c.name.toLowerCase() === selectedPerson?.toLowerCase()) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const contact = contacts?.find(c => c.name.toLowerCase() === selectedPerson?.toLowerCase());
+                      if (contact && confirm(`Remove ${contact.name} from contacts?`)) {
+                        deleteContactMutation.mutate({ id: contact.id });
+                      }
+                    }}
+                    className="w-full border-red-900/50 text-red-400 hover:bg-red-900/20 hover:text-red-300"
+                    disabled={deleteContactMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {deleteContactMutation.isPending ? 'Deleting...' : 'Delete Contact'}
+                  </Button>
+                )}
 
                 <Separator className="bg-zinc-800" />
 

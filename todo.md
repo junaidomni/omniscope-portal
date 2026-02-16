@@ -315,3 +315,53 @@
 ## Timezone Label Fix
 - [x] Change "KARACHI" to "ISLAMABAD" in Dashboard timezone strip
 - [x] Also updated CalendarView timezone strip
+
+
+## Portal Improvements v3
+### Calendar Improvements
+- [x] Rename "Calendar View" to "Calendar" in sidebar
+- [x] Two-way Google Calendar sync (create events stored in DB, sync via scheduled task)
+- [x] Add Google Meet video conferencing toggle when creating events
+- [x] Add guests/attendees field with email chip input
+- [x] Add location field when creating events
+- [x] Add description field when creating events
+- [x] Google Calendar-style event creation UI (title, time, guests, meet, location, description)
+
+### Meeting Tagging
+- [x] Build interface to manually tag meetings with categories
+- [x] Categories: Little Miracles, Gold, BTC, Private Placement, Real Estate, Stablecoin, Energy, Payment Rails
+- [x] Allow adding/removing tags from meeting detail page
+- [x] Custom category input support
+
+### Fathom Auto-Push
+- [x] Fathom webhook endpoint at /api/webhook/fathom is working and tested
+- [x] Webhook URL for Fathom settings: {your-domain}/api/webhook/fathom
+- [ ] Register webhook in Fathom Settings UI (manual step after publishing)
+
+### Contact Management
+- [x] Add ability to delete contacts/people from the People directory (with confirmation)
+
+### Daily Brief Export
+- [x] Fix daily brief export to generate OmniScope-branded PDF
+- [x] PDF endpoint at /api/daily-brief/pdf?date=YYYY-MM-DD
+- [x] Dashboard "Export Daily Brief" button now downloads PDF
+
+### User Management (Invite-Only)
+- [x] Build invite-only access system (OAuth checks invitation table)
+- [x] Admin creates invitations with full name, email, role
+- [x] Only invited users can access the portal
+- [x] User Management page at /admin/users
+- [x] Access Denied page for uninvited users
+- [ ] Handle case where user signs up with different email (link multiple emails)
+
+### Data Cleanup
+- [x] Deleted all remaining Plaud test meetings (8 entries)
+- [x] Cleaned orphaned tasks
+- [x] Only 7 real Fathom meetings remain
+- [x] Dashboard Recent Intelligence now shows meeting titles
+
+### UX Recommendations (Future)
+- [ ] Add breadcrumb navigation for better wayfinding
+- [ ] Add notification bell for new meetings and task assignments
+- [ ] Add keyboard shortcuts for power users
+- [ ] Improve mobile responsiveness

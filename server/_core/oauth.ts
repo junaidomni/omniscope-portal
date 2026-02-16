@@ -3,6 +3,7 @@ import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
+import { ENV } from "./env";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -28,13 +29,52 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
 
-      await db.upsertUser({
-        openId: userInfo.openId,
-        name: userInfo.name || null,
-        email: userInfo.email ?? null,
-        loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-        lastSignedIn: new Date(),
-      });
+      // Check if this is the owner (always allowed)
+      const isOwner = userInfo.openId === ENV.ownerOpenId;
+      
+      // Check if user already exists in the system
+      const existingUser = await db.getUserByOpenId(userInfo.openId);
+      
+      if (!isOwner && !existingUser) {
+        // New user — check if they have an invitation
+        const email = userInfo.email?.toLowerCase();
+        let invitation = null;
+        
+        if (email) {
+          invitation = await db.getInvitationByEmail(email);
+        }
+        
+        if (!invitation) {
+          // No invitation found — redirect to access denied page
+          res.redirect(302, "/access-denied");
+          return;
+        }
+        
+        // Invitation found — create user with the invited role
+        await db.upsertUser({
+          openId: userInfo.openId,
+          name: invitation.fullName || userInfo.name || null,
+          email: userInfo.email ?? null,
+          loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
+          role: invitation.role,
+          lastSignedIn: new Date(),
+        });
+        
+        // Link the invitation to the new user
+        const newUser = await db.getUserByOpenId(userInfo.openId);
+        if (newUser) {
+          await db.acceptInvitation(invitation.id, newUser.id);
+        }
+      } else {
+        // Existing user or owner — update as normal
+        await db.upsertUser({
+          openId: userInfo.openId,
+          name: userInfo.name || null,
+          email: userInfo.email ?? null,
+          loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
+          lastSignedIn: new Date(),
+        });
+      }
 
       const sessionToken = await sdk.createSessionToken(userInfo.openId, {
         name: userInfo.name || "",

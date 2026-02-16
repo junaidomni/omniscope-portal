@@ -67,21 +67,30 @@ export default function Dashboard() {
   const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
 
-  const exportMutation = trpc.export.dailySummary.useMutation({
-    onSuccess: (data) => {
-      const blob = new Blob([data.content], { type: "text/markdown" });
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportDailyBrief = async () => {
+    setIsExporting(true);
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const response = await fetch(`/api/daily-brief/pdf?date=${today}`);
+      if (!response.ok) throw new Error("Failed to generate PDF");
+      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = data.filename;
+      a.download = `omniscope-daily-brief-${today}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success("Daily summary exported");
-    },
-    onError: () => toast.error("Failed to export summary"),
-  });
+      toast.success("Daily brief exported as PDF");
+    } catch {
+      toast.error("Failed to export daily brief");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Fetch upcoming Google Calendar events (today + next 7 days)
   useEffect(() => {
@@ -156,11 +165,11 @@ export default function Dashboard() {
               variant="outline"
               size="sm"
               className="border-zinc-700 text-zinc-400 hover:text-white"
-              onClick={() => exportMutation.mutate({ date: new Date().toISOString().split("T")[0] })}
-              disabled={exportMutation.isPending}
+              onClick={handleExportDailyBrief}
+              disabled={isExporting}
             >
               <Download className="h-3.5 w-3.5 mr-1.5" />
-              {exportMutation.isPending ? "Exporting..." : "Export Daily Brief"}
+              {isExporting ? "Exporting..." : "Export Daily Brief"}
             </Button>
           </div>
         </div>
@@ -320,11 +329,11 @@ export default function Dashboard() {
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-white truncate">
-                                {participants.length > 0 ? participants.join(", ") : "Unnamed Meeting"}
+                                {meeting.meetingTitle || (participants.length > 0 ? participants.join(", ") : "Unnamed Meeting")}
                               </p>
                               <p className="text-xs text-zinc-500 mt-0.5">
                                 {new Date(meeting.meetingDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                                {orgs.length > 0 && ` · ${orgs[0]}`}
+                                {participants.length > 0 && ` · ${participants.join(", ")}`}
                               </p>
                             </div>
                             <Badge variant="outline" className="border-zinc-700 text-zinc-500 text-[10px] px-1.5 py-0 ml-2 flex-shrink-0">

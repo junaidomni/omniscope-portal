@@ -12,6 +12,8 @@ import ToDo from "./pages/ToDo";
 import AskOmniScope from "./pages/AskOmniScope";
 import CalendarView from "./pages/CalendarView";
 import AdminPanel from "./pages/AdminPanel";
+import UserManagement from "./pages/UserManagement";
+import AccessDenied from "./pages/AccessDenied";
 
 function Router() {
   return (
@@ -24,6 +26,8 @@ function Router() {
           <Route path="/ask" component={AskOmniScope} />
           <Route path="/calendar" component={CalendarView} />
           <Route path="/admin" component={AdminPanel} />
+          <Route path="/admin/users" component={UserManagement} />
+          <Route path="/access-denied" component={AccessDenied} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />

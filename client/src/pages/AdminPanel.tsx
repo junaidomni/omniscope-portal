@@ -4,18 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Shield, UserPlus, Trash2, Crown, Zap, Download, Webhook, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Shield, UserPlus, Trash2, Crown, Zap, Download, Webhook, Loader2, CheckCircle, AlertCircle, Mail, Clock, X, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -26,8 +17,8 @@ import {
 
 export default function AdminPanel() {
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteFullName, setInviteFullName] = useState("");
   const [inviteRole, setInviteRole] = useState<"user" | "admin">("user");
-  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [importLimit, setImportLimit] = useState("10");
   const [importResult, setImportResult] = useState<{
     imported: number;
@@ -35,17 +26,29 @@ export default function AdminPanel() {
     errors: number;
   } | null>(null);
 
-  const { data: users, isLoading, refetch } = trpc.admin.getAllUsers.useQuery();
-  
-  const inviteUser = trpc.admin.inviteUser.useMutation({
+  const utils = trpc.useUtils();
+  const { data: users, isLoading } = trpc.admin.getAllUsers.useQuery();
+  const { data: invitationsList = [] } = trpc.admin.listInvitations.useQuery();
+
+  const createInvitation = trpc.admin.createInvitation.useMutation({
     onSuccess: () => {
-      toast.success("User invited successfully");
+      toast.success("Invitation created successfully");
       setInviteEmail("");
+      setInviteFullName("");
       setInviteRole("user");
-      setIsInviteDialogOpen(false);
-      refetch();
+      utils.admin.listInvitations.invalidate();
     },
-    onError: (error) => {
+    onError: (error: { message: string }) => {
+      toast.error(error.message);
+    },
+  });
+
+  const deleteInvitation = trpc.admin.deleteInvitation.useMutation({
+    onSuccess: () => {
+      toast.success("Invitation revoked");
+      utils.admin.listInvitations.invalidate();
+    },
+    onError: (error: { message: string }) => {
       toast.error(error.message);
     },
   });
@@ -53,9 +56,9 @@ export default function AdminPanel() {
   const updateUserRole = trpc.admin.updateUserRole.useMutation({
     onSuccess: () => {
       toast.success("User role updated");
-      refetch();
+      utils.admin.getAllUsers.invalidate();
     },
-    onError: (error) => {
+    onError: (error: { message: string }) => {
       toast.error(error.message);
     },
   });
@@ -63,9 +66,9 @@ export default function AdminPanel() {
   const deleteUser = trpc.admin.deleteUser.useMutation({
     onSuccess: () => {
       toast.success("User removed");
-      refetch();
+      utils.admin.getAllUsers.invalidate();
     },
-    onError: (error) => {
+    onError: (error: { message: string }) => {
       toast.error(error.message);
     },
   });
@@ -82,17 +85,16 @@ export default function AdminPanel() {
         toast.error(`${data.errors} meeting(s) failed to import`);
       }
     },
-    onError: (error) => {
+    onError: (error: { message: string }) => {
       toast.error(`Fathom import failed: ${error.message}`);
     },
   });
 
   const registerWebhook = trpc.admin.registerFathomWebhook.useMutation({
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast.success("Fathom webhook registered successfully");
-      console.log("Webhook registered:", data);
     },
-    onError: (error) => {
+    onError: (error: { message: string }) => {
       toast.error(`Webhook registration failed: ${error.message}`);
     },
   });
@@ -102,7 +104,15 @@ export default function AdminPanel() {
       toast.error("Please enter a valid email");
       return;
     }
-    inviteUser.mutate({ email: inviteEmail, role: inviteRole });
+    if (!inviteFullName.trim()) {
+      toast.error("Please enter the person's full name");
+      return;
+    }
+    createInvitation.mutate({
+      email: inviteEmail.toLowerCase().trim(),
+      fullName: inviteFullName.trim(),
+      role: inviteRole,
+    });
   };
 
   const handleImportFathom = () => {
@@ -112,10 +122,11 @@ export default function AdminPanel() {
   };
 
   const handleRegisterWebhook = () => {
-    // Use the current origin for the webhook URL
     const webhookUrl = `${window.location.origin}/api/webhook/fathom`;
     registerWebhook.mutate({ webhookUrl });
   };
+
+  const pendingInvitations = invitationsList.filter((inv: { acceptedAt: Date | null }) => !inv.acceptedAt);
 
   if (isLoading) {
     return (
@@ -128,217 +139,115 @@ export default function AdminPanel() {
   return (
     <div className="p-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Admin Panel</h1>
-            <p className="text-zinc-400">Manage users, integrations, and system settings</p>
-          </div>
-          
-          <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-yellow-600 hover:bg-yellow-700 text-black">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Invite User
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-zinc-900 border-zinc-800">
-              <DialogHeader>
-                <DialogTitle className="text-white">Invite New User</DialogTitle>
-                <DialogDescription className="text-zinc-400">
-                  Add a new user to the Intelligence Portal
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div>
-                  <label className="text-sm text-zinc-300 mb-2 block">Email Address</label>
-                  <Input
-                    type="email"
-                    placeholder="user@omniscopex.ae"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    className="bg-zinc-800 border-zinc-700 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-zinc-300 mb-2 block">Role</label>
-                  <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as "user" | "admin")}>
-                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-800 border-zinc-700">
-                      <SelectItem value="user" className="text-white">User - View meetings and tasks</SelectItem>
-                      <SelectItem value="admin" className="text-white">Admin - Full access + user management</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={handleInvite}
-                  disabled={inviteUser.isPending}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-black"
-                >
-                  {inviteUser.isPending ? "Inviting..." : "Send Invite"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Admin Panel</h1>
+          <p className="text-zinc-400">Manage users, integrations, and system settings</p>
         </div>
 
-        {/* Fathom Integration Card */}
+        {/* Invite New User */}
         <Card className="bg-zinc-900/50 border-zinc-800">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <Zap className="h-5 w-5 text-yellow-600" />
-              Fathom Integration
+              <UserPlus className="h-5 w-5 text-yellow-600" />
+              Invite New User
             </CardTitle>
             <CardDescription className="text-zinc-400">
-              Import meetings from Fathom and configure automatic ingestion
+              Only invited users can access the portal. They must sign in with the email specified below.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Import Section */}
-            <div className="bg-zinc-800/50 rounded-lg p-5 border border-zinc-700/50">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-white font-medium flex items-center gap-2">
-                    <Download className="h-4 w-4 text-yellow-600" />
-                    Import Meetings
-                  </h3>
-                  <p className="text-zinc-400 text-sm mt-1">
-                    Pull existing meetings from your Fathom account. Each meeting is analyzed by AI to extract intelligence data.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-zinc-400">Meetings to import:</label>
-                  <Select value={importLimit} onValueChange={setImportLimit}>
-                    <SelectTrigger className="w-24 h-9 bg-zinc-800 border-zinc-700 text-white text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-800 border-zinc-700">
-                      <SelectItem value="5" className="text-white">5</SelectItem>
-                      <SelectItem value="10" className="text-white">10</SelectItem>
-                      <SelectItem value="20" className="text-white">20</SelectItem>
-                      <SelectItem value="50" className="text-white">50</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  onClick={handleImportFathom}
-                  disabled={importFathom.isPending}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-black"
-                >
-                  {importFathom.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Importing...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4 mr-2" />
-                      Import from Fathom
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {/* Import Results */}
-              {importResult && (
-                <div className="mt-4 p-3 rounded-lg bg-zinc-900/50 border border-zinc-700/50">
-                  <div className="flex items-center gap-4 text-sm">
-                    {importResult.imported > 0 && (
-                      <span className="flex items-center gap-1 text-green-400">
-                        <CheckCircle className="h-4 w-4" />
-                        {importResult.imported} imported
-                      </span>
-                    )}
-                    {importResult.skipped > 0 && (
-                      <span className="flex items-center gap-1 text-zinc-400">
-                        <AlertCircle className="h-4 w-4" />
-                        {importResult.skipped} already existed
-                      </span>
-                    )}
-                    {importResult.errors > 0 && (
-                      <span className="flex items-center gap-1 text-red-400">
-                        <AlertCircle className="h-4 w-4" />
-                        {importResult.errors} errors
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {importFathom.isPending && (
-                <div className="mt-4 p-3 rounded-lg bg-zinc-900/50 border border-yellow-600/20">
-                  <p className="text-sm text-yellow-600/80 flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing meetings through AI analysis. This may take 30-60 seconds per meeting...
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Webhook Section */}
-            <div className="bg-zinc-800/50 rounded-lg p-5 border border-zinc-700/50">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-white font-medium flex items-center gap-2">
-                    <Webhook className="h-4 w-4 text-yellow-600" />
-                    Automatic Webhook
-                  </h3>
-                  <p className="text-zinc-400 text-sm mt-1">
-                    Register a webhook with Fathom to automatically ingest new meetings as they happen.
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-zinc-400">Webhook URL:</span>
-                  <code className="bg-zinc-900 px-2 py-1 rounded text-yellow-600 text-xs font-mono">
-                    {window.location.origin}/api/webhook/fathom
-                  </code>
-                </div>
-                <Button
-                  onClick={handleRegisterWebhook}
-                  disabled={registerWebhook.isPending}
-                  variant="outline"
-                  className="border-yellow-600/30 text-yellow-600 hover:bg-yellow-600/10"
-                >
-                  {registerWebhook.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Registering...
-                    </>
-                  ) : (
-                    <>
-                      <Webhook className="h-4 w-4 mr-2" />
-                      Register Webhook with Fathom
-                    </>
-                  )}
-                </Button>
-                {registerWebhook.isSuccess && (
-                  <p className="text-sm text-green-400 flex items-center gap-1">
-                    <CheckCircle className="h-4 w-4" />
-                    Webhook registered. New meetings will be automatically ingested.
-                  </p>
-                )}
-              </div>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              <Input
+                placeholder="Full Name"
+                value={inviteFullName}
+                onChange={(e) => setInviteFullName(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white md:col-span-1"
+              />
+              <Input
+                placeholder="Email Address"
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white md:col-span-2"
+              />
+              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as "user" | "admin")}>
+                <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700">
+                  <SelectItem value="user" className="text-white">Team Member</SelectItem>
+                  <SelectItem value="admin" className="text-white">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleInvite}
+                disabled={createInvitation.isPending}
+                className="bg-yellow-600 hover:bg-yellow-700 text-black font-medium"
+              >
+                {createInvitation.isPending ? "Sending..." : "Send Invite"}
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* User Management Card */}
+        {/* Pending Invitations */}
+        {pendingInvitations.length > 0 && (
+          <Card className="bg-zinc-900/50 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Clock className="h-5 w-5 text-yellow-600" />
+                Pending Invitations ({pendingInvitations.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {pendingInvitations.map((inv: { id: number; fullName: string; email: string; role: string; createdAt: Date }) => (
+                  <div key={inv.id} className="flex items-center justify-between bg-zinc-800/50 rounded-lg px-4 py-3">
+                    <div className="flex items-center gap-4">
+                      <div className="h-9 w-9 rounded-full bg-yellow-600/20 border border-yellow-600/30 flex items-center justify-center">
+                        <Mail className="h-4 w-4 text-yellow-600" />
+                      </div>
+                      <div>
+                        <p className="text-white font-medium text-sm">{inv.fullName}</p>
+                        <p className="text-zinc-400 text-xs">{inv.email}</p>
+                      </div>
+                      <Badge
+                        variant={inv.role === "admin" ? "default" : "outline"}
+                        className={inv.role === "admin"
+                          ? "bg-yellow-600 text-black text-xs"
+                          : "border-zinc-700 text-zinc-400 text-xs"
+                        }
+                      >
+                        {inv.role}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-zinc-500 text-xs">
+                        Invited {new Date(inv.createdAt).toLocaleDateString()}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteInvitation.mutate({ id: inv.id })}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-950/20"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Active Users */}
         <Card className="bg-zinc-900/50 border-zinc-800">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <Shield className="h-5 w-5 text-yellow-600" />
-              User Management
+              <Users className="h-5 w-5 text-yellow-600" />
+              Active Users ({users?.length || 0})
             </CardTitle>
-            <CardDescription className="text-zinc-400">
-              {users?.length || 0} total users
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -390,7 +299,7 @@ export default function AdminPanel() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-zinc-800 border-zinc-700">
-                            <SelectItem value="user" className="text-white text-xs">User</SelectItem>
+                            <SelectItem value="user" className="text-white text-xs">Member</SelectItem>
                             <SelectItem value="admin" className="text-white text-xs">Admin</SelectItem>
                           </SelectContent>
                         </Select>
@@ -398,7 +307,7 @@ export default function AdminPanel() {
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            if (confirm(`Remove ${user.email} from the portal?`)) {
+                            if (confirm(`Remove ${user.name || user.email}? They will need a new invitation to access the portal.`)) {
                               deleteUser.mutate({ userId: user.id });
                             }
                           }}
@@ -412,13 +321,107 @@ export default function AdminPanel() {
                 ))}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
 
-            {users?.length === 0 && (
-              <div className="text-center py-12 text-zinc-500">
-                <Shield className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No users yet. Invite your first user to get started.</p>
+        {/* Fathom Integration */}
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Zap className="h-5 w-5 text-yellow-600" />
+              Fathom Integration
+            </CardTitle>
+            <CardDescription className="text-zinc-400">
+              Import meetings from Fathom and configure automatic ingestion
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="bg-zinc-800/50 rounded-lg p-5 border border-zinc-700/50">
+              <h3 className="text-white font-medium flex items-center gap-2 mb-3">
+                <Download className="h-4 w-4 text-yellow-600" />
+                Import Meetings
+              </h3>
+              <p className="text-zinc-400 text-sm mb-4">
+                Pull existing meetings from your Fathom account. Each meeting is analyzed by AI to extract intelligence data.
+              </p>
+              <div className="flex items-center gap-3">
+                <Select value={importLimit} onValueChange={setImportLimit}>
+                  <SelectTrigger className="w-24 h-9 bg-zinc-800 border-zinc-700 text-white text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                    <SelectItem value="5" className="text-white">5</SelectItem>
+                    <SelectItem value="10" className="text-white">10</SelectItem>
+                    <SelectItem value="20" className="text-white">20</SelectItem>
+                    <SelectItem value="50" className="text-white">50</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={handleImportFathom}
+                  disabled={importFathom.isPending}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-black"
+                >
+                  {importFathom.isPending ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Importing...</>
+                  ) : (
+                    <><Download className="h-4 w-4 mr-2" />Import from Fathom</>
+                  )}
+                </Button>
               </div>
-            )}
+              {importResult && (
+                <div className="mt-4 p-3 rounded-lg bg-zinc-900/50 border border-zinc-700/50 flex items-center gap-4 text-sm">
+                  {importResult.imported > 0 && (
+                    <span className="flex items-center gap-1 text-green-400">
+                      <CheckCircle className="h-4 w-4" />{importResult.imported} imported
+                    </span>
+                  )}
+                  {importResult.skipped > 0 && (
+                    <span className="flex items-center gap-1 text-zinc-400">
+                      <AlertCircle className="h-4 w-4" />{importResult.skipped} already existed
+                    </span>
+                  )}
+                  {importResult.errors > 0 && (
+                    <span className="flex items-center gap-1 text-red-400">
+                      <AlertCircle className="h-4 w-4" />{importResult.errors} errors
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-zinc-800/50 rounded-lg p-5 border border-zinc-700/50">
+              <h3 className="text-white font-medium flex items-center gap-2 mb-3">
+                <Webhook className="h-4 w-4 text-yellow-600" />
+                Automatic Webhook
+              </h3>
+              <p className="text-zinc-400 text-sm mb-4">
+                Register a webhook with Fathom to automatically ingest new meetings as they happen.
+              </p>
+              <div className="flex items-center gap-2 text-sm mb-3">
+                <span className="text-zinc-400">Webhook URL:</span>
+                <code className="bg-zinc-900 px-2 py-1 rounded text-yellow-600 text-xs font-mono">
+                  {window.location.origin}/api/webhook/fathom
+                </code>
+              </div>
+              <Button
+                onClick={handleRegisterWebhook}
+                disabled={registerWebhook.isPending}
+                variant="outline"
+                className="border-yellow-600/30 text-yellow-600 hover:bg-yellow-600/10"
+              >
+                {registerWebhook.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Registering...</>
+                ) : (
+                  <><Webhook className="h-4 w-4 mr-2" />Register Webhook</>
+                )}
+              </Button>
+              {registerWebhook.isSuccess && (
+                <p className="text-sm text-green-400 flex items-center gap-1 mt-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Webhook registered. New meetings will be automatically ingested.
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
