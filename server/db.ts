@@ -167,7 +167,50 @@ export async function searchContacts(searchTerm: string) {
 }
 
 export async function getOrCreateContact(name: string, org?: string, email?: string) {
+  // First try exact match
   let contact = await getContactByName(name);
+  
+  // If no exact match, try fuzzy matching
+  if (!contact) {
+    const allContacts = await getAllContacts();
+    const nameLower = name.toLowerCase().trim();
+    const nameParts = nameLower.split(/\s+/);
+    const firstName = nameParts[0];
+    
+    // Try email match first (most reliable)
+    if (email) {
+      contact = allContacts.find((c: any) => c.email && c.email.toLowerCase() === email.toLowerCase()) || null;
+    }
+    
+    // Try case-insensitive exact match
+    if (!contact) {
+      contact = allContacts.find((c: any) => (c.name || '').toLowerCase().trim() === nameLower) || null;
+    }
+    
+    // Try first name match (e.g., "Jake" matches "Jacob McDonald" or "Jake Ryan")
+    if (!contact && nameParts.length === 1 && firstName.length >= 3) {
+      const matches = allContacts.filter((c: any) => {
+        const cName = (c.name || '').toLowerCase();
+        const cFirst = cName.split(/\s+/)[0];
+        return cFirst === firstName || cFirst.startsWith(firstName) || firstName.startsWith(cFirst);
+      });
+      if (matches.length === 1) contact = matches[0];
+    }
+    
+    // Try partial name match (e.g., "JAKE RYAN" matches "Jacob McDonald" via first name)
+    if (!contact && nameParts.length >= 2) {
+      const matches = allContacts.filter((c: any) => {
+        const cName = (c.name || '').toLowerCase();
+        const cParts = cName.split(/\s+/);
+        // Match if first names are similar
+        return cParts[0] === firstName || 
+               (cParts[0].length >= 3 && firstName.length >= 3 && 
+                (cParts[0].startsWith(firstName.substring(0, 3)) || firstName.startsWith(cParts[0].substring(0, 3))));
+      });
+      if (matches.length === 1) contact = matches[0];
+    }
+  }
+  
   if (!contact) {
     const id = await createContact({ name, organization: org ?? null, email: email ?? null });
     contact = await getContactById(id);

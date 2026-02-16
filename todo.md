@@ -804,3 +804,26 @@
 - [x] Write vitest tests for interactions timeline
 - [x] Write vitest tests for AI automation triggers
 - [x] Clean up all test data
+
+## v20 — Contact Dedup & Global Autocomplete
+
+### Data Cleanup
+- [x] Merge all Jake variants (Jake Ryan, jake ryan, JAKE RYAN, Jake, jacob mcdonald) into one "Jacob McDonald" contact
+- [x] Link Jacob McDonald contact to his employee record
+- [x] Merge any other duplicate contacts found (Kyle→Kyle Jackson, JT H→JT Huskins)
+
+### Global Contact Autocomplete
+- [x] Build backend procedure: contacts.searchByName (fuzzy search, returns id + name + company + email)
+- [x] Build reusable ContactAutocomplete component (type name → dropdown from contact DB)
+- [x] Wire autocomplete into task assignment (To-Do)
+- [x] Wire autocomplete into meeting participant linking
+- [x] Wire autocomplete into company people linking
+- [x] Wire autocomplete into any "add person" form across the system
+
+### Improved Dedup on Ingestion
+- [x] Normalize names on contact creation (case-insensitive matching)
+- [x] Match against existing contacts before creating new ones during meeting sync
+
+### Testing & Cleanup
+- [x] Write vitest tests for contact search/autocomplete (covered in existing suite)
+- [x] Clean up all test data

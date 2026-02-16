@@ -17,6 +17,29 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import { Streamdown } from "streamdown";
+import { ContactAutocomplete } from "@/components/ContactAutocomplete";
+
+function LinkPersonToCompany({ companyId, onLinked }: { companyId: number; onLinked: () => void }) {
+  const [searchName, setSearchName] = useState("");
+  const updateContact = trpc.contacts.update.useMutation({
+    onSuccess: () => { toast.success("Contact linked to company"); setSearchName(""); onLinked(); },
+    onError: () => toast.error("Failed to link contact"),
+  });
+
+  return (
+    <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3">
+      <div className="text-xs text-zinc-500 mb-2 font-medium">Link a contact to this company</div>
+      <ContactAutocomplete
+        value={searchName}
+        onChange={setSearchName}
+        onSelect={(contact) => {
+          updateContact.mutate({ id: contact.id, companyId });
+        }}
+        placeholder="Search contacts to link..."
+      />
+    </div>
+  );
+}
 
 function getInitials(name: string) {
   return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
@@ -279,8 +302,9 @@ export default function CompanyProfile() {
 
       {activeTab === "people" && (
         <div className="space-y-3">
+          <LinkPersonToCompany companyId={profile.id} onLinked={() => utils.companies.getProfile.invalidate({ id: profile.id })} />
           {(!profile.people || profile.people.length === 0) ? (
-            <div className="text-center py-12 text-zinc-600">No people linked to this company yet.</div>
+            <div className="text-center py-12 text-zinc-600">No people linked to this company yet. Use the search above to link contacts.</div>
           ) : (
             profile.people.map((person: any) => (
               <Link key={person.id} href={`/contact/${person.id}`}>

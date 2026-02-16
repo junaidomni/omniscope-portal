@@ -201,6 +201,30 @@ const contactsRouter = router({
     return enriched;
   }),
 
+  searchByName: protectedProcedure
+    .input(z.object({ query: z.string().min(1), limit: z.number().min(1).max(50).default(10) }))
+    .query(async ({ input }) => {
+      const allContacts = await db.getAllContacts();
+      const q = input.query.toLowerCase().trim();
+      const matched = allContacts
+        .filter((c: any) => {
+          const name = (c.name || '').toLowerCase();
+          const email = (c.email || '').toLowerCase();
+          const org = (c.organization || '').toLowerCase();
+          return name.includes(q) || email.includes(q) || org.includes(q);
+        })
+        .slice(0, input.limit)
+        .map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          email: c.email,
+          organization: c.organization,
+          category: c.category,
+          photoUrl: c.photoUrl,
+        }));
+      return matched;
+    }),
+
   getById: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {

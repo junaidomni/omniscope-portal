@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { toast } from "sonner";
+import { ContactAutocomplete } from "@/components/ContactAutocomplete";
 
 // Team members
 const TEAM_MEMBERS = ["Junaid", "Kyle", "Jake", "Sania"];
@@ -533,17 +534,16 @@ function TaskDetailSheet({
             </PropertyRow>
 
             <PropertyRow label="Assignee" icon={<User className="h-3.5 w-3.5" />}>
-              <Select value={task.assignedName || "unassigned"} onValueChange={(v) => onUpdate(task.id, { assignedName: v === "unassigned" ? null : v })}>
-                <SelectTrigger className="h-8 bg-zinc-800 border-zinc-700 text-zinc-300 text-sm w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {TEAM_MEMBERS.map(name => (
-                    <SelectItem key={name} value={name}>{name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="w-48">
+                <ContactAutocomplete
+                  value={task.assignedName || ""}
+                  onChange={(v) => onUpdate(task.id, { assignedName: v || null })}
+                  onSelect={(c) => onUpdate(task.id, { assignedName: c.name })}
+                  placeholder="Assign to..."
+                  allowFreeText
+                  className="h-8 text-sm"
+                />
+              </div>
             </PropertyRow>
 
             <PropertyRow label="Category" icon={<FolderOpen className="h-3.5 w-3.5" />}>
@@ -814,17 +814,13 @@ function NewTaskForm({ categories, onSuccess }: { categories: string[]; onSucces
             <SelectItem value="high">High Priority</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={assignedName} onValueChange={setAssignedName}>
-          <SelectTrigger className="bg-zinc-800 border-zinc-700 text-zinc-300">
-            <SelectValue placeholder="Assign to..." />
-          </SelectTrigger>
-          <SelectContent className="bg-zinc-900 border-zinc-800">
-            <SelectItem value="unassigned">Unassigned</SelectItem>
-            {TEAM_MEMBERS.map(name => (
-              <SelectItem key={name} value={name}>{name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <ContactAutocomplete
+          value={assignedName}
+          onChange={setAssignedName}
+          onSelect={(c) => setAssignedName(c.name)}
+          placeholder="Assign to..."
+          allowFreeText
+        />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Select value={category} onValueChange={setCategory}>
