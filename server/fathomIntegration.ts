@@ -88,18 +88,63 @@ function buildTranscriptText(transcript: FathomTranscriptEntry[]): string {
 }
 
 /**
+ * Try to resolve a name from an email address using the meeting title as context.
+ * E.g., meeting title "Hassan x Jake" + email "haskari189@gmail.com" → "Hassan"
+ */
+function resolveNameFromEmail(email: string, meetingTitle?: string): string {
+  // Extract the local part of the email (before @)
+  const localPart = email.split("@")[0] || email;
+  
+  // Try to match against names in the meeting title
+  if (meetingTitle) {
+    // Split title by common separators: "x", "X", "&", ",", "|", "with", "and"
+    const titleParts = meetingTitle.split(/\s*(?:x|X|&|,|\||with|and|vs)\s*/).map(s => s.trim()).filter(Boolean);
+    
+    for (const part of titleParts) {
+      // Check if the email local part starts with the first few chars of a name in the title
+      const nameLower = part.toLowerCase();
+      const emailLower = localPart.toLowerCase().replace(/[0-9]/g, '');
+      
+      // Match if email prefix contains the name or vice versa (e.g., "haskari" ↔ "Hassan")
+      if (nameLower.startsWith(emailLower.substring(0, 3)) || emailLower.startsWith(nameLower.substring(0, 3))) {
+        return part;
+      }
+    }
+  }
+  
+  // Fallback: clean up the email prefix into a readable name
+  // Remove numbers and special chars, capitalize
+  const cleaned = localPart
+    .replace(/[0-9._-]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
+    .join(' ');
+  
+  return cleaned || localPart;
+}
+
+/**
  * Extract unique participant names from Fathom data
+ * Includes ALL attendees, resolving email-only names from meeting title context
  */
 function extractParticipants(payload: FathomWebhookPayload): string[] {
   const names = new Set<string>();
+  const meetingTitle = payload.title || payload.meeting_title;
 
-  // From calendar invitees
+  // From calendar invitees - include ALL invitees
   if (payload.calendar_invitees) {
     for (const invitee of payload.calendar_invitees) {
-      if (invitee.name && invitee.name !== invitee.email) {
-        names.add(invitee.name);
-      } else if (invitee.matched_speaker_display_name) {
+      if (invitee.matched_speaker_display_name) {
+        // Best: matched to a transcript speaker
         names.add(invitee.matched_speaker_display_name);
+      } else if (invitee.name && invitee.name !== invitee.email) {
+        // Good: has a proper name
+        names.add(invitee.name);
+      } else {
+        // Email-only: resolve name from email + meeting title
+        const resolvedName = resolveNameFromEmail(invitee.email, meetingTitle);
+        names.add(resolvedName);
       }
     }
   }

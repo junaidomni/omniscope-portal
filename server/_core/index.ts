@@ -1,4 +1,9 @@
 import "dotenv/config";
+// Force UTC timezone for consistent timestamp handling across all environments.
+// Without this, mysql2 serializes Date objects using the local timezone (e.g. EST),
+// causing a 5-hour offset when the production server uses a different timezone.
+process.env.TZ = 'UTC';
+
 import express from "express";
 import { createServer } from "http";
 import net from "net";

@@ -525,3 +525,21 @@
 - [x] Auto-trigger Fathom sync on Dashboard and Meetings page load
 - [x] Import today's Hassan x Jake meeting immediately (visible in Recent Intelligence)
 - [x] Ensure new meetings auto-ingest without manual intervention
+
+## Bug Fixes v12
+
+### Attendee Extraction Fix
+- [x] Include ALL attendees from Fathom data in meeting reports (not just named participants)
+- [x] Resolve email-only attendees to names (e.g., haskari189@gmail.com → Hassan via meeting title context)
+- [x] Use Fathom invitees list + transcript speaker detection to build complete participant list
+- [x] Update intelligence reports to show all people on the call (Hassan x Jake now shows Jake Ryan, Hassan Askari, Junaid Qureshi)
+
+### Report Download Filename Fix
+- [x] Rename downloaded PDF to "OmniScope Intelligence Report - [Meeting Name] - [Date].pdf"
+- [x] Apply consistent naming across all report download endpoints
+
+### Calendar Event Time Display Fix
+- [x] Fix calendar events showing UTC time instead of user's local timezone (root cause: server TZ=EST causing mysql2 to store wrong UTC values)
+- [x] Meeting "Hassan x Jake" now correctly shows 11:00 AM EST (was showing 6:00 AM)
+- [x] Set process.env.TZ='UTC' in server entry point for consistent timestamp handling
+- [x] Corrected existing database timestamps by adding 5-hour offset to fix historical data

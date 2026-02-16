@@ -1,0 +1,19 @@
+{
+  "query": "SELECT id, meetingTitle, meetingDate, primaryLead, participants, organizations, sourceId FROM meetings WHERE meetingTitle LIKE '%Hassan%' OR meetingTitle LIKE '%Jake%' ORDER BY id DESC LIMIT 5",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, meetingTitle, meetingDate, primaryLead, participants, organizations, sourceId FROM meetings WHERE meetingTitle LIKE '%Hassan%' OR meetingTitle LIKE '%Jake%' ORDER BY id DESC LIMIT 5",
+  "rows": [
+    {
+      "id": "90001",
+      "meetingTitle": "Hassan x Jake ",
+      "meetingDate": "2026-02-16 16:01:38",
+      "primaryLead": "Junaid Qureshi",
+      "participants": "[\"Jake Ryan\",\"Junaid Qureshi\"]",
+      "organizations": "[]",
+      "sourceId": "fathom-122682330"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tmeetingTitle\tmeetingDate\tprimaryLead\tparticipants\torganizations\tsourceId\n90001\tHassan x Jake \t2026-02-16 16:01:38\tJunaid Qureshi\t[\"Jake Ryan\",\"Junaid Qureshi\"]\t[]\tfathom-122682330\n",
+  "stderr": "",
+  "execution_time_ms": 413
+}

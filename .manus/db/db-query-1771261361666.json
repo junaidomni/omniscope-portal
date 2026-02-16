@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE calendar_events SET startTime = DATE_SUB(startTime, INTERVAL 5 HOUR), endTime = DATE_SUB(endTime, INTERVAL 5 HOUR); UPDATE meetings SET meetingDate = DATE_SUB(meetingDate, INTERVAL 5 HOUR);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute UPDATE calendar_events SET startTime = DATE_SUB(startTime, INTERVAL 5 HOUR), endTime = DATE_SUB(endTime, INTERVAL 5 HOUR); UPDATE meetings SET meetingDate = DATE_SUB(meetingDate, INTERVAL 5 HOUR);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 464
+}

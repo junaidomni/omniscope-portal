@@ -2,6 +2,7 @@ import { Router } from "express";
 import { validateIntelligenceData, processIntelligenceData } from "./ingestion";
 import { isFathomWebhookPayload, processFathomWebhook } from "./fathomIntegration";
 import { generateMeetingPDF, generateDailyBriefPDF } from "./pdfGenerator";
+import * as db from "./db";
 
 export const webhookRouter = Router();
 
@@ -18,8 +19,16 @@ webhookRouter.get("/meeting/:id/pdf", async (req, res) => {
 
     const pdfBuffer = await generateMeetingPDF(meetingId);
     
+    // Build descriptive filename: "OmniScope Intelligence Report - [Meeting Name] - [Date].pdf"
+    const meeting = await db.getMeetingById(meetingId);
+    const meetingName = (meeting?.meetingTitle || "Meeting").trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, ' ').trim();
+    const meetingDate = meeting?.meetingDate 
+      ? new Date(meeting.meetingDate).toISOString().split('T')[0] 
+      : new Date().toISOString().split('T')[0];
+    const filename = `OmniScope Intelligence Report - ${meetingName} - ${meetingDate}.pdf`;
+    
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="omniscope-report-${meetingId}.pdf"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.setHeader("Content-Length", pdfBuffer.length);
     return res.send(pdfBuffer);
   } catch (error) {

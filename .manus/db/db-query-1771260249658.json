@@ -1,0 +1,20 @@
+{
+  "query": "SELECT id, meetingTitle, meetingDate, primaryLead, participants, organizations, sourceId, executiveSummary FROM meetings WHERE meetingTitle LIKE '%Hassan%' LIMIT 1",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, meetingTitle, meetingDate, primaryLead, participants, organizations, sourceId, executiveSummary FROM meetings WHERE meetingTitle LIKE '%Hassan%' LIMIT 1",
+  "rows": [
+    {
+      "id": "90001",
+      "meetingTitle": "Hassan x Jake ",
+      "meetingDate": "2026-02-16 16:01:38",
+      "primaryLead": "Junaid Qureshi",
+      "participants": "[\"Jake Ryan\",\"Junaid Qureshi\"]",
+      "organizations": "[]",
+      "sourceId": "fathom-122682330",
+      "executiveSummary": "This meeting explored a potential synergy between Hassan's AI platform, designed for customer crisis prevention and feedback analysis, and Jake's business development expertise. Hassan's platform, currently operating in Pakistan, seeks international expansion due to slow deal cycles and insufficient deal values to cover AI infrastructure costs. Jake's experience is seen as a solution to this sales bottleneck, with the platform's core logic adaptable to broader use cases beyond customer complaints."
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tmeetingTitle\tmeetingDate\tprimaryLead\tparticipants\torganizations\tsourceId\texecutiveSummary\n90001\tHassan x Jake \t2026-02-16 16:01:38\tJunaid Qureshi\t[\"Jake Ryan\",\"Junaid Qureshi\"]\t[]\tfathom-122682330\tThis meeting explored a potential synergy between Hassan's AI platform, designed for customer crisis prevention and feedback analysis, and Jake's business development expertise. Hassan's platform, currently operating in Pakistan, seeks international expansion due to slow deal cycles and insufficient deal values to cover AI infrastructure costs. Jake's experience is seen as a solution to this sales bottleneck, with the platform's core logic adaptable to broader use cases beyond customer complaints.\n",
+  "stderr": "",
+  "execution_time_ms": 368
+}
