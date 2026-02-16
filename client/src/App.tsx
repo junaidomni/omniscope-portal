@@ -14,6 +14,8 @@ import CalendarView from "./pages/CalendarView";
 import AdminPanel from "./pages/AdminPanel";
 import UserManagement from "./pages/UserManagement";
 import AccessDenied from "./pages/AccessDenied";
+import DailyReport from "./pages/DailyReport";
+import WeeklyReport from "./pages/WeeklyReport";
 
 function Router() {
   return (
@@ -27,6 +29,8 @@ function Router() {
           <Route path="/calendar" component={CalendarView} />
           <Route path="/admin" component={AdminPanel} />
           <Route path="/admin/users" component={UserManagement} />
+          <Route path="/reports/daily" component={DailyReport} />
+          <Route path="/reports/weekly" component={WeeklyReport} />
           <Route path="/access-denied" component={AccessDenied} />
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}

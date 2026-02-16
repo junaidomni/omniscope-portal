@@ -437,3 +437,23 @@
 - [x] Per-user stats when filtered by team member
 - [x] Animated progress bar that fills as tasks complete
 - [x] Personal productivity metrics
+
+## Portal Improvements v6
+
+### Logo Fix
+- [x] Remove black background from sidebar logo (transparent background)
+
+### Kanban Drag-and-Drop Fix
+- [x] Ensure drag-and-drop works between all columns in both directions
+- [x] Visual feedback when dragging over columns
+
+### Full-Page Reports
+- [x] Convert Daily Report from popup to full dedicated page
+- [x] Convert Weekly Report from popup to full dedicated page
+- [x] Add back button navigation to return to Meetings
+- [x] Add Daily Report and Weekly Report boxes to Dashboard
+
+### Customizable Dashboard
+- [x] Make dashboard boxes draggable/rearrangeable
+- [x] Persist user's preferred layout
+- [x] Smooth drag-and-drop reordering of dashboard widgets

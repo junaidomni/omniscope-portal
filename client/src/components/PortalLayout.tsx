@@ -91,7 +91,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
         {/* Logo */}
         <div className="p-5 border-b border-zinc-800 flex flex-col items-center justify-center">
           <img 
-            src="https://files.manuscdn.com/user_upload_by_module/session_file/310519663324311854/aUIAZnyLEIqVCmUk.png" 
+            src="https://files.manuscdn.com/user_upload_by_module/session_file/310519663324311854/ydFHlgxGadtyijbJ.png" 
             alt="OmniScope Intelligence Portal" 
             className="w-full object-contain" 
             style={{ maxWidth: '160px', height: 'auto' }}
