@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, like, lte, or, sql, inArray, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact } from "../drizzle/schema";
+import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -644,4 +644,186 @@ export async function getMeetingsByCategory(category: string) {
     .from(meetings)
     .where(inArray(meetings.id, meetingIds))
     .orderBy(desc(meetings.meetingDate));
+}
+
+
+// ============================================================================
+// CONTACT NOTES OPERATIONS
+// ============================================================================
+
+export async function createContactNote(note: InsertContactNote) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(contactNotes).values(note);
+  return Number(result[0].insertId);
+}
+
+export async function getNotesForContact(contactId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(contactNotes)
+    .where(eq(contactNotes.contactId, contactId))
+    .orderBy(desc(contactNotes.createdAt));
+}
+
+export async function deleteContactNote(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(contactNotes).where(eq(contactNotes.id, id));
+}
+
+// ============================================================================
+// EMPLOYEE OPERATIONS
+// ============================================================================
+
+export async function createEmployee(employee: InsertEmployee) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(employees).values(employee);
+  return Number(result[0].insertId);
+}
+
+export async function getEmployeeById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(employees).where(eq(employees.id, id)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getAllEmployees(filters?: { status?: string; department?: string }) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [];
+  if (filters?.status) conditions.push(eq(employees.status, filters.status as any));
+  if (filters?.department) conditions.push(eq(employees.department, filters.department));
+  if (conditions.length > 0) {
+    return await db.select().from(employees).where(and(...conditions)).orderBy(asc(employees.firstName));
+  }
+  return await db.select().from(employees).orderBy(asc(employees.firstName));
+}
+
+export async function updateEmployee(id: number, updates: Partial<InsertEmployee>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(employees).set(updates).where(eq(employees.id, id));
+}
+
+export async function deleteEmployee(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // Delete related records first
+  await db.delete(payrollRecords).where(eq(payrollRecords.employeeId, id));
+  await db.delete(hrDocuments).where(eq(hrDocuments.employeeId, id));
+  await db.delete(employees).where(eq(employees.id, id));
+}
+
+export async function searchEmployees(searchTerm: string) {
+  const db = await getDb();
+  if (!db) return [];
+  const pattern = `%${searchTerm}%`;
+  return await db.select().from(employees).where(
+    or(
+      like(employees.firstName, pattern),
+      like(employees.lastName, pattern),
+      like(employees.email, pattern),
+      like(employees.jobTitle, pattern),
+      like(employees.department, pattern),
+    )
+  ).orderBy(asc(employees.firstName));
+}
+
+export async function getEmployeeDepartments() {
+  const db = await getDb();
+  if (!db) return [];
+  const result = await db
+    .select({ department: employees.department, count: sql<number>`count(*)`.as('count') })
+    .from(employees)
+    .where(sql`${employees.department} IS NOT NULL AND ${employees.department} != ''`)
+    .groupBy(employees.department)
+    .orderBy(desc(sql`count`));
+  return result;
+}
+
+// ============================================================================
+// PAYROLL OPERATIONS
+// ============================================================================
+
+export async function createPayrollRecord(record: InsertPayrollRecord) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(payrollRecords).values(record);
+  return Number(result[0].insertId);
+}
+
+export async function getPayrollRecordById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(payrollRecords).where(eq(payrollRecords.id, id)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function getPayrollForEmployee(employeeId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(payrollRecords)
+    .where(eq(payrollRecords.employeeId, employeeId))
+    .orderBy(desc(payrollRecords.createdAt));
+}
+
+export async function getAllPayrollRecords(filters?: { status?: string; employeeId?: number }) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [];
+  if (filters?.status) conditions.push(eq(payrollRecords.status, filters.status as any));
+  if (filters?.employeeId) conditions.push(eq(payrollRecords.employeeId, filters.employeeId));
+  if (conditions.length > 0) {
+    return await db.select().from(payrollRecords).where(and(...conditions)).orderBy(desc(payrollRecords.createdAt));
+  }
+  return await db.select().from(payrollRecords).orderBy(desc(payrollRecords.createdAt));
+}
+
+export async function updatePayrollRecord(id: number, updates: Partial<InsertPayrollRecord>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(payrollRecords).set(updates).where(eq(payrollRecords.id, id));
+}
+
+export async function deletePayrollRecord(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(payrollRecords).where(eq(payrollRecords.id, id));
+}
+
+// ============================================================================
+// HR DOCUMENT OPERATIONS
+// ============================================================================
+
+export async function createHrDocument(doc: InsertHrDocument) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(hrDocuments).values(doc);
+  return Number(result[0].insertId);
+}
+
+export async function getDocumentsForEmployee(employeeId: number, category?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [eq(hrDocuments.employeeId, employeeId)];
+  if (category) conditions.push(eq(hrDocuments.category, category as any));
+  return await db.select().from(hrDocuments)
+    .where(and(...conditions))
+    .orderBy(desc(hrDocuments.createdAt));
+}
+
+export async function deleteHrDocument(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(hrDocuments).where(eq(hrDocuments.id, id));
+}
+
+export async function getHrDocumentById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(hrDocuments).where(eq(hrDocuments.id, id)).limit(1);
+  return result.length > 0 ? result[0] : null;
 }

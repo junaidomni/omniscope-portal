@@ -19,6 +19,9 @@ import WeeklyReport from "./pages/WeeklyReport";
 import ContactProfile from "./pages/ContactProfile";
 import Contacts from "./pages/Contacts";
 import Onboarding from "./pages/Onboarding";
+import HRHub from "./pages/HRHub";
+import EmployeeProfile from "./pages/EmployeeProfile";
+import PayrollHub from "./pages/PayrollHub";
 
 function Router() {
   return (
@@ -31,6 +34,9 @@ function Router() {
         <Route path="/contact/:id" component={ContactProfile} />
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/tasks" component={ToDo} />
+        <Route path="/hr" component={HRHub} />
+        <Route path="/hr/employee/:id" component={EmployeeProfile} />
+        <Route path="/hr/payroll" component={PayrollHub} />
           <Route path="/ask" component={AskOmniScope} />
           <Route path="/calendar" component={CalendarView} />
           <Route path="/admin" component={AdminPanel} />

@@ -1085,7 +1085,7 @@ export default function ToDo() {
             </div>
           ) : (
             <Button size="sm" variant="outline" onClick={() => setSelectMode(true)} className="border-zinc-700 text-zinc-400 hover:bg-zinc-800 text-xs">
-              <Checkbox className="h-3 w-3 mr-1.5 border-zinc-600" />
+              <CheckSquare className="h-3 w-3 mr-1.5" />
               Select
             </Button>
           )}

@@ -7,11 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   ArrowLeft, User, Calendar, CheckSquare, Building2, Mail, Phone,
   Clock, FileText, AlertTriangle, Briefcase, Edit3, Save, X,
-  Globe, Linkedin, MapPin, Cake, Sparkles, Loader2, Trash2
+  Globe, Linkedin, MapPin, Cake, Sparkles, Loader2, Trash2,
+  Star, MessageCircle, Send, Plus
 } from "lucide-react";
 import { Link, useParams, useLocation } from "wouter";
 import { useState } from "react";
@@ -19,6 +21,14 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
+
+const CATEGORY_COLORS: Record<string, string> = {
+  client: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  prospect: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  partner: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  vendor: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+  other: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
+};
 
 function formatDate(d: string | Date) {
   return new Date(d).toLocaleDateString("en-US", {
@@ -41,10 +51,16 @@ export default function ContactProfile() {
   const [, navigate] = useLocation();
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<any>({});
+  const [newNote, setNewNote] = useState("");
   const utils = trpc.useUtils();
 
   const { data: profile, isLoading } = trpc.contacts.getProfile.useQuery(
     { id: Number(id) },
+    { enabled: isAuthenticated && !!id }
+  );
+
+  const { data: notes = [] } = trpc.contacts.getNotes.useQuery(
+    { contactId: Number(id) },
     { enabled: isAuthenticated && !!id }
   );
 
@@ -73,6 +89,29 @@ export default function ContactProfile() {
     onError: () => toast.error("Failed to generate AI summary"),
   });
 
+  const toggleStarMutation = trpc.contacts.toggleStar.useMutation({
+    onSuccess: () => {
+      utils.contacts.getProfile.invalidate({ id: Number(id) });
+      utils.contacts.list.invalidate();
+    },
+  });
+
+  const addNoteMutation = trpc.contacts.addNote.useMutation({
+    onSuccess: () => {
+      toast.success("Note added");
+      utils.contacts.getNotes.invalidate({ contactId: Number(id) });
+      setNewNote("");
+    },
+    onError: () => toast.error("Failed to add note"),
+  });
+
+  const deleteNoteMutation = trpc.contacts.deleteNote.useMutation({
+    onSuccess: () => {
+      toast.success("Note deleted");
+      utils.contacts.getNotes.invalidate({ contactId: Number(id) });
+    },
+  });
+
   const startEditing = () => {
     if (!profile) return;
     setEditData({
@@ -86,6 +125,7 @@ export default function ContactProfile() {
       website: profile.website || "",
       linkedin: profile.linkedin || "",
       notes: profile.notes || "",
+      category: profile.category || "other",
     });
     setEditing(true);
   };
@@ -93,7 +133,11 @@ export default function ContactProfile() {
   const handleSave = () => {
     const updates: any = { id: Number(id) };
     for (const [key, value] of Object.entries(editData)) {
-      updates[key] = (value as string).trim() || null;
+      if (key === "category") {
+        updates[key] = value;
+      } else {
+        updates[key] = (value as string).trim() || null;
+      }
     }
     updateMutation.mutate(updates);
   };
@@ -147,6 +191,15 @@ export default function ContactProfile() {
           </Button>
         </Link>
         <div className="flex items-center gap-2">
+          {/* Star toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => toggleStarMutation.mutate({ id: Number(id) })}
+            className="text-zinc-400 hover:text-yellow-500"
+          >
+            <Star className={`h-4 w-4 ${profile.starred ? "text-yellow-500 fill-yellow-500" : ""}`} />
+          </Button>
           {!editing ? (
             <Button variant="outline" size="sm" onClick={startEditing} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
               <Edit3 className="h-3.5 w-3.5 mr-1.5" />
@@ -196,15 +249,18 @@ export default function ContactProfile() {
         <div className="h-1.5 bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600" />
         <CardContent className="p-6">
           <div className="flex items-start gap-5">
-            <div className="h-16 w-16 rounded-xl bg-yellow-600/20 flex items-center justify-center flex-shrink-0">
+            <div className="h-16 w-16 rounded-xl bg-yellow-600/20 flex items-center justify-center flex-shrink-0 relative">
               <span className="text-2xl font-bold text-yellow-500">
                 {profile.name?.charAt(0)?.toUpperCase()}
               </span>
+              {profile.starred && (
+                <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 absolute -top-1 -right-1" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               {editing ? (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <Label className="text-zinc-500 text-xs">Full Name</Label>
                       <Input value={editData.name} onChange={(e) => setEditData((p: any) => ({ ...p, name: e.target.value }))}
@@ -214,6 +270,21 @@ export default function ContactProfile() {
                       <Label className="text-zinc-500 text-xs">Job Title</Label>
                       <Input value={editData.title} onChange={(e) => setEditData((p: any) => ({ ...p, title: e.target.value }))}
                         className="bg-zinc-800 border-zinc-700 text-white mt-1" placeholder="e.g. Managing Director" />
+                    </div>
+                    <div>
+                      <Label className="text-zinc-500 text-xs">Category</Label>
+                      <Select value={editData.category || "other"} onValueChange={(v) => setEditData((p: any) => ({ ...p, category: v }))}>
+                        <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-zinc-900 border-zinc-700">
+                          <SelectItem value="client">Client</SelectItem>
+                          <SelectItem value="prospect">Prospect</SelectItem>
+                          <SelectItem value="partner">Partner</SelectItem>
+                          <SelectItem value="vendor">Vendor</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -237,7 +308,7 @@ export default function ContactProfile() {
                     <div>
                       <Label className="text-zinc-500 text-xs">Date of Birth</Label>
                       <Input value={editData.dateOfBirth} onChange={(e) => setEditData((p: any) => ({ ...p, dateOfBirth: e.target.value }))}
-                        className="bg-zinc-800 border-zinc-700 text-white mt-1" placeholder="MM/DD/YYYY" />
+                        className="bg-zinc-800 border-zinc-700 text-white mt-1" placeholder="YYYY-MM-DD" />
                     </div>
                   </div>
                   <div>
@@ -265,7 +336,14 @@ export default function ContactProfile() {
                 </div>
               ) : (
                 <>
-                  <h1 className="text-2xl font-bold text-white mb-1">{profile.name}</h1>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h1 className="text-2xl font-bold text-white">{profile.name}</h1>
+                    {profile.category && profile.category !== "other" && (
+                      <Badge variant="outline" className={CATEGORY_COLORS[profile.category] || ""}>
+                        {profile.category}
+                      </Badge>
+                    )}
+                  </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-400">
                     {profile.title && (
                       <span className="flex items-center gap-1.5">
@@ -292,7 +370,6 @@ export default function ContactProfile() {
                       </a>
                     )}
                   </div>
-                  {/* Additional info row */}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-500 mt-1">
                     {profile.dateOfBirth && (
                       <span className="flex items-center gap-1.5">
@@ -373,8 +450,8 @@ export default function ContactProfile() {
         </CardContent>
       </Card>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Three Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Meeting History */}
         <Card className="bg-zinc-900/50 border-zinc-800">
           <CardHeader className="pb-3">
@@ -447,9 +524,6 @@ export default function ContactProfile() {
                         <p className={`text-sm font-medium ${isCompleted ? "text-zinc-500 line-through" : "text-white"}`}>
                           {task.title}
                         </p>
-                        {task.description && (
-                          <p className="text-xs text-zinc-600 line-clamp-2 mt-0.5">{task.description}</p>
-                        )}
                         <div className="flex items-center gap-3 mt-1.5">
                           <Badge variant="outline" className={`text-xs ${
                             task.priority === "high" ? "border-red-500/30 text-red-400" :
@@ -472,15 +546,80 @@ export default function ContactProfile() {
             )}
           </CardContent>
         </Card>
+
+        {/* Contact Notes Timeline */}
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-yellow-600" />
+              Notes
+              <Badge variant="outline" className="border-zinc-700 text-zinc-400 ml-auto">
+                {notes.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Add Note */}
+            <div className="flex gap-2 mb-4">
+              <Input
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                placeholder="Add a note..."
+                className="bg-zinc-800 border-zinc-700 text-white text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newNote.trim()) {
+                    addNoteMutation.mutate({ contactId: Number(id), content: newNote.trim() });
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (newNote.trim()) addNoteMutation.mutate({ contactId: Number(id), content: newNote.trim() });
+                }}
+                disabled={!newNote.trim() || addNoteMutation.isPending}
+                className="bg-yellow-600 hover:bg-yellow-700 text-black"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Notes Timeline */}
+            <div className="space-y-3 max-h-[300px] overflow-y-auto">
+              {notes.length === 0 ? (
+                <p className="text-sm text-zinc-500 py-4 text-center">No notes yet</p>
+              ) : (
+                notes.map((note: any) => (
+                  <div key={note.id} className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-800 group">
+                    <p className="text-sm text-zinc-300 whitespace-pre-wrap">{note.content}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-xs text-zinc-600">
+                        {note.createdByName} · {formatRelative(note.createdAt)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteNoteMutation.mutate({ id: note.id })}
+                        className="text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Notes */}
+      {/* Private Notes */}
       {profile.notes && !editing && (
         <Card className="bg-zinc-900/50 border-zinc-800 mt-6">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold text-white flex items-center gap-2">
               <FileText className="h-4 w-4 text-yellow-600" />
-              Notes
+              Private Notes
             </CardTitle>
           </CardHeader>
           <CardContent>

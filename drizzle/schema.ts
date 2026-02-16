@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, index } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, index, bigint, decimal } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
 /**
@@ -35,15 +35,144 @@ export const contacts = mysqlTable("contacts", {
   website: varchar("website", { length: 500 }),
   linkedin: varchar("linkedin", { length: 500 }),
   aiSummary: text("aiSummary"), // AI-generated relationship summary
+  // Enhanced CRM fields
+  category: mysqlEnum("category", ["client", "prospect", "partner", "vendor", "other"]).default("other"),
+  starred: boolean("starred").default(false).notNull(),
+  rating: int("rating"), // 1-5 relationship rating
+  photoUrl: varchar("photoUrl", { length: 1000 }),
+  lastContactedAt: timestamp("lastContactedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
   nameIdx: index("contact_name_idx").on(table.name),
   orgIdx: index("contact_org_idx").on(table.organization),
+  categoryIdx: index("contact_category_idx").on(table.category),
+  starredIdx: index("contact_starred_idx").on(table.starred),
 }));
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = typeof contacts.$inferInsert;
+
+/**
+ * Contact notes - timeline of manual notes for a contact
+ */
+export const contactNotes = mysqlTable("contact_notes", {
+  id: int("id").autoincrement().primaryKey(),
+  contactId: int("contactId").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdBy: int("createdBy").references(() => users.id),
+  createdByName: varchar("createdByName", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  contactIdx: index("cn_contact_idx").on(table.contactId),
+}));
+
+export type ContactNote = typeof contactNotes.$inferSelect;
+export type InsertContactNote = typeof contactNotes.$inferInsert;
+
+/**
+ * Employees table - HR employee database
+ */
+export const employees = mysqlTable("employees", {
+  id: int("id").autoincrement().primaryKey(),
+  // Personal Information
+  firstName: varchar("firstName", { length: 255 }).notNull(),
+  lastName: varchar("lastName", { length: 255 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
+  dateOfBirth: varchar("dateOfBirth", { length: 20 }),
+  address: text("address"),
+  city: varchar("city", { length: 255 }),
+  state: varchar("state", { length: 255 }),
+  country: varchar("country", { length: 255 }),
+  photoUrl: varchar("photoUrl", { length: 1000 }),
+  // Emergency Contact
+  emergencyContactName: varchar("emergencyContactName", { length: 255 }),
+  emergencyContactPhone: varchar("emergencyContactPhone", { length: 50 }),
+  emergencyContactRelation: varchar("emergencyContactRelation", { length: 100 }),
+  // Employment Details
+  hireDate: varchar("hireDate", { length: 20 }).notNull(),
+  department: varchar("department", { length: 255 }),
+  jobTitle: varchar("jobTitle", { length: 255 }).notNull(),
+  employmentType: mysqlEnum("employmentType", ["full_time", "part_time", "contractor", "intern"]).default("full_time").notNull(),
+  status: mysqlEnum("status", ["active", "inactive", "terminated", "on_leave"]).default("active").notNull(),
+  // Compensation
+  salary: varchar("salary", { length: 50 }),
+  payFrequency: mysqlEnum("payFrequency", ["weekly", "biweekly", "monthly", "per_project"]).default("monthly"),
+  currency: varchar("currency", { length: 10 }).default("USD"),
+  // Linked contact (optional - links employee to their contact record for meeting tracking)
+  contactId: int("contactId").references(() => contacts.id, { onDelete: "set null" }),
+  // Notes
+  notes: text("notes"),
+  // Timestamps
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  emailIdx: index("emp_email_idx").on(table.email),
+  statusIdx: index("emp_status_idx").on(table.status),
+  deptIdx: index("emp_dept_idx").on(table.department),
+}));
+
+export type Employee = typeof employees.$inferSelect;
+export type InsertEmployee = typeof employees.$inferInsert;
+
+/**
+ * Payroll records - tracks all payments to employees
+ */
+export const payrollRecords = mysqlTable("payroll_records", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employeeId").notNull().references(() => employees.id, { onDelete: "cascade" }),
+  // Pay period
+  payPeriodStart: varchar("payPeriodStart", { length: 20 }).notNull(),
+  payPeriodEnd: varchar("payPeriodEnd", { length: 20 }).notNull(),
+  // Payment details
+  amount: varchar("amount", { length: 50 }).notNull(),
+  currency: varchar("currency", { length: 10 }).default("USD").notNull(),
+  paymentMethod: mysqlEnum("paymentMethod", ["bank_transfer", "check", "crypto", "cash", "wire", "other"]).default("bank_transfer").notNull(),
+  paymentDate: varchar("paymentDate", { length: 20 }),
+  status: mysqlEnum("payrollStatus", ["pending", "paid", "overdue", "cancelled"]).default("pending").notNull(),
+  // Documentation
+  notes: text("notes"),
+  receiptUrl: varchar("receiptUrl", { length: 1000 }),
+  receiptKey: varchar("receiptKey", { length: 500 }),
+  invoiceUrl: varchar("invoiceUrl", { length: 1000 }),
+  invoiceKey: varchar("invoiceKey", { length: 500 }),
+  // Timestamps
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdBy: int("createdBy").references(() => users.id),
+}, (table) => ({
+  employeeIdx: index("pr_employee_idx").on(table.employeeId),
+  statusIdx: index("pr_status_idx").on(table.status),
+}));
+
+export type PayrollRecord = typeof payrollRecords.$inferSelect;
+export type InsertPayrollRecord = typeof payrollRecords.$inferInsert;
+
+/**
+ * HR Documents - employee documents (contracts, IDs, tax forms, etc.)
+ */
+export const hrDocuments = mysqlTable("hr_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employeeId").notNull().references(() => employees.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 500 }).notNull(),
+  category: mysqlEnum("docCategory", ["contract", "id_document", "tax_form", "certification", "onboarding", "performance", "payslip", "invoice", "receipt", "other"]).default("other").notNull(),
+  fileUrl: varchar("fileUrl", { length: 1000 }).notNull(),
+  fileKey: varchar("fileKey", { length: 500 }).notNull(),
+  fileName: varchar("fileName", { length: 500 }),
+  mimeType: varchar("mimeType", { length: 100 }),
+  fileSize: int("fileSize"), // bytes
+  notes: text("notes"),
+  uploadedBy: int("uploadedBy").references(() => users.id),
+  uploadedByName: varchar("uploadedByName", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  employeeIdx: index("hd_employee_idx").on(table.employeeId),
+  categoryIdx: index("hd_category_idx").on(table.category),
+}));
+
+export type HrDocument = typeof hrDocuments.$inferSelect;
+export type InsertHrDocument = typeof hrDocuments.$inferInsert;
 
 /**
  * Meetings table - stores all call intelligence reports
@@ -278,6 +407,41 @@ export const meetingsRelations = relations(meetings, ({ many, one }) => ({
 
 export const contactsRelations = relations(contacts, ({ many }) => ({
   meetings: many(meetingContacts),
+  notes: many(contactNotes),
+}));
+
+export const contactNotesRelations = relations(contactNotes, ({ one }) => ({
+  contact: one(contacts, {
+    fields: [contactNotes.contactId],
+    references: [contacts.id],
+  }),
+  createdByUser: one(users, {
+    fields: [contactNotes.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const employeesRelations = relations(employees, ({ many, one }) => ({
+  payrollRecords: many(payrollRecords),
+  documents: many(hrDocuments),
+  contact: one(contacts, {
+    fields: [employees.contactId],
+    references: [contacts.id],
+  }),
+}));
+
+export const payrollRecordsRelations = relations(payrollRecords, ({ one }) => ({
+  employee: one(employees, {
+    fields: [payrollRecords.employeeId],
+    references: [employees.id],
+  }),
+}));
+
+export const hrDocumentsRelations = relations(hrDocuments, ({ one }) => ({
+  employee: one(employees, {
+    fields: [hrDocuments.employeeId],
+    references: [employees.id],
+  }),
 }));
 
 export const meetingContactsRelations = relations(meetingContacts, ({ one }) => ({

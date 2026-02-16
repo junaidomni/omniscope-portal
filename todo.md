@@ -645,3 +645,55 @@
 - [x] Removed test tasks (Test task with/without notes)
 - [x] Removed test meetings (Test Intelligence, duplicate-test)
 - [x] All 152 tests passing (7 new contact/task tests)
+
+## v16 — HR Hub & Enhanced CRM
+
+### Database Schema
+- [x] Create employees table (name, email, phone, address, DOB, photo, emergency contact, hire date, department, job title, employment type, salary, pay frequency, status)
+- [x] Create payroll_records table (employee, pay period, amount, currency, payment method, payment date, status, notes, document URL)
+- [x] Create hr_documents table (employee, title, category, file URL, uploaded by)
+- [x] Create contact_notes table (contact, content, created by)
+- [x] Enhance contacts table: add company, title, category, starred, rating, notes, tags, lastContactedAt
+- [x] Push all schema migrations
+
+### HR Hub Backend
+- [x] Build employee CRUD procedures (list, create, update, get profile)
+- [x] Build payroll record CRUD procedures (list by employee, create, update, delete)
+- [x] Build HR document upload/list/delete procedures
+- [x] Build employee meeting history procedure (link employees to contacts/meetings)
+
+### HR Hub Frontend
+- [x] Build HR Hub main page with employee directory (grid/list view with photos)
+- [x] Build Employee Profile page (personal info, employment details, documents, payroll, meetings)
+- [x] Build Payroll section within employee profile (payment history, add payment, upload receipts)
+- [x] Build Document management section (upload, categorize, view documents)
+- [x] Add employee onboarding checklist section
+
+### Enhanced Client Contacts
+- [x] Rebuild Contacts page as "Client Contacts" with starred/favorites section
+- [x] Add client categories (client, prospect, partner, vendor)
+- [x] Add star/unstar functionality with dedicated "Trusted Clients" section
+- [x] Show full meeting history on contact profile
+- [x] Add contact notes timeline
+- [x] AI duplicate detection when creating/importing contacts
+
+### AI Intelligence Layer
+- [x] AI duplicate detection on contact creation (fuzzy name + email matching)
+- [x] Follow-up reminders in daily report ("Haven't spoken to X in 30 days")
+- [x] Birthday reminders in daily report
+- [x] Incomplete task reminders in daily report
+- [x] Relationship health indicators on contact cards
+- [x] Smart daily briefing with AI-generated action items
+
+### Navigation & Layout
+- [x] Rename sidebar: "HR / Contacts" hub with sub-navigation
+- [x] Add HR Hub and Client Contacts as sub-sections
+- [x] Update sidebar navigation
+
+### Testing
+- [x] Write vitest tests for employee CRUD
+- [x] Write vitest tests for payroll procedures
+- [x] Write vitest tests for document management
+- [x] Write vitest tests for AI duplicate detection
+- [x] Write vitest tests for enhanced contacts
+- [x] Clean up test data

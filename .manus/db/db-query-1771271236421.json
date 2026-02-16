@@ -1,0 +1,26 @@
+{
+  "query": "SELECT 'contacts' as tbl, COUNT(*) as cnt FROM contacts WHERE name LIKE '%Test%' OR name LIKE '%Vitest%' UNION ALL SELECT 'tasks', COUNT(*) FROM tasks WHERE title LIKE '%Vitest%' OR title LIKE '%Bulk Delete%' UNION ALL SELECT 'payroll', COUNT(*) FROM payroll_records UNION ALL SELECT 'employees', COUNT(*) FROM employees;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT 'contacts' as tbl, COUNT(*) as cnt FROM contacts WHERE name LIKE '%Test%' OR name LIKE '%Vitest%' UNION ALL SELECT 'tasks', COUNT(*) FROM tasks WHERE title LIKE '%Vitest%' OR title LIKE '%Bulk Delete%' UNION ALL SELECT 'payroll', COUNT(*) FROM payroll_records UNION ALL SELECT 'employees', COUNT(*) FROM employees;",
+  "rows": [
+    {
+      "tbl": "contacts",
+      "cnt": "2"
+    },
+    {
+      "tbl": "employees",
+      "cnt": "0"
+    },
+    {
+      "tbl": "payroll",
+      "cnt": "0"
+    },
+    {
+      "tbl": "tasks",
+      "cnt": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "tbl\tcnt\ncontacts\t2\nemployees\t0\npayroll\t0\ntasks\t0\n",
+  "stderr": "",
+  "execution_time_ms": 355
+}

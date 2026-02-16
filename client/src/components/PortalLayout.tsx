@@ -12,7 +12,8 @@ import {
   Loader2,
   Shield,
   Settings,
-  Users
+  Users,
+  Building2
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -83,6 +84,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
     { path: "/calendar", icon: Calendar, label: "Calendar" },
     { path: "/tasks", icon: CheckSquare, label: "To-Do" },
     { path: "/contacts", icon: Users, label: "Contacts" },
+    { path: "/hr", icon: Building2, label: "HR Hub" },
   ];
 
   const isAdmin = user?.role === 'admin';

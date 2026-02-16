@@ -11,6 +11,7 @@ import * as askOmniScope from "./askOmniScope";
 import * as recapGenerator from "./recapGenerator";
 import * as reportExporter from "./reportExporter";
 import * as fathomIntegration from "./fathomIntegration";
+import { storagePut } from "./storage";
 
 // ============================================================================
 // MEETINGS ROUTER
@@ -236,6 +237,8 @@ const contactsRouter = router({
       organization: z.string().optional(),
       title: z.string().optional(),
       notes: z.string().optional(),
+      category: z.enum(["client", "prospect", "partner", "vendor", "other"]).optional(),
+      starred: z.boolean().optional(),
     }))
     .mutation(async ({ input }) => {
       const id = await db.createContact({
@@ -245,6 +248,8 @@ const contactsRouter = router({
         organization: input.organization ?? null,
         title: input.title ?? null,
         notes: input.notes ?? null,
+        category: input.category ?? "other",
+        starred: input.starred ?? false,
       });
       return { id };
     }),
@@ -262,6 +267,10 @@ const contactsRouter = router({
       address: z.string().nullable().optional(),
       website: z.string().nullable().optional(),
       linkedin: z.string().nullable().optional(),
+      category: z.enum(["client", "prospect", "partner", "vendor", "other"]).nullable().optional(),
+      starred: z.boolean().optional(),
+      rating: z.number().min(1).max(5).nullable().optional(),
+      photoUrl: z.string().nullable().optional(),
     }))
     .mutation(async ({ input }) => {
       const { id, ...updates } = input;
@@ -270,6 +279,84 @@ const contactsRouter = router({
         if (value !== undefined) cleanUpdates[key] = value;
       }
       await db.updateContact(id, cleanUpdates);
+      return { success: true };
+    }),
+
+  toggleStar: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const contact = await db.getContactById(input.id);
+      if (!contact) throw new TRPCError({ code: "NOT_FOUND" });
+      await db.updateContact(input.id, { starred: !contact.starred });
+      return { starred: !contact.starred };
+    }),
+
+  getNotes: protectedProcedure
+    .input(z.object({ contactId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getNotesForContact(input.contactId);
+    }),
+
+  addNote: protectedProcedure
+    .input(z.object({ contactId: z.number(), content: z.string().min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const id = await db.createContactNote({
+        contactId: input.contactId,
+        content: input.content,
+        createdBy: ctx.user.id,
+        createdByName: ctx.user.name ?? "Unknown",
+      });
+      return { id };
+    }),
+
+  deleteNote: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.deleteContactNote(input.id);
+      return { success: true };
+    }),
+
+  checkDuplicates: protectedProcedure
+    .input(z.object({ name: z.string() }))
+    .query(async ({ input }) => {
+      const allContacts = await db.getAllContacts();
+      const nameLower = input.name.toLowerCase().trim();
+      const duplicates = allContacts.filter(c => {
+        const cName = c.name.toLowerCase().trim();
+        if (cName === nameLower) return true;
+        // Fuzzy: check if names share significant overlap
+        const nameWords = nameLower.split(/\s+/);
+        const cWords = cName.split(/\s+/);
+        const shared = nameWords.filter(w => cWords.some(cw => cw.includes(w) || w.includes(cw)));
+        return shared.length >= Math.min(nameWords.length, cWords.length) && shared.length > 0 && nameLower !== cName;
+      });
+      return duplicates;
+    }),
+
+  mergeContacts: protectedProcedure
+    .input(z.object({ keepId: z.number(), mergeId: z.number() }))
+    .mutation(async ({ input }) => {
+      const keep = await db.getContactById(input.keepId);
+      const merge = await db.getContactById(input.mergeId);
+      if (!keep || !merge) throw new TRPCError({ code: "NOT_FOUND" });
+      // Transfer meeting links from merge to keep
+      const mergeMeetings = await db.getMeetingsForContact(input.mergeId);
+      for (const mm of mergeMeetings) {
+        try { await db.linkContactToMeeting(mm.meeting.id, input.keepId); } catch {}
+      }
+      // Fill in missing fields from merge contact
+      const updates: any = {};
+      if (!keep.email && merge.email) updates.email = merge.email;
+      if (!keep.phone && merge.phone) updates.phone = merge.phone;
+      if (!keep.organization && merge.organization) updates.organization = merge.organization;
+      if (!keep.title && merge.title) updates.title = merge.title;
+      if (!keep.dateOfBirth && merge.dateOfBirth) updates.dateOfBirth = merge.dateOfBirth;
+      if (!keep.address && merge.address) updates.address = merge.address;
+      if (!keep.website && merge.website) updates.website = merge.website;
+      if (!keep.linkedin && merge.linkedin) updates.linkedin = merge.linkedin;
+      if (Object.keys(updates).length > 0) await db.updateContact(input.keepId, updates);
+      // Delete the merged contact
+      await db.deleteContact(input.mergeId);
       return { success: true };
     }),
 
@@ -305,6 +392,48 @@ const contactsRouter = router({
         }
       }
       return { success: true, created, linked, meetings: allMeetings.length };
+    }),
+
+  detectDuplicates: protectedProcedure
+    .query(async () => {
+      const contacts = await db.getAllContacts();
+      const duplicates: { group: any[] }[] = [];
+      const processed = new Set<number>();
+      
+      for (let i = 0; i < contacts.length; i++) {
+        if (processed.has(contacts[i].id)) continue;
+        const group: any[] = [contacts[i]];
+        const nameA = contacts[i].name.toLowerCase().trim();
+        const emailA = contacts[i].email?.toLowerCase().trim();
+        
+        for (let j = i + 1; j < contacts.length; j++) {
+          if (processed.has(contacts[j].id)) continue;
+          const nameB = contacts[j].name.toLowerCase().trim();
+          const emailB = contacts[j].email?.toLowerCase().trim();
+          
+          // Exact name match
+          if (nameA === nameB) { group.push(contacts[j]); processed.add(contacts[j].id); continue; }
+          // Email match
+          if (emailA && emailB && emailA === emailB) { group.push(contacts[j]); processed.add(contacts[j].id); continue; }
+          // Fuzzy: one name contains the other
+          if (nameA.length > 3 && nameB.length > 3 && (nameA.includes(nameB) || nameB.includes(nameA))) {
+            group.push(contacts[j]); processed.add(contacts[j].id); continue;
+          }
+          // First+last name swap detection
+          const partsA = nameA.split(/\s+/);
+          const partsB = nameB.split(/\s+/);
+          if (partsA.length >= 2 && partsB.length >= 2) {
+            if (partsA[0] === partsB[partsB.length - 1] && partsA[partsA.length - 1] === partsB[0]) {
+              group.push(contacts[j]); processed.add(contacts[j].id); continue;
+            }
+          }
+        }
+        if (group.length > 1) {
+          processed.add(contacts[i].id);
+          duplicates.push({ group });
+        }
+      }
+      return duplicates;
     }),
 
   generateAiSummary: protectedProcedure
@@ -384,6 +513,452 @@ ${taskSummary || 'No tasks assigned'}`
       await db.updateContact(input.id, { aiSummary: summary });
       return { summary };
     }),
+});
+
+// ============================================================================
+// EMPLOYEES (HR) ROUTER
+// ============================================================================
+
+const employeesRouter = router({
+  list: protectedProcedure
+    .input(z.object({ status: z.string().optional(), department: z.string().optional() }).optional())
+    .query(async ({ input }) => {
+      return await db.getAllEmployees(input ?? undefined);
+    }),
+
+  getById: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      const emp = await db.getEmployeeById(input.id);
+      if (!emp) throw new TRPCError({ code: "NOT_FOUND", message: "Employee not found" });
+      // Enrich with payroll and document counts
+      const payroll = await db.getPayrollForEmployee(input.id);
+      const docs = await db.getDocumentsForEmployee(input.id);
+      return { ...emp, payrollCount: payroll.length, documentCount: docs.length };
+    }),
+
+  search: protectedProcedure
+    .input(z.object({ query: z.string() }))
+    .query(async ({ input }) => {
+      return await db.searchEmployees(input.query);
+    }),
+
+  departments: protectedProcedure.query(async () => {
+    return await db.getEmployeeDepartments();
+  }),
+
+  create: protectedProcedure
+    .input(z.object({
+      firstName: z.string().min(1),
+      lastName: z.string().min(1),
+      email: z.string().email(),
+      phone: z.string().optional(),
+      dateOfBirth: z.string().optional(),
+      address: z.string().optional(),
+      city: z.string().optional(),
+      state: z.string().optional(),
+      country: z.string().optional(),
+      emergencyContactName: z.string().optional(),
+      emergencyContactPhone: z.string().optional(),
+      emergencyContactRelation: z.string().optional(),
+      hireDate: z.string(),
+      department: z.string().optional(),
+      jobTitle: z.string().min(1),
+      employmentType: z.enum(["full_time", "part_time", "contractor", "intern"]).default("full_time"),
+      salary: z.string().optional(),
+      payFrequency: z.enum(["weekly", "biweekly", "monthly", "per_project"]).optional(),
+      currency: z.string().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const id = await db.createEmployee({
+        firstName: input.firstName,
+        lastName: input.lastName,
+        email: input.email,
+        phone: input.phone ?? null,
+        dateOfBirth: input.dateOfBirth ?? null,
+        address: input.address ?? null,
+        city: input.city ?? null,
+        state: input.state ?? null,
+        country: input.country ?? null,
+        emergencyContactName: input.emergencyContactName ?? null,
+        emergencyContactPhone: input.emergencyContactPhone ?? null,
+        emergencyContactRelation: input.emergencyContactRelation ?? null,
+        hireDate: input.hireDate,
+        department: input.department ?? null,
+        jobTitle: input.jobTitle,
+        employmentType: input.employmentType,
+        salary: input.salary ?? null,
+        payFrequency: input.payFrequency ?? "monthly",
+        currency: input.currency ?? "USD",
+        notes: input.notes ?? null,
+      });
+      return { id };
+    }),
+
+  update: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      firstName: z.string().optional(),
+      lastName: z.string().optional(),
+      email: z.string().email().optional(),
+      phone: z.string().nullable().optional(),
+      dateOfBirth: z.string().nullable().optional(),
+      address: z.string().nullable().optional(),
+      city: z.string().nullable().optional(),
+      state: z.string().nullable().optional(),
+      country: z.string().nullable().optional(),
+      photoUrl: z.string().nullable().optional(),
+      emergencyContactName: z.string().nullable().optional(),
+      emergencyContactPhone: z.string().nullable().optional(),
+      emergencyContactRelation: z.string().nullable().optional(),
+      department: z.string().nullable().optional(),
+      jobTitle: z.string().optional(),
+      employmentType: z.enum(["full_time", "part_time", "contractor", "intern"]).optional(),
+      status: z.enum(["active", "inactive", "terminated", "on_leave"]).optional(),
+      salary: z.string().nullable().optional(),
+      payFrequency: z.enum(["weekly", "biweekly", "monthly", "per_project"]).nullable().optional(),
+      currency: z.string().nullable().optional(),
+      notes: z.string().nullable().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { id, ...updates } = input;
+      const cleanUpdates: any = {};
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined) cleanUpdates[key] = value;
+      }
+      await db.updateEmployee(id, cleanUpdates);
+      return { success: true };
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.deleteEmployee(input.id);
+      return { success: true };
+    }),
+
+  uploadPhoto: protectedProcedure
+    .input(z.object({ id: z.number(), base64: z.string(), mimeType: z.string() }))
+    .mutation(async ({ input }) => {
+      const buffer = Buffer.from(input.base64, 'base64');
+      const ext = input.mimeType.split('/')[1] || 'jpg';
+      const key = `employees/${input.id}/photo-${Date.now()}.${ext}`;
+      const { url } = await storagePut(key, buffer, input.mimeType);
+      await db.updateEmployee(input.id, { photoUrl: url });
+      return { url };
+    }),
+});
+
+// ============================================================================
+// PAYROLL ROUTER
+// ============================================================================
+
+const payrollRouter = router({
+  list: protectedProcedure
+    .input(z.object({ employeeId: z.number().optional(), status: z.string().optional() }).optional())
+    .query(async ({ input }) => {
+      const records = await db.getAllPayrollRecords(input ?? undefined);
+      // Enrich with employee name
+      const enriched = await Promise.all(records.map(async (r: any) => {
+        const emp = await db.getEmployeeById(r.employeeId);
+        return { ...r, employeeName: emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown' };
+      }));
+      return enriched;
+    }),
+
+  getForEmployee: protectedProcedure
+    .input(z.object({ employeeId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getPayrollForEmployee(input.employeeId);
+    }),
+
+  create: protectedProcedure
+    .input(z.object({
+      employeeId: z.number(),
+      payPeriodStart: z.string(),
+      payPeriodEnd: z.string(),
+      amount: z.string(),
+      currency: z.string().default("USD"),
+      paymentMethod: z.enum(["bank_transfer", "check", "crypto", "cash", "wire", "other"]).default("bank_transfer"),
+      paymentDate: z.string().optional(),
+      status: z.enum(["pending", "paid", "overdue", "cancelled"]).default("pending"),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const id = await db.createPayrollRecord({
+        employeeId: input.employeeId,
+        payPeriodStart: input.payPeriodStart,
+        payPeriodEnd: input.payPeriodEnd,
+        amount: input.amount,
+        currency: input.currency,
+        paymentMethod: input.paymentMethod,
+        paymentDate: input.paymentDate ?? null,
+        status: input.status,
+        notes: input.notes ?? null,
+        createdBy: ctx.user.id,
+      });
+      return { id };
+    }),
+
+  update: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      payPeriodStart: z.string().optional(),
+      payPeriodEnd: z.string().optional(),
+      amount: z.string().optional(),
+      currency: z.string().optional(),
+      paymentMethod: z.enum(["bank_transfer", "check", "crypto", "cash", "wire", "other"]).optional(),
+      paymentDate: z.string().nullable().optional(),
+      status: z.enum(["pending", "paid", "overdue", "cancelled"]).optional(),
+      notes: z.string().nullable().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { id, ...updates } = input;
+      const cleanUpdates: any = {};
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined) cleanUpdates[key] = value;
+      }
+      await db.updatePayrollRecord(id, cleanUpdates);
+      return { success: true };
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.deletePayrollRecord(input.id);
+      return { success: true };
+    }),
+
+  uploadReceipt: protectedProcedure
+    .input(z.object({ id: z.number(), base64: z.string(), fileName: z.string(), mimeType: z.string() }))
+    .mutation(async ({ input }) => {
+      const buffer = Buffer.from(input.base64, 'base64');
+      const key = `payroll/receipts/${input.id}-${Date.now()}-${input.fileName}`;
+      const { url } = await storagePut(key, buffer, input.mimeType);
+      await db.updatePayrollRecord(input.id, { receiptUrl: url, receiptKey: key });
+      return { url };
+    }),
+
+  uploadInvoice: protectedProcedure
+    .input(z.object({ id: z.number(), base64: z.string(), fileName: z.string(), mimeType: z.string() }))
+    .mutation(async ({ input }) => {
+      const buffer = Buffer.from(input.base64, 'base64');
+      const key = `payroll/invoices/${input.id}-${Date.now()}-${input.fileName}`;
+      const { url } = await storagePut(key, buffer, input.mimeType);
+      await db.updatePayrollRecord(input.id, { invoiceUrl: url, invoiceKey: key });
+      return { url };
+    }),
+});
+
+// ============================================================================
+// HR DOCUMENTS ROUTER
+// ============================================================================
+
+const hrDocumentsRouter = router({
+  list: protectedProcedure
+    .input(z.object({ employeeId: z.number(), category: z.string().optional() }))
+    .query(async ({ input }) => {
+      return await db.getDocumentsForEmployee(input.employeeId, input.category);
+    }),
+
+  upload: protectedProcedure
+    .input(z.object({
+      employeeId: z.number(),
+      title: z.string().min(1),
+      category: z.enum(["contract", "id_document", "tax_form", "certification", "onboarding", "performance", "payslip", "invoice", "receipt", "other"]).default("other"),
+      base64: z.string(),
+      fileName: z.string(),
+      mimeType: z.string(),
+      fileSize: z.number().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const buffer = Buffer.from(input.base64, 'base64');
+      const key = `hr-docs/${input.employeeId}/${Date.now()}-${input.fileName}`;
+      const { url } = await storagePut(key, buffer, input.mimeType);
+      const id = await db.createHrDocument({
+        employeeId: input.employeeId,
+        title: input.title,
+        category: input.category,
+        fileUrl: url,
+        fileKey: key,
+        fileName: input.fileName,
+        mimeType: input.mimeType,
+        fileSize: input.fileSize ?? buffer.length,
+        notes: input.notes ?? null,
+        uploadedBy: ctx.user.id,
+        uploadedByName: ctx.user.name ?? "Unknown",
+      });
+      return { id, url };
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.deleteHrDocument(input.id);
+      return { success: true };
+    }),
+});
+
+// ============================================================================
+// AI INTELLIGENCE ROUTER
+// ============================================================================
+
+const aiInsightsRouter = router({
+  followUpReminders: protectedProcedure.query(async () => {
+    const contacts = await db.getAllContacts();
+    const reminders: any[] = [];
+    
+    for (const c of contacts) {
+      if (c.starred || c.category === 'client' || c.category === 'prospect') {
+        const meetings = await db.getMeetingsForContact(c.id);
+        if (meetings.length > 0) {
+          const lastDate = meetings[0].meeting.meetingDate;
+          const daysSince = Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000);
+          if (daysSince > 7) {
+            reminders.push({
+              contactId: c.id,
+              contactName: c.name,
+              organization: c.organization,
+              category: c.category,
+              starred: c.starred,
+              daysSinceLastMeeting: daysSince,
+              lastMeetingTitle: meetings[0].meeting.meetingTitle,
+              lastMeetingDate: lastDate,
+              urgency: daysSince > 30 ? 'critical' : daysSince > 14 ? 'high' : 'medium',
+            });
+          }
+        }
+      }
+    }
+    return reminders.sort((a, b) => b.daysSinceLastMeeting - a.daysSinceLastMeeting);
+  }),
+
+  upcomingBirthdays: protectedProcedure.query(async () => {
+    const contacts = await db.getAllContacts();
+    const employees = await db.getAllEmployees();
+    const now = new Date();
+    const birthdays: any[] = [];
+    
+    const checkBirthday = (name: string, dob: string, type: string, id: number) => {
+      try {
+        const parts = dob.split(/[-\/]/);
+        let month: number, day: number;
+        if (parts[0].length === 4) { month = parseInt(parts[1]); day = parseInt(parts[2]); }
+        else { month = parseInt(parts[0]); day = parseInt(parts[1]); }
+        
+        const thisYearBday = new Date(now.getFullYear(), month - 1, day);
+        const diffDays = Math.floor((thisYearBday.getTime() - now.getTime()) / 86400000);
+        if (diffDays >= -1 && diffDays <= 30) {
+          birthdays.push({ name, dateOfBirth: dob, type, id, daysUntil: diffDays, isToday: diffDays === 0 });
+        }
+      } catch {}
+    };
+    
+    for (const c of contacts) { if (c.dateOfBirth) checkBirthday(c.name, c.dateOfBirth, 'contact', c.id); }
+    for (const e of employees) { if (e.dateOfBirth) checkBirthday(`${e.firstName} ${e.lastName}`, e.dateOfBirth, 'employee', e.id); }
+    
+    return birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
+  }),
+
+  dailyBriefing: protectedProcedure.query(async () => {
+    const { invokeLLM } = await import("./_core/llm");
+    
+    // Gather data for AI analysis
+    const allContacts = await db.getAllContacts();
+    const allTasks = await db.getAllTasks();
+    const recentMeetings = await db.getAllMeetings({ limit: 20 });
+    const allEmployees = await db.getAllEmployees();
+    
+    // Find contacts not met in 14+ days
+    const staleContacts: string[] = [];
+    for (const c of allContacts) {
+      if (c.starred || c.category === 'client') {
+        const meetings = await db.getMeetingsForContact(c.id);
+        if (meetings.length > 0) {
+          const lastDate = meetings[0].meeting.meetingDate;
+          const daysSince = Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000);
+          if (daysSince > 14) staleContacts.push(`${c.name} (${daysSince} days)`);
+        }
+      }
+    }
+    
+    // Overdue tasks
+    const now = new Date();
+    const overdueTasks = allTasks.filter(t => 
+      t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now
+    );
+    
+    // Upcoming birthdays (next 7 days)
+    const upcomingBirthdays: string[] = [];
+    const todayMonth = now.getMonth() + 1;
+    const todayDay = now.getDate();
+    for (const c of allContacts) {
+      if (c.dateOfBirth) {
+        try {
+          const parts = c.dateOfBirth.split(/[-\/]/);
+          const bMonth = parseInt(parts[1]);
+          const bDay = parseInt(parts[2] || parts[0]);
+          const diff = (bMonth - todayMonth) * 30 + (bDay - todayDay);
+          if (diff >= 0 && diff <= 7) upcomingBirthdays.push(`${c.name} (${c.dateOfBirth})`);
+        } catch {}
+      }
+    }
+    for (const e of allEmployees) {
+      if (e.dateOfBirth) {
+        try {
+          const parts = e.dateOfBirth.split(/[-\/]/);
+          const bMonth = parseInt(parts[1]);
+          const bDay = parseInt(parts[2] || parts[0]);
+          const diff = (bMonth - todayMonth) * 30 + (bDay - todayDay);
+          if (diff >= 0 && diff <= 7) upcomingBirthdays.push(`${e.firstName} ${e.lastName} (employee, ${e.dateOfBirth})`);
+        } catch {}
+      }
+    }
+    
+    // Open tasks count
+    const openTasks = allTasks.filter(t => t.status !== 'completed');
+    
+    const prompt = `You are OmniScope's daily intelligence briefing AI. Generate a concise, actionable daily briefing for the team.
+
+Data:
+- Total contacts: ${allContacts.length} (${allContacts.filter(c => c.starred).length} starred)
+- Stale contacts (no meeting in 14+ days): ${staleContacts.join(', ') || 'None'}
+- Overdue tasks (${overdueTasks.length}): ${overdueTasks.slice(0, 5).map(t => `"${t.title}" (${t.assignedName || 'unassigned'})`).join(', ') || 'None'}
+- Open tasks: ${openTasks.length}
+- Recent meetings (last 20): ${recentMeetings.slice(0, 5).map(m => `"${m.meetingTitle}" on ${new Date(m.meetingDate).toLocaleDateString()}`).join(', ')}
+- Upcoming birthdays (7 days): ${upcomingBirthdays.join(', ') || 'None'}
+- Employees: ${allEmployees.length} (${allEmployees.filter(e => e.status === 'active').length} active)
+
+Format the briefing with these sections:
+1. **Priority Actions** — what needs immediate attention
+2. **Follow-Up Reminders** — contacts to reconnect with
+3. **Upcoming** — birthdays, deadlines
+4. **Quick Stats** — key numbers
+
+Keep it under 300 words. Be specific with names and dates. Use a professional, institutional tone.`;
+
+    const result = await invokeLLM({
+      messages: [
+        { role: "system", content: "You are OmniScope's AI intelligence analyst. Provide actionable, data-driven briefings." },
+        { role: "user", content: prompt }
+      ],
+    });
+
+    return {
+      briefing: (result.choices[0]?.message?.content as string) || "Unable to generate briefing.",
+      stats: {
+        totalContacts: allContacts.length,
+        starredContacts: allContacts.filter(c => c.starred).length,
+        staleContactCount: staleContacts.length,
+        overdueTaskCount: overdueTasks.length,
+        openTaskCount: openTasks.length,
+        upcomingBirthdays: upcomingBirthdays.length,
+        activeEmployees: allEmployees.filter(e => e.status === 'active').length,
+      }
+    };
+  }),
 });
 
 // ============================================================================
@@ -828,6 +1403,10 @@ export const appRouter = router({
   export: exportRouter,
   admin: adminRouter,
   meetingCategories: meetingCategoriesRouter,
+  employees: employeesRouter,
+  payroll: payrollRouter,
+  hrDocuments: hrDocumentsRouter,
+  aiInsights: aiInsightsRouter,
 });
 
 export type AppRouter = typeof appRouter;
