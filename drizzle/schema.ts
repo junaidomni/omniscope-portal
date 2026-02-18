@@ -29,14 +29,24 @@ export const companies = mysqlTable("companies", {
   industry: varchar("industry", { length: 255 }),
   notes: text("notes"),
   status: mysqlEnum("companyStatus", ["active", "inactive", "prospect", "partner"]).default("active").notNull(),
+  approvalStatus: mysqlEnum("companyApprovalStatus", ["approved", "pending", "rejected"]).default("approved").notNull(),
   owner: varchar("owner", { length: 255 }),
   aiMemory: text("aiMemory"), // Rolling AI company brief
   logoUrl: varchar("logoUrl", { length: 1000 }),
+  // Strategic intelligence fields
+  location: varchar("companyLocation", { length: 500 }),
+  internalRating: int("internalRating"), // 1-5 internal rating
+  jurisdictionRisk: mysqlEnum("jurisdictionRisk", ["low", "medium", "high", "critical"]),
+  bankingPartner: varchar("bankingPartner", { length: 500 }),
+  custodian: varchar("custodian", { length: 500 }),
+  regulatoryExposure: text("regulatoryExposure"),
+  entityType: mysqlEnum("entityType", ["sovereign", "private", "institutional", "family_office", "other"]),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
   nameIdx: index("company_name_idx").on(table.name),
   domainIdx: index("company_domain_idx").on(table.domain),
+  approvalIdx: index("company_approval_idx").on(table.approvalStatus),
 }));
 
 export type Company = typeof companies.$inferSelect;
@@ -71,6 +81,14 @@ export const contacts = mysqlTable("contacts", {
   engagementScore: int("engagementScore"), // 0-100 computed score
   lastInteractionAt: timestamp("lastInteractionAt"),
   lastContactedAt: timestamp("lastContactedAt"),
+  // Approval workflow
+  approvalStatus: mysqlEnum("contactApprovalStatus", ["approved", "pending", "rejected"]).default("approved").notNull(),
+  // Intelligence fields
+  riskTier: mysqlEnum("riskTier", ["low", "medium", "high", "critical"]),
+  complianceStage: mysqlEnum("complianceStage", ["not_started", "in_progress", "cleared", "flagged"]),
+  influenceWeight: mysqlEnum("influenceWeight", ["decision_maker", "influencer", "gatekeeper", "champion", "end_user"]),
+  introducerSource: varchar("introducerSource", { length: 500 }), // who introduced them
+  referralChain: text("referralChain"), // JSON: chain of introductions
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
@@ -79,6 +97,7 @@ export const contacts = mysqlTable("contacts", {
   categoryIdx: index("contact_category_idx").on(table.category),
   starredIdx: index("contact_starred_idx").on(table.starred),
   companyIdx: index("contact_company_idx").on(table.companyId),
+  approvalIdx: index("contact_approval_idx").on(table.approvalStatus),
 }));
 
 export type Contact = typeof contacts.$inferSelect;

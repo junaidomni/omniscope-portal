@@ -304,6 +304,12 @@ const contactsRouter = router({
       companyId: z.number().nullable().optional(),
       tags: z.string().nullable().optional(),
       source: z.string().nullable().optional(),
+      approvalStatus: z.enum(["approved", "pending", "rejected"]).optional(),
+      riskTier: z.enum(["low", "medium", "high", "critical"]).nullable().optional(),
+      complianceStage: z.enum(["not_started", "in_progress", "cleared", "flagged"]).nullable().optional(),
+      influenceWeight: z.enum(["decision_maker", "influencer", "gatekeeper", "champion", "end_user"]).nullable().optional(),
+      introducerSource: z.string().nullable().optional(),
+      referralChain: z.string().nullable().optional(),
     }))
     .mutation(async ({ input }) => {
       const { id, ...updates } = input;
@@ -391,6 +397,38 @@ const contactsRouter = router({
       // Delete the merged contact
       await db.deleteContact(input.mergeId);
       return { success: true };
+    }),
+
+  approve: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.updateContact(input.id, { approvalStatus: "approved" });
+      return { success: true };
+    }),
+
+  reject: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.updateContact(input.id, { approvalStatus: "rejected" });
+      return { success: true };
+    }),
+
+  bulkApprove: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()) }))
+    .mutation(async ({ input }) => {
+      for (const id of input.ids) {
+        await db.updateContact(id, { approvalStatus: "approved" });
+      }
+      return { success: true, count: input.ids.length };
+    }),
+
+  bulkReject: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()) }))
+    .mutation(async ({ input }) => {
+      for (const id of input.ids) {
+        await db.updateContact(id, { approvalStatus: "rejected" });
+      }
+      return { success: true, count: input.ids.length };
     }),
 
   delete: protectedProcedure
@@ -1753,10 +1791,36 @@ const companiesRouter = router({
       owner: z.string().optional(),
       aiMemory: z.string().optional(),
       logoUrl: z.string().optional(),
+      approvalStatus: z.enum(["approved", "pending", "rejected"]).optional(),
+      location: z.string().nullable().optional(),
+      internalRating: z.number().min(1).max(5).nullable().optional(),
+      jurisdictionRisk: z.enum(["low", "medium", "high", "critical"]).nullable().optional(),
+      bankingPartner: z.string().nullable().optional(),
+      custodian: z.string().nullable().optional(),
+      regulatoryExposure: z.string().nullable().optional(),
+      entityType: z.enum(["sovereign", "private", "institutional", "family_office", "other"]).nullable().optional(),
     }))
     .mutation(async ({ input }) => {
       const { id, ...updates } = input;
-      await db.updateCompany(id, updates);
+      const cleanUpdates: any = {};
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined) cleanUpdates[key] = value;
+      }
+      await db.updateCompany(id, cleanUpdates);
+      return { success: true };
+    }),
+
+  approve: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.updateCompany(input.id, { approvalStatus: "approved" });
+      return { success: true };
+    }),
+
+  reject: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.updateCompany(input.id, { approvalStatus: "rejected" });
       return { success: true };
     }),
 

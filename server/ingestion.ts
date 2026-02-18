@@ -258,7 +258,7 @@ export async function processIntelligenceData(rawData: IntelligenceData, created
             if (!orgName) continue;
             let company = await db.getCompanyByName(orgName);
             if (!company) {
-              const newCompanyId = await db.createCompany({ name: orgName, status: "active" });
+              const newCompanyId = await db.createCompany({ name: orgName, status: "active", approvalStatus: "pending" });
               company = await db.getCompanyById(newCompanyId);
             }
             if (company) {

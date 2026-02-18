@@ -148,8 +148,13 @@ export async function updateContact(id: number, updates: Partial<InsertContact>)
 export async function deleteContact(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  // Delete junction records first
+  // Delete all related records first
   await db.delete(meetingContacts).where(eq(meetingContacts.contactId, id));
+  await db.delete(contactNotes).where(eq(contactNotes.contactId, id));
+  await db.delete(contactDocuments).where(eq(contactDocuments.contactId, id));
+  await db.delete(interactions).where(eq(interactions.contactId, id));
+  // Unlink employees
+  await db.update(employees).set({ contactId: null }).where(eq(employees.contactId, id));
   await db.delete(contacts).where(eq(contacts.id, id));
 }
 
@@ -212,7 +217,7 @@ export async function getOrCreateContact(name: string, org?: string, email?: str
   }
   
   if (!contact) {
-    const id = await createContact({ name, organization: org ?? null, email: email ?? null });
+    const id = await createContact({ name, organization: org ?? null, email: email ?? null, approvalStatus: "pending" });
     contact = await getContactById(id);
   } else if (org || email) {
     // Update if new info available
@@ -997,6 +1002,8 @@ export async function deleteCompany(id: number) {
   if (!db) return;
   // Unlink contacts from this company first
   await db.update(contacts).set({ companyId: null }).where(eq(contacts.companyId, id));
+  // Delete company interactions
+  await db.delete(interactions).where(eq(interactions.companyId, id));
   await db.delete(companies).where(eq(companies.id, id));
 }
 

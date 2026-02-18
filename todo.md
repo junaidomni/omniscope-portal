@@ -850,3 +850,70 @@
 ### Testing & Cleanup
 - [x] Test company linking end-to-end (8 vitest tests passing)
 - [x] Clean up all test data
+
+## v23 — Relationship Hub & Companies Rebuild
+
+### Schema Updates
+- [x] Add `approvalStatus` field to contacts (pending/approved/rejected)
+- [x] Add `approvalStatus` field to companies (pending/approved/rejected)
+- [x] Add new contact fields: riskTier, complianceStage, influenceWeight, introducerSource, referralChain
+- [x] Add new company fields: jurisdictionRisk, bankingPartner, custodian, regulatoryExposure, entityType (sovereign/private)
+- [x] Push schema migrations
+
+### Backend Updates
+- [x] Add contacts.approve / contacts.reject procedures
+- [x] Add companies.approve / companies.reject procedures
+- [x] Add contacts.bulkApprove / contacts.bulkReject procedures
+- [ ] Update contacts.list to support filtering by approvalStatus
+- [ ] Update companies.list to support filtering by approvalStatus
+- [x] Ensure delete works cleanly for contacts (with interactions, notes, docs cleanup)
+- [x] Ensure delete works cleanly for companies (unlink contacts first)
+
+### Relationship Hub Rebuild (3-Zone Layout)
+- [x] Left panel: Clean searchable people list (Apple Notes / Linear style)
+- [x] Left panel: Filters (category, company, tag, relationship health)
+- [x] Left panel: Status indicator dots (Strong/Warm/Cold)
+- [x] Left panel: Pending approval section at top with approve/reject/merge actions
+- [x] Center panel: Relationship card with header (photo, name, title, company, score, tags)
+- [x] Center panel: Quick action buttons (Add Note, Add Task, Send Email)
+- [x] Center panel: Snapshot section (AI summary, meetings, last interaction, open tasks)
+- [x] Center panel: Activity timeline (collapsible)
+- [x] Right panel: Intelligence layer (AI summary, key interests, risk factors, opportunities)
+- [x] Right panel: "Suggested Next Move" AI box
+- [x] Delete contact button with confirmation dialog
+- [x] Rename vocabulary: Contacts → Relationships, Account → Company, Lead → Opportunity
+
+### Companies Page Rebuild
+- [x] Header: Logo, name, industry, location, relationship status, internal rating, owner
+- [x] Quick action buttons: Add Contact, Add Deal, Add Note, View All People
+- [x] Strategic Snapshot: AI summary, total contacts, open deals, risk rating
+- [x] People cards (not table): Name, role, influence level, last interaction, relationship strength
+- [x] Deal Intelligence section (placeholder)
+- [x] Activity Timeline (company-wide aggregated)
+- [x] Pending companies section with approve/reject
+- [x] Delete company button with confirmation dialog
+
+### ContactProfile Rebuild (Dossier Style)
+- [x] Header: Gradient avatar, name, badges (category, risk, compliance), contact info row
+- [x] Intelligence fields: Risk tier, compliance stage, influence weight, introducer, referral chain
+- [x] Collapsible AI Intelligence panel (summary + persistent memory)
+- [x] Edit mode includes all new intelligence fields
+- [x] Delete button with confirmation
+- [x] Clean stats grid, tabs (overview, meetings, documents, notes)
+- [x] Employee link card
+
+### CompanyProfile Rebuild
+- [x] Strategic header with entity type, jurisdiction risk, internal rating
+- [x] People cards (not table rows)
+- [x] AI snapshot section
+- [x] Activity timeline
+- [x] Delete company from profile
+
+### Ingestion Pipeline
+- [x] Update ingestion to create contacts with approvalStatus = 'pending'
+- [x] Update ingestion to create companies with approvalStatus = 'pending'
+
+### Testing
+- [x] Test pending approval workflow (approve, reject, delete) — 24 tests passing
+- [x] Test new schema fields save and load correctly
+- [x] Test delete cascading for contacts and companies — 199 tests passing (16 test files)
