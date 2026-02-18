@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import {
   Mail, Inbox, Send, FileText, Star, Search, RefreshCw, MailPlus,
   PanelLeft, PanelLeftClose, Loader2, X, AlertCircle, ChevronLeft,
   Reply, ReplyAll, Forward, Trash2, Users,
-  DollarSign, Repeat, Newspaper, ArrowDown, Zap
+  DollarSign, Repeat, Newspaper, ArrowDown, Zap,
+  CheckSquare, Building2, Link2, Unlink
 } from "lucide-react";
 
 // ============================================================================
@@ -61,6 +62,16 @@ interface CategorizedThread extends ServerThread {
 }
 
 // ============================================================================
+// STAR PRIORITY CONFIG
+// ============================================================================
+
+const STAR_CONFIG: Record<number, { label: string; color: string; bgColor: string; description: string }> = {
+  1: { label: "Reply Today", color: "text-yellow-500", bgColor: "bg-yellow-500", description: "Needs a reply today" },
+  2: { label: "Delegate", color: "text-orange-500", bgColor: "bg-orange-500", description: "Assign to someone" },
+  3: { label: "Critical", color: "text-red-500", bgColor: "bg-red-500", description: "Urgent / time-sensitive" },
+};
+
+// ============================================================================
 // CATEGORY ENGINE — OmniScope Mail Intelligence
 // ============================================================================
 
@@ -78,55 +89,40 @@ const CAPITAL_SUBJECTS = [
 
 const RECURRING_SIGNALS = [
   "subscription", "renewal", "billing", "monthly", "annual plan",
-  "your receipt", "payment received", "auto-renewal", "plan update",
+  "your receipt", "payment received", "plan update", "auto-renewal",
 ];
 
-const SIGNAL_SENDERS = [
-  "bloomberg", "reuters", "coindesk", "theblock", "decrypt",
-  "morning brew", "axios", "substack",
+const LOW_PRIORITY_SIGNALS = [
+  "unsubscribe", "opt out", "email preferences", "manage subscriptions",
+  "view in browser", "view online",
 ];
 
-function categorizeThread(thread: ServerThread): OmniCategory {
-  const email = thread.fromEmail.toLowerCase();
-  const domain = email.split("@")[1] || "";
+export function categorizeThread(thread: ServerThread): OmniCategory {
+  const email = (thread.fromEmail || "").toLowerCase();
   const subject = (thread.subject || "").toLowerCase();
-  const snippet = (thread.snippet || "").toLowerCase();
   const labels = thread.labelIds || [];
+  const domain = email.split("@")[1] || "";
 
-  // 1. TEAM — internal and partner domains
+  // 1. Team — internal domains
   if (TEAM_DOMAINS.some((d) => domain.includes(d))) return "team";
 
-  // 2. CAPITAL — financial/banking/deal communication
-  if (
-    CAPITAL_SENDERS.some((s) => email.includes(s) || domain.includes(s)) ||
-    CAPITAL_SUBJECTS.some((s) => subject.includes(s))
-  )
-    return "capital";
+  // 2. Capital — financial senders or subjects
+  if (CAPITAL_SENDERS.some((s) => email.includes(s) || domain.includes(s))) return "capital";
+  if (CAPITAL_SUBJECTS.some((s) => subject.includes(s))) return "capital";
 
-  // 3. RECURRING — SaaS subscriptions and recurring payments
-  if (
-    RECURRING_SIGNALS.some((s) => subject.includes(s) || snippet.includes(s)) ||
-    (labels.includes("CATEGORY_UPDATES") && (subject.includes("receipt") || subject.includes("invoice")))
-  )
-    return "recurring";
+  // 3. Recurring — SaaS, billing, receipts
+  if (RECURRING_SIGNALS.some((s) => subject.includes(s))) return "recurring";
+  if (labels.includes("CATEGORY_PROMOTIONS") && RECURRING_SIGNALS.some((s) => subject.includes(s))) return "recurring";
 
-  // 4. LOW PRIORITY — promotions, marketing, cold outreach
-  if (
-    labels.includes("CATEGORY_PROMOTIONS") ||
-    labels.includes("CATEGORY_SOCIAL") ||
-    thread.hasUnsubscribe
-  ) {
-    if (SIGNAL_SENDERS.some((s) => email.includes(s) || domain.includes(s))) return "signal";
-    if (thread.hasUnsubscribe && !labels.includes("CATEGORY_PROMOTIONS")) return "signal";
-    return "low_priority";
+  // 4. Low Priority — marketing, promotions, cold outreach
+  if (thread.hasUnsubscribe) {
+    if (LOW_PRIORITY_SIGNALS.some((s) => subject.includes(s))) return "low_priority";
+    if (labels.includes("CATEGORY_PROMOTIONS")) return "low_priority";
+    return "signal"; // Has unsubscribe but not promotional → newsletter
   }
+  if (labels.includes("CATEGORY_PROMOTIONS")) return "low_priority";
 
-  // 5. SIGNAL — newsletters and industry updates
-  if (
-    labels.includes("CATEGORY_FORUMS") ||
-    SIGNAL_SENDERS.some((s) => email.includes(s) || domain.includes(s))
-  )
-    return "signal";
+  // 5. Signal — newsletters (already handled above via hasUnsubscribe)
 
   // 6. Automated notifications → recurring
   if (
@@ -348,11 +344,12 @@ function ComposeModal({
               value={to}
               onChange={(e) => setTo(e.target.value)}
               className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-600"
-              placeholder="recipient@email.com"
-              autoFocus
+              placeholder="recipient@example.com"
             />
             {!showCc && (
-              <button onClick={() => setShowCc(true)} className="text-[11px] text-zinc-600 hover:text-zinc-400">Cc</button>
+              <button onClick={() => setShowCc(true)} className="text-[11px] text-zinc-600 hover:text-zinc-400">
+                Cc
+              </button>
             )}
           </div>
           {showCc && (
@@ -362,12 +359,12 @@ function ComposeModal({
                 value={cc}
                 onChange={(e) => setCc(e.target.value)}
                 className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-600"
-                placeholder="cc@email.com"
+                placeholder="cc@example.com"
               />
             </div>
           )}
           <div className="flex items-center gap-2 py-2">
-            <span className="text-xs text-zinc-500 w-8">Sub</span>
+            <span className="text-xs text-zinc-500 w-8">Subj</span>
             <input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
@@ -381,34 +378,426 @@ function ComposeModal({
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          className="w-full h-48 px-5 py-4 bg-transparent text-sm text-white outline-none resize-none placeholder:text-zinc-600"
+          rows={10}
+          className="w-full px-5 py-4 bg-transparent text-sm text-zinc-200 outline-none resize-none placeholder:text-zinc-600"
           placeholder="Write your message..."
         />
 
-        {/* Signature Preview */}
+        {/* Signature preview */}
         {signatureQuery.data?.enabled && signatureQuery.data?.html && (
-          <div className="px-5 pb-3">
+          <div className="px-5 pb-2">
             <div className="text-[10px] text-zinc-600 mb-1">Signature</div>
             <div
-              className="text-xs text-zinc-500 border-t border-zinc-800/50 pt-2"
+              className="text-xs text-zinc-500 border-t border-zinc-800/40 pt-2"
               dangerouslySetInnerHTML={{ __html: signatureQuery.data.html }}
             />
           </div>
         )}
 
-        {/* Footer */}
+        {/* Actions */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-zinc-800">
-          <div className="text-[11px] text-zinc-600">
+          <div className="text-[10px] text-zinc-600">
             {signatureQuery.data?.enabled ? "Signature attached" : "No signature"}
           </div>
           <Button
             onClick={handleSend}
             disabled={sendMutation.isPending || !to.trim()}
-            size="sm"
-            className="bg-yellow-600 hover:bg-yellow-500 text-black font-semibold h-8 px-5 text-xs rounded-lg"
+            className="bg-yellow-600 hover:bg-yellow-500 text-black font-semibold h-8 px-4 text-xs"
           >
             {sendMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
             Send
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// STAR PRIORITY SELECTOR
+// ============================================================================
+
+function StarPrioritySelector({
+  threadId,
+  currentLevel,
+  compact,
+}: {
+  threadId: string;
+  currentLevel: number | null;
+  compact?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const setStarMutation = trpc.mail.setStar.useMutation();
+  const removeStarMutation = trpc.mail.removeStar.useMutation();
+  const utils = trpc.useUtils();
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleSetStar = async (level: number) => {
+    try {
+      if (currentLevel === level) {
+        await removeStarMutation.mutateAsync({ threadId });
+        toast.success("Star removed");
+      } else {
+        await setStarMutation.mutateAsync({ threadId, starLevel: level });
+        toast.success(`Marked as ${STAR_CONFIG[level].label}`);
+      }
+      utils.mail.getStars.invalidate();
+      utils.mail.getStar.invalidate({ threadId });
+    } catch {
+      toast.error("Failed to update star");
+    }
+    setOpen(false);
+  };
+
+  const isPending = setStarMutation.isPending || removeStarMutation.isPending;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        disabled={isPending}
+        className={`p-1 rounded-md transition-colors ${
+          currentLevel
+            ? `${STAR_CONFIG[currentLevel].color} hover:bg-zinc-800/50`
+            : "text-zinc-700 hover:text-zinc-500 hover:bg-zinc-800/50"
+        }`}
+      >
+        {isPending ? (
+          <Loader2 className={`${compact ? "h-3 w-3" : "h-3.5 w-3.5"} animate-spin`} />
+        ) : currentLevel ? (
+          <div className="flex items-center gap-0">
+            {Array.from({ length: currentLevel }).map((_, i) => (
+              <Star key={i} className={`${compact ? "h-2.5 w-2.5" : "h-3 w-3"} fill-current ${compact && i > 0 ? "-ml-0.5" : ""}`} />
+            ))}
+          </div>
+        ) : (
+          <Star className={`${compact ? "h-3 w-3" : "h-3.5 w-3.5"}`} />
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden">
+          <div className="px-3 py-2 border-b border-zinc-800/60">
+            <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">Priority</span>
+          </div>
+          {[1, 2, 3].map((level) => {
+            const config = STAR_CONFIG[level];
+            const isActive = currentLevel === level;
+            return (
+              <button
+                key={level}
+                onClick={(e) => { e.stopPropagation(); handleSetStar(level); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors
+                  ${isActive ? "bg-zinc-800/60" : "hover:bg-zinc-800/40"}`}
+              >
+                <div className="flex items-center gap-0">
+                  {Array.from({ length: level }).map((_, i) => (
+                    <Star key={i} className={`h-3 w-3 fill-current ${config.color} ${i > 0 ? "-ml-0.5" : ""}`} />
+                  ))}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className={`text-xs font-medium ${isActive ? "text-white" : "text-zinc-300"}`}>{config.label}</div>
+                  <div className="text-[10px] text-zinc-600">{config.description}</div>
+                </div>
+                {isActive && <X className="h-3 w-3 text-zinc-500 flex-shrink-0" />}
+              </button>
+            );
+          })}
+          {currentLevel && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleSetStar(currentLevel); }}
+              className="w-full px-3 py-2 text-[11px] text-zinc-500 hover:text-zinc-300 border-t border-zinc-800/60 text-center transition-colors"
+            >
+              Remove star
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// CONVERT TO TASK MODAL
+// ============================================================================
+
+function ConvertToTaskModal({
+  open,
+  onClose,
+  threadId,
+  subject,
+  fromEmail,
+}: {
+  open: boolean;
+  onClose: () => void;
+  threadId: string;
+  subject: string;
+  fromEmail: string;
+}) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
+  const [assignedName, setAssignedName] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [category, setCategory] = useState("");
+  const convertMutation = trpc.mail.convertToTask.useMutation();
+
+  useEffect(() => {
+    if (open) {
+      setTitle(subject || "");
+      setDescription(`From: ${fromEmail}\nThread: ${threadId}`);
+      setPriority("medium");
+      setAssignedName("");
+      setDueDate("");
+      setCategory("");
+    }
+  }, [open, subject, fromEmail, threadId]);
+
+  const handleConvert = async () => {
+    if (!title.trim()) {
+      toast.error("Task title required");
+      return;
+    }
+    try {
+      const result = await convertMutation.mutateAsync({
+        threadId,
+        subject,
+        fromEmail,
+        title: title.trim(),
+        description: description || undefined,
+        priority,
+        assignedName: assignedName || undefined,
+        dueDate: dueDate || undefined,
+        category: category || undefined,
+      });
+      toast.success("Task created", {
+        description: `Task #${result.id} created from email`,
+        action: {
+          label: "View Tasks",
+          onClick: () => { window.location.href = "/todo"; },
+        },
+      });
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create task");
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800">
+          <div className="flex items-center gap-2">
+            <CheckSquare className="h-4 w-4 text-yellow-600" />
+            <h3 className="text-sm font-medium text-white">Convert to Task</h3>
+          </div>
+          <button onClick={onClose} className="p-1 text-zinc-500 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          <div>
+            <label className="text-[11px] text-zinc-500 mb-1 block">Title</label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full h-9 px-3 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors"
+              placeholder="Task title"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] text-zinc-500 mb-1 block">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors resize-none"
+              placeholder="Optional description"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] text-zinc-500 mb-1 block">Priority</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high")}
+                className="w-full h-9 px-3 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] text-zinc-500 mb-1 block">Due Date</label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full h-9 px-3 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors [color-scheme:dark]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] text-zinc-500 mb-1 block">Assign To</label>
+              <input
+                value={assignedName}
+                onChange={(e) => setAssignedName(e.target.value)}
+                className="w-full h-9 px-3 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors"
+                placeholder="Name"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-zinc-500 mb-1 block">Category</label>
+              <input
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full h-9 px-3 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors"
+                placeholder="e.g. BTC, Gold"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zinc-800">
+          <Button variant="outline" size="sm" onClick={onClose} className="text-xs border-zinc-700 text-zinc-400 bg-transparent">
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleConvert}
+            disabled={convertMutation.isPending || !title.trim()}
+            className="bg-yellow-600 hover:bg-yellow-500 text-black font-semibold text-xs"
+          >
+            {convertMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <CheckSquare className="h-3.5 w-3.5 mr-1.5" />}
+            Create Task
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// LINK TO COMPANY MODAL
+// ============================================================================
+
+function LinkToCompanyModal({
+  open,
+  onClose,
+  threadId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  threadId: string;
+}) {
+  const [search, setSearch] = useState("");
+  const companiesQuery = trpc.companies.list.useQuery({ search: search || undefined }, { enabled: open });
+  const linkMutation = trpc.mail.linkToCompany.useMutation();
+  const utils = trpc.useUtils();
+
+  const handleLink = async (companyId: number, companyName: string) => {
+    try {
+      await linkMutation.mutateAsync({ threadId, companyId });
+      toast.success(`Linked to ${companyName}`);
+      utils.mail.getCompanyLinks.invalidate({ threadId });
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to link");
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-yellow-600" />
+            <h3 className="text-sm font-medium text-white">Link to Company</h3>
+          </div>
+          <button onClick={onClose} className="p-1 text-zinc-500 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-3 border-b border-zinc-800/50">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-600" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full h-9 pl-9 pr-3 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors"
+              placeholder="Search companies..."
+              autoFocus
+            />
+          </div>
+        </div>
+
+        <div className="max-h-64 overflow-y-auto">
+          {companiesQuery.isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-4 w-4 animate-spin text-yellow-600" />
+            </div>
+          ) : !companiesQuery.data?.length ? (
+            <div className="text-center py-8">
+              <Building2 className="h-5 w-5 text-zinc-700 mx-auto mb-2" />
+              <p className="text-xs text-zinc-500">No companies found</p>
+            </div>
+          ) : (
+            companiesQuery.data.map((company: any) => (
+              <button
+                key={company.id}
+                onClick={() => handleLink(company.id, company.name)}
+                disabled={linkMutation.isPending}
+                className="w-full flex items-center gap-3 px-5 py-3 hover:bg-zinc-800/40 transition-colors border-b border-zinc-800/20 text-left"
+              >
+                <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700/50 flex items-center justify-center flex-shrink-0">
+                  {company.logoUrl ? (
+                    <img src={company.logoUrl} alt="" className="w-5 h-5 object-contain rounded" />
+                  ) : (
+                    <Building2 className="h-3.5 w-3.5 text-zinc-500" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-white truncate">{company.name}</div>
+                  {company.domain && <div className="text-[11px] text-zinc-600 truncate">{company.domain}</div>}
+                </div>
+                {company.status && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                    company.status === "active" ? "bg-emerald-500/10 text-emerald-500" :
+                    company.status === "prospect" ? "bg-yellow-500/10 text-yellow-500" :
+                    "bg-zinc-800 text-zinc-500"
+                  }`}>
+                    {company.status}
+                  </span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-zinc-800">
+          <Button variant="outline" size="sm" onClick={onClose} className="w-full text-xs border-zinc-700 text-zinc-400 bg-transparent">
+            Cancel
           </Button>
         </div>
       </div>
@@ -421,11 +810,12 @@ function ComposeModal({
 // ============================================================================
 
 function ThreadRow({
-  thread, isSelected, onClick,
+  thread, isSelected, onClick, starLevel,
 }: {
   thread: CategorizedThread;
   isSelected: boolean;
   onClick: () => void;
+  starLevel: number | null;
 }) {
   const config = CATEGORY_CONFIG[thread.category];
   const CategoryIcon = config.icon;
@@ -457,6 +847,14 @@ function ThreadRow({
               </span>
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Star indicator */}
+              {starLevel && (
+                <div className={`flex items-center gap-0 ${STAR_CONFIG[starLevel].color}`}>
+                  {Array.from({ length: starLevel }).map((_, i) => (
+                    <Star key={i} className="h-2.5 w-2.5 fill-current -ml-0.5 first:ml-0" />
+                  ))}
+                </div>
+              )}
               <CategoryIcon className={`h-3 w-3 ${config.color} opacity-60`} />
               <span className="text-[11px] text-zinc-600 tabular-nums">{formatDate(thread.date)}</span>
             </div>
@@ -516,7 +914,13 @@ function ThreadView({
 }) {
   const { data, isLoading, error } = trpc.mail.getThread.useQuery({ threadId });
   const trashMutation = trpc.mail.trash.useMutation();
+  const starQuery = trpc.mail.getStar.useQuery({ threadId });
+  const companyLinksQuery = trpc.mail.getCompanyLinks.useQuery({ threadId });
+  const unlinkMutation = trpc.mail.unlinkCompany.useMutation();
   const utils = trpc.useUtils();
+
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [companyModalOpen, setCompanyModalOpen] = useState(false);
 
   const handleTrash = async (msgId: string) => {
     try {
@@ -526,6 +930,16 @@ function ThreadView({
       onBack();
     } catch {
       toast.error("Failed to trash");
+    }
+  };
+
+  const handleUnlink = async (linkId: number) => {
+    try {
+      await unlinkMutation.mutateAsync({ linkId });
+      toast.success("Company unlinked");
+      utils.mail.getCompanyLinks.invalidate({ threadId });
+    } catch {
+      toast.error("Failed to unlink");
     }
   };
 
@@ -550,6 +964,7 @@ function ThreadView({
 
   const messages = data.messages as ServerMessage[];
   const lastMsg = messages[messages.length - 1];
+  const companyLinks = companyLinksQuery.data || [];
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -565,19 +980,82 @@ function ThreadView({
           <h2 className="text-sm font-medium text-white truncate">{lastMsg.subject || "(no subject)"}</h2>
           <p className="text-[11px] text-zinc-600 mt-0.5">{messages.length} message{messages.length !== 1 ? "s" : ""}</p>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => handleTrash(lastMsg.id)}
-              disabled={trashMutation.isPending}
-              className="p-2 text-zinc-600 hover:text-red-400 rounded-lg hover:bg-zinc-800/50 transition-colors"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Delete</TooltipContent>
-        </Tooltip>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-1">
+          {/* Star Priority */}
+          <StarPrioritySelector
+            threadId={threadId}
+            currentLevel={starQuery.data?.starLevel ?? null}
+          />
+
+          {/* Convert to Task */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setTaskModalOpen(true)}
+                className="p-2 text-zinc-600 hover:text-yellow-500 rounded-lg hover:bg-zinc-800/50 transition-colors"
+              >
+                <CheckSquare className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Convert to Task</TooltipContent>
+          </Tooltip>
+
+          {/* Link to Company */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setCompanyModalOpen(true)}
+                className="p-2 text-zinc-600 hover:text-blue-400 rounded-lg hover:bg-zinc-800/50 transition-colors"
+              >
+                <Building2 className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Link to Company</TooltipContent>
+          </Tooltip>
+
+          {/* Trash */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => handleTrash(lastMsg.id)}
+                disabled={trashMutation.isPending}
+                className="p-2 text-zinc-600 hover:text-red-400 rounded-lg hover:bg-zinc-800/50 transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Delete</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
+
+      {/* Company Links Bar */}
+      {companyLinks.length > 0 && (
+        <div className="flex items-center gap-2 px-5 py-2 border-b border-zinc-800/40 bg-zinc-900/30">
+          <Link2 className="h-3 w-3 text-zinc-600 flex-shrink-0" />
+          <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Linked:</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {companyLinks.map((link: any) => (
+              <span
+                key={link.id}
+                className="inline-flex items-center gap-1.5 text-[11px] bg-zinc-800/60 border border-zinc-700/40 rounded-full px-2.5 py-0.5"
+              >
+                <Building2 className="h-2.5 w-2.5 text-blue-400" />
+                <span className="text-zinc-300">{link.companyName}</span>
+                <button
+                  onClick={() => handleUnlink(link.id)}
+                  className="text-zinc-600 hover:text-red-400 transition-colors ml-0.5"
+                  disabled={unlinkMutation.isPending}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">
@@ -644,6 +1122,22 @@ function ThreadView({
           </Button>
         </div>
       </div>
+
+      {/* Convert to Task Modal */}
+      <ConvertToTaskModal
+        open={taskModalOpen}
+        onClose={() => setTaskModalOpen(false)}
+        threadId={threadId}
+        subject={lastMsg.subject || ""}
+        fromEmail={lastMsg.fromEmail || ""}
+      />
+
+      {/* Link to Company Modal */}
+      <LinkToCompanyModal
+        open={companyModalOpen}
+        onClose={() => setCompanyModalOpen(false)}
+        threadId={threadId}
+      />
     </div>
   );
 }
@@ -682,6 +1176,19 @@ export default function MailModule() {
     enabled: isConnected && hasGmailScopes,
   });
 
+  // Star priorities for all threads
+  const starsQuery = trpc.mail.getStars.useQuery(undefined, {
+    enabled: isConnected && hasGmailScopes,
+  });
+
+  const starMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (starsQuery.data) {
+      starsQuery.data.forEach((s: any) => { map[s.threadId] = s.starLevel; });
+    }
+    return map;
+  }, [starsQuery.data]);
+
   // Categorize threads
   const categorizedThreads = useMemo<CategorizedThread[]>(() => {
     if (!threadsQuery.data?.threads) return [];
@@ -717,6 +1224,7 @@ export default function MailModule() {
   const handleRefresh = () => {
     threadsQuery.refetch();
     unreadQuery.refetch();
+    starsQuery.refetch();
   };
 
   const openCompose = () => {
@@ -843,8 +1351,41 @@ export default function MailModule() {
           ) : null}
         </div>
 
+        {/* Category pills in top bar */}
+        <div className="hidden md:flex items-center gap-1 ml-2">
+          {categoryItems.map((cat) => {
+            const isActive = folder === "inbox" && category === cat.id;
+            const count = categoryCounts[cat.id];
+            const Icon = cat.icon;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => {
+                  setFolder("inbox");
+                  setCategory(cat.id);
+                  setSelectedThreadId(null);
+                  setPageToken(undefined);
+                  setSearchQuery("");
+                  setSearchInput("");
+                }}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] transition-all
+                  ${isActive
+                    ? "bg-zinc-800 text-white border border-zinc-700/60"
+                    : "text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800/30"
+                  }`}
+              >
+                <Icon className={`h-3 w-3 ${isActive ? cat.color : ""}`} />
+                <span>{cat.label}</span>
+                {count > 0 && (
+                  <span className={`text-[9px] tabular-nums ${isActive ? cat.color : "text-zinc-700"}`}>{count}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Search */}
-        <div className="flex-1 flex justify-center max-w-lg mx-auto">
+        <div className="flex-1 flex justify-end max-w-sm ml-auto">
           <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="w-full relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-600" />
             <input
@@ -948,7 +1489,7 @@ export default function MailModule() {
             <div className="mx-4 border-t border-zinc-800/40 my-2" />
 
             {/* OmniScope Categories */}
-            <div className="px-3 pb-4 flex-1">
+            <div className="px-3 pb-2">
               <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest px-2 mb-2">Categories</div>
               <nav className="space-y-0.5">
                 {categoryItems.map((cat) => {
@@ -977,6 +1518,36 @@ export default function MailModule() {
                         </span>
                       )}
                     </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* Divider */}
+            <div className="mx-4 border-t border-zinc-800/40 my-2" />
+
+            {/* Star Priorities */}
+            <div className="px-3 pb-4 flex-1">
+              <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest px-2 mb-2">Priorities</div>
+              <nav className="space-y-0.5">
+                {[1, 2, 3].map((level) => {
+                  const config = STAR_CONFIG[level];
+                  const count = Object.values(starMap).filter((l) => l === level).length;
+                  return (
+                    <div
+                      key={level}
+                      className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[12px] text-zinc-500"
+                    >
+                      <div className={`flex items-center gap-0 ${config.color}`}>
+                        {Array.from({ length: level }).map((_, i) => (
+                          <Star key={i} className="h-3 w-3 fill-current -ml-0.5 first:ml-0" />
+                        ))}
+                      </div>
+                      <span className="flex-1 text-left">{config.label}</span>
+                      {count > 0 && (
+                        <span className="text-[10px] font-semibold tabular-nums text-zinc-700">{count}</span>
+                      )}
+                    </div>
                   );
                 })}
               </nav>
@@ -1041,6 +1612,7 @@ export default function MailModule() {
                     thread={thread}
                     isSelected={selectedThreadId === thread.threadId}
                     onClick={() => setSelectedThreadId(thread.threadId)}
+                    starLevel={starMap[thread.threadId] || null}
                   />
                 ))}
 

@@ -737,3 +737,60 @@ export const userProfilesRelations = relations(userProfiles, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+/**
+ * Email Star Priority System
+ * 1 = Reply Today, 2 = Delegate, 3 = Critical
+ */
+export const emailStars = mysqlTable("email_stars", {
+  id: int("id").autoincrement().primaryKey(),
+  threadId: varchar("threadId", { length: 255 }).notNull(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  starLevel: int("starLevel").notNull(), // 1, 2, or 3
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  threadUserIdx: index("es_thread_user_idx").on(table.threadId, table.userId),
+  userIdx: index("es_user_idx").on(table.userId),
+  starLevelIdx: index("es_star_level_idx").on(table.starLevel),
+}));
+
+export type EmailStar = typeof emailStars.$inferSelect;
+export type InsertEmailStar = typeof emailStars.$inferInsert;
+
+export const emailStarsRelations = relations(emailStars, ({ one }) => ({
+  user: one(users, {
+    fields: [emailStars.userId],
+    references: [users.id],
+  }),
+}));
+
+/**
+ * Email-to-Company Links
+ * Associates Gmail threads with CRM companies
+ */
+export const emailCompanyLinks = mysqlTable("email_company_links", {
+  id: int("id").autoincrement().primaryKey(),
+  threadId: varchar("threadId", { length: 255 }).notNull(),
+  companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  threadIdx: index("ecl_thread_idx").on(table.threadId),
+  companyIdx: index("ecl_company_idx").on(table.companyId),
+  userIdx: index("ecl_user_idx").on(table.userId),
+}));
+
+export type EmailCompanyLink = typeof emailCompanyLinks.$inferSelect;
+export type InsertEmailCompanyLink = typeof emailCompanyLinks.$inferInsert;
+
+export const emailCompanyLinksRelations = relations(emailCompanyLinks, ({ one }) => ({
+  company: one(companies, {
+    fields: [emailCompanyLinks.companyId],
+    references: [companies.id],
+  }),
+  user: one(users, {
+    fields: [emailCompanyLinks.userId],
+    references: [users.id],
+  }),
+}));

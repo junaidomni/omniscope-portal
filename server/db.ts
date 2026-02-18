@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, like, lte, or, sql, inArray, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile } from "../drizzle/schema";
+import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1286,4 +1286,110 @@ export async function propagateCompanyNameChange(companyId: number, oldName: str
   } catch (error) {
     console.error("[Propagation] Failed to propagate company name change:", error);
   }
+}
+
+
+// ============================================================================
+// EMAIL STAR PRIORITY OPERATIONS
+// ============================================================================
+
+export async function getEmailStar(threadId: string, userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [star] = await db.select().from(emailStars)
+    .where(and(eq(emailStars.threadId, threadId), eq(emailStars.userId, userId)))
+    .limit(1);
+  return star || null;
+}
+
+export async function getEmailStarsForUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(emailStars)
+    .where(eq(emailStars.userId, userId))
+    .orderBy(desc(emailStars.updatedAt));
+}
+
+export async function setEmailStar(threadId: string, userId: number, starLevel: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getEmailStar(threadId, userId);
+  if (existing) {
+    await db.update(emailStars)
+      .set({ starLevel })
+      .where(and(eq(emailStars.threadId, threadId), eq(emailStars.userId, userId)));
+  } else {
+    await db.insert(emailStars).values({ threadId, userId, starLevel });
+  }
+  return await getEmailStar(threadId, userId);
+}
+
+export async function removeEmailStar(threadId: string, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(emailStars)
+    .where(and(eq(emailStars.threadId, threadId), eq(emailStars.userId, userId)));
+  return { success: true };
+}
+
+export async function getStarredThreadIds(userId: number, starLevel?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [eq(emailStars.userId, userId)];
+  if (starLevel) conditions.push(eq(emailStars.starLevel, starLevel));
+  const rows = await db.select({ threadId: emailStars.threadId, starLevel: emailStars.starLevel })
+    .from(emailStars)
+    .where(and(...conditions));
+  return rows;
+}
+
+// ============================================================================
+// EMAIL-TO-COMPANY LINK OPERATIONS
+// ============================================================================
+
+export async function getEmailCompanyLinks(threadId: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select({
+    id: emailCompanyLinks.id,
+    threadId: emailCompanyLinks.threadId,
+    companyId: emailCompanyLinks.companyId,
+    companyName: companies.name,
+    companyDomain: companies.domain,
+    userId: emailCompanyLinks.userId,
+    createdAt: emailCompanyLinks.createdAt,
+  })
+    .from(emailCompanyLinks)
+    .innerJoin(companies, eq(emailCompanyLinks.companyId, companies.id))
+    .where(eq(emailCompanyLinks.threadId, threadId));
+}
+
+export async function linkEmailToCompany(threadId: string, companyId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // Check for existing link
+  const [existing] = await db.select().from(emailCompanyLinks)
+    .where(and(
+      eq(emailCompanyLinks.threadId, threadId),
+      eq(emailCompanyLinks.companyId, companyId),
+    ))
+    .limit(1);
+  if (existing) return existing;
+  const result = await db.insert(emailCompanyLinks).values({ threadId, companyId, userId });
+  return { id: Number(result[0].insertId), threadId, companyId, userId };
+}
+
+export async function unlinkEmailFromCompany(linkId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(emailCompanyLinks).where(eq(emailCompanyLinks.id, linkId));
+  return { success: true };
+}
+
+export async function getCompanyEmailThreads(companyId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select({ threadId: emailCompanyLinks.threadId })
+    .from(emailCompanyLinks)
+    .where(eq(emailCompanyLinks.companyId, companyId));
 }

@@ -1186,3 +1186,36 @@
 - [x] All existing tests passing (305 tests across 21 files)
 - [x] 37 new mail intelligence tests covering all 6 categories
 - [ ] Visual verification across all categories and features
+
+## v32 — Star Priority System & Email-to-CRM Integration
+
+### Star Priority System
+- [x] Create email_stars table (threadId, userId, starLevel 1/2/3, createdAt, updatedAt)
+- [x] Add db helpers for get/set/remove star priority
+- [x] Add tRPC procedures for star CRUD operations
+- [x] 1 Star = Reply Today (yellow star)
+- [x] 2 Stars = Delegate (orange double star)
+- [x] 3 Stars = Critical (red triple star)
+- [x] Star indicator in thread list rows
+- [x] Star toggle button in thread view header
+- [x] Star dropdown/popover to select priority level
+- [x] Star priority counts shown in sidebar
+
+### Convert to Task
+- [x] "Convert to Task" button in thread view action bar
+- [x] Modal to create task from email (pre-fill subject, link threadId)
+- [x] Task created with reference back to email thread
+- [x] Success toast with link to task in To-Do
+
+### Link to Company
+- [x] "Link to Company" button in thread view action bar
+- [x] Modal with company search/select from existing companies
+- [x] Create email_company_links table (threadId, companyId, userId, createdAt)
+- [x] Show linked company badge in thread view
+- [x] Company links bar visible in thread view header
+
+### Testing
+- [x] Write vitest tests for star priority CRUD
+- [x] Write vitest tests for convert-to-task flow
+- [x] Write vitest tests for link-to-company flow
+- [x] All 341 tests passing across 22 files (36 new mail-crm tests)
