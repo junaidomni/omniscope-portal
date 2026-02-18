@@ -1322,3 +1322,14 @@
 ## Bug Fixes
 
 - [x] Fix React error #310 (hooks ordering) when clicking email thread in Mail module
+
+## v36 — AI Task Extraction from Email
+
+- [x] Add tRPC procedure: mail.extractTasks — sends thread to LLM, returns structured action items
+- [x] LLM prompt: extract task title, assignee (if mentioned), priority, due date hints, category
+- [x] Match extracted assignees to existing contacts via directory search + email lookup
+- [x] AI Wand button in thread view header (Wand2 icon, emerald accent)
+- [x] Clicking AI button extracts tasks and auto-populates multi-task creator modal
+- [x] Loading state with spinner + pulse animation during LLM extraction
+- [x] Write vitest tests for task extraction (20 tests)
+- [x] All 459 tests passing across 26 files

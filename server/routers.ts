@@ -2313,6 +2313,145 @@ Return ONLY valid JSON. No markdown, no code blocks.`,
   analytics: protectedProcedure.query(async ({ ctx }) => {
     return await db.getEmailAnalytics(ctx.user.id);
   }),
+
+  // AI Task Extraction from Email Thread
+  extractTasks: protectedProcedure
+    .input(z.object({ threadId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Fetch thread messages
+      const threadData = await gmailService.getGmailThread(ctx.user.id, input.threadId);
+      if (!threadData?.messages?.length) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Thread not found or empty" });
+      }
+
+      const messages = threadData.messages;
+      const conversationText = messages.map((msg: any) => {
+        const body = (msg.body || msg.bodyHtml || msg.snippet || "").replace(/<[^>]+>/g, "").trim();
+        const date = new Date(parseInt(msg.internalDate)).toISOString();
+        return `[${date}] ${msg.fromName || msg.fromEmail} <${msg.fromEmail}>:\n${body}`;
+      }).join("\n\n---\n\n");
+
+      const { invokeLLM } = await import("./_core/llm");
+      const result = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: `You are OmniScope Intelligence — a private, institutional-grade task extraction engine.
+Your job is to read an email thread and extract every actionable task, follow-up, or deliverable.
+
+For each task, determine:
+- "title": A clear, concise task title (action verb + object)
+- "description": Brief context from the email (1-2 sentences)
+- "priority": "high" (urgent/deadline-driven), "medium" (important but flexible), or "low" (nice-to-have)
+- "assignee": The person's name who should do this (if mentioned or implied), or null
+- "assigneeEmail": Their email if visible in the thread, or null
+- "dueDateHint": Any mentioned deadline or timeframe (e.g. "by Friday", "next week", "ASAP"), or null
+- "category": One of "compliance", "finance", "operations", "communications", "legal", "general"
+
+Return a JSON object with:
+- "tasks": Array of task objects (1-10 tasks)
+- "threadContext": One sentence describing what this thread is about
+
+Be thorough — extract ALL action items, even implicit ones. If someone says "I'll send you the docs" that's a task.
+Return ONLY valid JSON. No markdown, no code blocks.`,
+          },
+          {
+            role: "user",
+            content: `Extract all action items from this email thread (${messages.length} messages):\n\n${conversationText.substring(0, 12000)}`,
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "extracted_tasks",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                threadContext: { type: "string", description: "One sentence thread context" },
+                tasks: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      title: { type: "string" },
+                      description: { type: "string" },
+                      priority: { type: "string" },
+                      assignee: { type: ["string", "null"] },
+                      assigneeEmail: { type: ["string", "null"] },
+                      dueDateHint: { type: ["string", "null"] },
+                      category: { type: "string" },
+                    },
+                    required: ["title", "description", "priority", "assignee", "assigneeEmail", "dueDateHint", "category"],
+                    additionalProperties: false,
+                  },
+                  description: "Extracted tasks",
+                },
+              },
+              required: ["threadContext", "tasks"],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+
+      const content = result.choices?.[0]?.message?.content as string | undefined;
+      if (!content) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "LLM returned empty response" });
+      }
+
+      let parsed: {
+        threadContext: string;
+        tasks: Array<{
+          title: string;
+          description: string;
+          priority: string;
+          assignee: string | null;
+          assigneeEmail: string | null;
+          dueDateHint: string | null;
+          category: string;
+        }>;
+      };
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to parse LLM response" });
+      }
+
+      // Try to match assignees to existing contacts
+      const enrichedTasks = await Promise.all(
+        parsed.tasks.map(async (task) => {
+          let contactId: number | null = null;
+          let contactName: string | null = task.assignee;
+
+          if (task.assigneeEmail) {
+            const contact = await db.findContactByEmail(task.assigneeEmail);
+            if (contact) {
+              contactId = contact.id;
+              contactName = contact.name;
+            }
+          } else if (task.assignee) {
+            const results = await db.directorySearch(task.assignee, 1);
+            if (results.length > 0) {
+              contactId = results[0].id;
+              contactName = results[0].name;
+            }
+          }
+
+          return {
+            ...task,
+            assigneeContactId: contactId,
+            assigneeName: contactName,
+          };
+        })
+      );
+
+      return {
+        threadContext: parsed.threadContext,
+        tasks: enrichedTasks,
+        messageCount: messages.length,
+      };
+    }),
 });
 
 // ============================================================================

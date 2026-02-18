@@ -11,7 +11,7 @@ import {
   DollarSign, Repeat, Newspaper, ArrowDown, Zap,
   CheckSquare, Building2, Link2, Unlink,
   Sparkles, ChevronDown, ChevronUp, RotateCw, Target, ListChecks, Hash,
-  BarChart3, Check, Minus, SquareCheck, UserPlus, Briefcase
+  BarChart3, Check, Minus, SquareCheck, UserPlus, Briefcase, Wand2
 } from "lucide-react";
 import { PersonAutocomplete, type PersonResult } from "@/components/PersonAutocomplete";
 
@@ -616,20 +616,26 @@ function ConvertToTaskModal({
   threadId,
   subject,
   fromEmail,
+  initialTasks,
 }: {
   open: boolean;
   onClose: () => void;
   threadId: string;
   subject: string;
   fromEmail: string;
+  initialTasks?: TaskItem[] | null;
 }) {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const convertMutation = trpc.mail.convertToTasks.useMutation();
   const threadTasksQuery = trpc.mail.getThreadTasks.useQuery({ threadId }, { enabled: open });
   const utils = trpc.useUtils();
+  const isAiPopulated = !!initialTasks?.length;
 
   useEffect(() => {
-    if (open) {
+    if (open && initialTasks?.length) {
+      // AI-extracted tasks — use them directly
+      setTasks(initialTasks);
+    } else if (open) {
       setTasks([{
         id: crypto.randomUUID(),
         title: subject || "",
@@ -641,7 +647,7 @@ function ConvertToTaskModal({
         category: "",
       }]);
     }
-  }, [open, subject, fromEmail]);
+  }, [open, subject, fromEmail, initialTasks]);
 
   const addTask = () => {
     setTasks(prev => [...prev, {
@@ -711,9 +717,9 @@ function ConvertToTaskModal({
       <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <CheckSquare className="h-4 w-4 text-yellow-600" />
-            <h3 className="text-sm font-medium text-white">Create Tasks from Email</h3>
-            <span className="text-[10px] bg-zinc-800 text-zinc-400 rounded-full px-2 py-0.5">{tasks.length}</span>
+            {isAiPopulated ? <Wand2 className="h-4 w-4 text-emerald-400" /> : <CheckSquare className="h-4 w-4 text-yellow-600" />}
+            <h3 className="text-sm font-medium text-white">{isAiPopulated ? "AI-Extracted Tasks" : "Create Tasks from Email"}</h3>
+            <span className={`text-[10px] rounded-full px-2 py-0.5 ${isAiPopulated ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-400"}`}>{tasks.length}</span>
           </div>
           <button onClick={onClose} className="p-1 text-zinc-500 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors">
             <X className="h-4 w-4" />
@@ -1076,6 +1082,32 @@ function ThreadView({
   });
   const summaryData = summarizeMutation.data || (summaryQuery.data ? { ...summaryQuery.data, cached: true } : null);
 
+  // AI Task Extraction
+  const extractTasksMutation = trpc.mail.extractTasks.useMutation({
+    onSuccess: (result) => {
+      // Auto-populate the task modal with extracted tasks
+      const mapped: TaskItem[] = result.tasks.map((t) => ({
+        id: crypto.randomUUID(),
+        title: t.title,
+        description: t.description || "",
+        priority: (["low", "medium", "high"].includes(t.priority) ? t.priority : "medium") as "low" | "medium" | "high",
+        assignee: t.assigneeContactId ? { id: t.assigneeContactId, name: t.assigneeName || "", email: t.assigneeEmail || null, phone: null, organization: null, companyId: null, photoUrl: null, title: null, category: null } : null,
+        assignedName: t.assigneeName || "",
+        dueDate: "",
+        category: t.category || "",
+      }));
+      setAiExtractedTasks(mapped);
+      setTaskModalOpen(true);
+      toast.success(`${result.tasks.length} action item${result.tasks.length !== 1 ? "s" : ""} extracted`, {
+        description: result.threadContext,
+      });
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to extract tasks");
+    },
+  });
+  const [aiExtractedTasks, setAiExtractedTasks] = useState<TaskItem[] | null>(null);
+
   // Find contact from sender email — must be above early returns to maintain hook order
   const firstFromEmail = data?.messages?.[data.messages.length - 1]?.fromEmail || "";
   const senderLookup = trpc.directory.findByEmail.useQuery(
@@ -1205,17 +1237,37 @@ function ThreadView({
             <TooltipContent>{summaryData ? (summaryOpen ? "Hide Summary" : "Show Summary") : "AI Summary"}</TooltipContent>
           </Tooltip>
 
-          {/* Convert to Task */}
+          {/* AI Extract Tasks */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => setTaskModalOpen(true)}
+                onClick={() => extractTasksMutation.mutate({ threadId })}
+                disabled={extractTasksMutation.isPending}
+                className={`p-2 rounded-lg hover:bg-zinc-800/50 transition-colors ${
+                  extractTasksMutation.isPending ? "text-yellow-500 animate-pulse" : "text-zinc-600 hover:text-emerald-400"
+                }`}
+              >
+                {extractTasksMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="h-4 w-4" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>AI Extract Tasks</TooltipContent>
+          </Tooltip>
+
+          {/* Convert to Task (manual) */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => { setAiExtractedTasks(null); setTaskModalOpen(true); }}
                 className="p-2 text-zinc-600 hover:text-yellow-500 rounded-lg hover:bg-zinc-800/50 transition-colors"
               >
                 <CheckSquare className="h-4 w-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>Convert to Task</TooltipContent>
+            <TooltipContent>Create Tasks Manually</TooltipContent>
           </Tooltip>
 
           {/* Link to Company */}
@@ -1437,10 +1489,11 @@ function ThreadView({
       {/* Convert to Task Modal */}
       <ConvertToTaskModal
         open={taskModalOpen}
-        onClose={() => setTaskModalOpen(false)}
+        onClose={() => { setTaskModalOpen(false); setAiExtractedTasks(null); }}
         threadId={threadId}
         subject={lastMsg.subject || ""}
         fromEmail={lastMsg.fromEmail || ""}
+        initialTasks={aiExtractedTasks}
       />
 
       {/* Link to Company Modal */}
