@@ -1,16 +1,15 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
   Mail, Inbox, Send, FileText, Star, Search, RefreshCw, Loader2,
   ChevronDown, ChevronRight, Paperclip, Reply, ReplyAll, Forward,
   Trash2, MailPlus, X, ArrowLeft, AlertCircle,
-  StarOff, MoreHorizontal, Archive, PanelLeftClose, PanelLeft,
-  Check, Clock, ChevronUp, Minus
+  StarOff, MoreHorizontal, PanelLeftClose, PanelLeft,
+  Check, ChevronUp, Minus, Users, Bell, Receipt,
+  Newspaper, Sparkles, Tag, Filter
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +28,7 @@ import {
 // ============================================================================
 
 type Folder = "inbox" | "sent" | "drafts" | "starred" | "all";
+type Category = "all" | "important" | "team" | "newsletters" | "notifications" | "transactions" | "other";
 
 interface ThreadListItem {
   threadId: string;
@@ -42,6 +42,7 @@ interface ThreadListItem {
   messageCount: number;
   hasAttachments: boolean;
   labelIds: string[];
+  hasUnsubscribe?: boolean;
 }
 
 interface GmailMessage {
@@ -64,6 +65,94 @@ interface GmailMessage {
   hasAttachments: boolean;
   attachments: { filename: string; mimeType: string; size: number; attachmentId: string }[];
 }
+
+// ============================================================================
+// CATEGORIZATION ENGINE
+// ============================================================================
+
+const NOTIFICATION_SENDERS = [
+  "noreply", "no-reply", "notifications", "notification", "alert", "alerts",
+  "mailer-daemon", "postmaster", "donotreply", "do-not-reply", "info@",
+  "support@", "hello@", "team@", "updates@", "news@"
+];
+
+const TRANSACTION_KEYWORDS = [
+  "invoice", "receipt", "payment", "order confirmation", "shipping",
+  "tracking", "billing", "subscription", "charge", "refund", "statement"
+];
+
+const NEWSLETTER_KEYWORDS = [
+  "unsubscribe", "newsletter", "digest", "weekly", "monthly", "roundup",
+  "update from", "new post", "new article"
+];
+
+function categorizeThread(thread: ThreadListItem, userDomain?: string): Category {
+  const labels = thread.labelIds || [];
+  const email = thread.fromEmail.toLowerCase();
+  const subject = thread.subject.toLowerCase();
+  const snippet = thread.snippet.toLowerCase();
+  const combined = `${subject} ${snippet}`;
+
+  // Gmail's built-in categories (if user has them enabled)
+  if (labels.includes("CATEGORY_PROMOTIONS") || labels.includes("CATEGORY_SOCIAL")) {
+    return "newsletters";
+  }
+  if (labels.includes("CATEGORY_UPDATES")) {
+    return "notifications";
+  }
+  if (labels.includes("CATEGORY_FORUMS")) {
+    return "team";
+  }
+
+  // Has unsubscribe header → newsletter
+  if (thread.hasUnsubscribe) {
+    // But check if it's transactional first
+    if (TRANSACTION_KEYWORDS.some(kw => combined.includes(kw))) {
+      return "transactions";
+    }
+    return "newsletters";
+  }
+
+  // Transaction detection
+  if (TRANSACTION_KEYWORDS.some(kw => combined.includes(kw))) {
+    // Only if from a noreply or business address
+    if (NOTIFICATION_SENDERS.some(s => email.includes(s)) || email.includes("billing") || email.includes("invoice")) {
+      return "transactions";
+    }
+  }
+
+  // Notification detection
+  if (NOTIFICATION_SENDERS.some(s => email.includes(s))) {
+    return "notifications";
+  }
+
+  // Newsletter detection by keywords
+  if (NEWSLETTER_KEYWORDS.some(kw => combined.includes(kw))) {
+    return "newsletters";
+  }
+
+  // Team detection — same domain
+  if (userDomain && email.endsWith(`@${userDomain}`)) {
+    return "team";
+  }
+
+  // Important — person-to-person (real person, not automated)
+  if (thread.fromName && !email.includes("noreply") && !email.includes("no-reply")) {
+    return "important";
+  }
+
+  return "other";
+}
+
+const CATEGORY_CONFIG: Record<Category, { label: string; icon: React.ElementType; color: string }> = {
+  all:           { label: "All",           icon: Inbox,     color: "text-zinc-400" },
+  important:     { label: "Important",     icon: Sparkles,  color: "text-yellow-500" },
+  team:          { label: "Team",          icon: Users,     color: "text-blue-400" },
+  newsletters:   { label: "Newsletters",   icon: Newspaper, color: "text-emerald-400" },
+  notifications: { label: "Notifications", icon: Bell,      color: "text-violet-400" },
+  transactions:  { label: "Transactions",  icon: Receipt,   color: "text-orange-400" },
+  other:         { label: "Other",         icon: Tag,       color: "text-zinc-500" },
+};
 
 // ============================================================================
 // HELPERS
@@ -177,7 +266,6 @@ function ComposeModal({
     setMinimized(false);
   }, [replyTo, replyAll, forwardMsg, open]);
 
-  // Auto-focus body on open
   useEffect(() => {
     if (open && !minimized && bodyRef.current) {
       setTimeout(() => bodyRef.current?.focus(), 100);
@@ -212,7 +300,6 @@ function ComposeModal({
 
   const title = replyTo ? "Reply" : forwardMsg ? "Forward" : "New Message";
 
-  // Minimized state — just the title bar
   if (minimized) {
     return (
       <div className="fixed bottom-0 right-8 w-72 z-50">
@@ -296,9 +383,7 @@ function ComposeModal({
 
       {/* Footer */}
       <div className="flex items-center justify-between px-4 py-2.5 border-t border-zinc-800/80">
-        <div className="flex items-center gap-1">
-          {/* Future: formatting, attachments */}
-        </div>
+        <div className="flex items-center gap-1" />
         <Button
           onClick={handleSend}
           disabled={sendMutation.isPending || !to.trim()}
@@ -313,6 +398,79 @@ function ComposeModal({
 }
 
 // ============================================================================
+// CATEGORY TAB BAR — Superhuman Split Inbox style
+// ============================================================================
+
+function CategoryTabs({
+  activeCategory,
+  onSelect,
+  counts,
+}: {
+  activeCategory: Category;
+  onSelect: (cat: Category) => void;
+  counts: Record<Category, number>;
+}) {
+  const categories: Category[] = ["all", "important", "team", "newsletters", "notifications", "transactions", "other"];
+
+  return (
+    <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-zinc-800/60 overflow-x-auto scrollbar-none">
+      {categories.map((cat) => {
+        const config = CATEGORY_CONFIG[cat];
+        const Icon = config.icon;
+        const isActive = activeCategory === cat;
+        const count = counts[cat] || 0;
+
+        // Don't show empty categories (except "all" and active)
+        if (count === 0 && cat !== "all" && !isActive) return null;
+
+        return (
+          <button
+            key={cat}
+            onClick={() => onSelect(cat)}
+            className={`
+              flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all whitespace-nowrap
+              ${isActive
+                ? "bg-zinc-800 text-white"
+                : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40"
+              }
+            `}
+          >
+            <Icon className={`h-3.5 w-3.5 ${isActive ? config.color : ""}`} />
+            <span>{config.label}</span>
+            {count > 0 && cat !== "all" && (
+              <span className={`text-[10px] tabular-nums ${isActive ? "text-zinc-400" : "text-zinc-600"}`}>
+                {count > 99 ? "99+" : count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============================================================================
+// CATEGORY BADGE — Small inline indicator on thread rows
+// ============================================================================
+
+function CategoryBadge({ category }: { category: Category }) {
+  if (category === "all" || category === "important") return null;
+  const config = CATEGORY_CONFIG[category];
+  const Icon = config.icon;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800/60 ${config.color}`}>
+          <Icon className="h-2.5 w-2.5" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">{config.label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+// ============================================================================
 // THREAD ROW — Clean, minimal, Superhuman-inspired
 // ============================================================================
 
@@ -320,10 +478,12 @@ function ThreadRow({
   thread,
   isSelected,
   onClick,
+  category,
 }: {
   thread: ThreadListItem;
   isSelected: boolean;
   onClick: () => void;
+  category: Category;
 }) {
   const [hovered, setHovered] = useState(false);
   const toggleStarMut = trpc.mail.toggleStar.useMutation();
@@ -371,6 +531,7 @@ function ThreadRow({
             {thread.messageCount > 1 && (
               <span className="text-[11px] text-zinc-600">{thread.messageCount}</span>
             )}
+            <CategoryBadge category={category} />
             <div className="flex-1" />
             {/* Hover actions or time */}
             {hovered ? (
@@ -415,7 +576,7 @@ function ThreadRow({
 }
 
 // ============================================================================
-// THREAD VIEW — Clean reading experience
+// THREAD VIEW — Clean reading experience, dark theme native
 // ============================================================================
 
 function ThreadView({
@@ -438,12 +599,10 @@ function ThreadView({
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-expand last message, collapse others
   useEffect(() => {
     if (data?.messages && data.messages.length > 0) {
       const last = data.messages[data.messages.length - 1];
       setExpandedMessages(new Set([last.id]));
-      // Scroll to bottom after render
       setTimeout(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
       }, 100);
@@ -495,7 +654,7 @@ function ThreadView({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-black">
-      {/* Thread Header — minimal */}
+      {/* Thread Header */}
       <div className="px-6 py-4 border-b border-zinc-800/80 flex items-center gap-4">
         <button onClick={onBack} className="text-zinc-500 hover:text-white transition-colors lg:hidden">
           <ArrowLeft className="h-5 w-5" />
@@ -531,7 +690,7 @@ function ThreadView({
 
             return (
               <div key={msg.id} className="group">
-                {/* Collapsed message — just a line */}
+                {/* Collapsed message */}
                 {!isExpanded && (
                   <button
                     onClick={() => toggleExpand(msg.id)}
@@ -546,7 +705,7 @@ function ThreadView({
                   </button>
                 )}
 
-                {/* Expanded message — full card */}
+                {/* Expanded message */}
                 {isExpanded && (
                   <div className={`rounded-xl border ${isLast ? "border-zinc-700/60 bg-zinc-900/50" : "border-zinc-800/50 bg-zinc-900/30"} overflow-hidden`}>
                     {/* Header */}
@@ -573,24 +732,31 @@ function ThreadView({
                       </div>
                     </button>
 
-                    {/* Body */}
+                    {/* Body — dark theme native rendering */}
                     <div className="px-5 pb-5">
                       <div className="ml-12">
                         {msg.bodyHtml ? (
-                          <div className="rounded-lg overflow-hidden border border-zinc-700/30">
-                            <div
-                              className="bg-white text-zinc-900 text-sm leading-relaxed p-5 max-w-none
-                                [&_a]:text-blue-600 [&_a]:no-underline [&_a:hover]:underline
-                                [&_img]:max-w-full [&_img]:h-auto
-                                [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-300 [&_blockquote]:pl-4 [&_blockquote]:text-zinc-600
-                                [&_pre]:bg-zinc-100 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:text-zinc-800
-                                [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-200 [&_td]:px-3 [&_td]:py-1.5
-                                [&_th]:border [&_th]:border-zinc-200 [&_th]:px-3 [&_th]:py-1.5 [&_th]:bg-zinc-50
-                                [&_h1]:text-zinc-900 [&_h2]:text-zinc-900 [&_h3]:text-zinc-900
-                                [&_p]:text-zinc-800 [&_li]:text-zinc-800 [&_span]:text-inherit"
-                              dangerouslySetInnerHTML={{ __html: msg.bodyHtml }}
-                            />
-                          </div>
+                          <div
+                            className="email-body-dark text-sm leading-relaxed text-zinc-200 max-w-none overflow-x-auto
+                              [&_a]:text-yellow-500 [&_a]:no-underline [&_a:hover]:underline [&_a:hover]:text-yellow-400
+                              [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg
+                              [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-700 [&_blockquote]:pl-4 [&_blockquote]:text-zinc-400 [&_blockquote]:my-3
+                              [&_pre]:bg-zinc-800/60 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:text-zinc-300 [&_pre]:border [&_pre]:border-zinc-700/50
+                              [&_code]:bg-zinc-800/60 [&_code]:rounded [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-zinc-300
+                              [&_table]:border-collapse [&_table]:w-full [&_table]:my-3
+                              [&_td]:border [&_td]:border-zinc-700/50 [&_td]:px-3 [&_td]:py-2 [&_td]:text-zinc-300
+                              [&_th]:border [&_th]:border-zinc-700/50 [&_th]:px-3 [&_th]:py-2 [&_th]:bg-zinc-800/40 [&_th]:text-zinc-200 [&_th]:font-medium
+                              [&_h1]:text-zinc-100 [&_h1]:text-xl [&_h1]:font-semibold [&_h1]:my-4
+                              [&_h2]:text-zinc-100 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:my-3
+                              [&_h3]:text-zinc-200 [&_h3]:text-base [&_h3]:font-medium [&_h3]:my-2
+                              [&_p]:text-zinc-300 [&_p]:my-2 [&_p]:leading-relaxed
+                              [&_li]:text-zinc-300 [&_li]:my-1
+                              [&_ul]:my-2 [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:pl-5
+                              [&_hr]:border-zinc-700/50 [&_hr]:my-4
+                              [&_strong]:text-zinc-100 [&_b]:text-zinc-100
+                              [&_em]:text-zinc-300"
+                            dangerouslySetInnerHTML={{ __html: msg.bodyHtml }}
+                          />
                         ) : (
                           <pre className="text-sm text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">{msg.body}</pre>
                         )}
@@ -727,10 +893,10 @@ function ConnectGmailPrompt({ needsReauth }: { needsReauth?: boolean }) {
 }
 
 // ============================================================================
-// EMPTY STATE — Inbox Zero
+// EMPTY STATE
 // ============================================================================
 
-function EmptyInbox({ folder }: { folder: Folder }) {
+function EmptyInbox({ folder, category }: { folder: Folder; category: Category }) {
   const messages: Record<Folder, { icon: React.ElementType; title: string; sub: string }> = {
     inbox: { icon: Check, title: "You're all caught up", sub: "No new messages in your inbox" },
     sent: { icon: Send, title: "No sent messages", sub: "Messages you send will appear here" },
@@ -738,6 +904,23 @@ function EmptyInbox({ folder }: { folder: Folder }) {
     starred: { icon: Star, title: "No starred messages", sub: "Star important messages to find them here" },
     all: { icon: Mail, title: "No messages", sub: "Your mailbox is empty" },
   };
+
+  // Category-specific empty states
+  if (category !== "all") {
+    const catConfig = CATEGORY_CONFIG[category];
+    const Icon = catConfig.icon;
+    return (
+      <div className="flex-1 flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-xl bg-zinc-800/50 flex items-center justify-center mx-auto mb-4">
+            <Icon className={`h-6 w-6 ${catConfig.color} opacity-50`} />
+          </div>
+          <p className="text-sm font-medium text-zinc-400">No {catConfig.label.toLowerCase()}</p>
+          <p className="text-xs text-zinc-600 mt-1">Emails in this category will appear here</p>
+        </div>
+      </div>
+    );
+  }
 
   const msg = messages[folder];
   const Icon = msg.icon;
@@ -761,6 +944,7 @@ function EmptyInbox({ folder }: { folder: Folder }) {
 
 export default function MailModule() {
   const [folder, setFolder] = useState<Folder>("inbox");
+  const [category, setCategory] = useState<Category>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
@@ -778,6 +962,13 @@ export default function MailModule() {
   const isConnected = connectionQuery.data?.connected;
   const hasGmailScopes = connectionQuery.data?.hasGmailScopes;
 
+  // Get user email for domain detection
+  const { data: meData } = trpc.auth.me.useQuery();
+  const userDomain = useMemo(() => {
+    if (!meData?.email) return undefined;
+    return meData.email.split("@")[1];
+  }, [meData?.email]);
+
   // Unread count
   const unreadQuery = trpc.mail.getUnreadCount.useQuery(undefined, {
     enabled: !!isConnected && !!hasGmailScopes,
@@ -786,14 +977,48 @@ export default function MailModule() {
 
   // Thread list
   const threadsQuery = trpc.mail.listThreads.useQuery(
-    { folder, search: searchQuery || undefined, maxResults: 30, pageToken },
+    { folder, search: searchQuery || undefined, maxResults: 50, pageToken },
     { enabled: !!isConnected && !!hasGmailScopes }
   );
+
+  // Categorize threads
+  const categorizedThreads = useMemo(() => {
+    const threads = threadsQuery.data?.threads || [];
+    const categorized = threads.map(thread => ({
+      ...thread,
+      category: categorizeThread(thread, userDomain),
+    }));
+    return categorized;
+  }, [threadsQuery.data?.threads, userDomain]);
+
+  // Category counts
+  const categoryCounts = useMemo(() => {
+    const counts: Record<Category, number> = {
+      all: categorizedThreads.length,
+      important: 0,
+      team: 0,
+      newsletters: 0,
+      notifications: 0,
+      transactions: 0,
+      other: 0,
+    };
+    categorizedThreads.forEach(t => {
+      counts[t.category]++;
+    });
+    return counts;
+  }, [categorizedThreads]);
+
+  // Filter by category
+  const filteredThreads = useMemo(() => {
+    if (category === "all") return categorizedThreads;
+    return categorizedThreads.filter(t => t.category === category);
+  }, [categorizedThreads, category]);
 
   const handleSearch = () => {
     setSearchQuery(searchInput);
     setSelectedThreadId(null);
     setPageToken(undefined);
+    setCategory("all");
   };
 
   const handleRefresh = () => {
@@ -829,14 +1054,13 @@ export default function MailModule() {
     setComposeOpen(true);
   };
 
-  // Keyboard shortcut: Cmd/Ctrl+K to focus search
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         searchRef.current?.focus();
       }
-      // Escape to deselect
       if (e.key === "Escape" && selectedThreadId) {
         setSelectedThreadId(null);
       }
@@ -872,7 +1096,7 @@ export default function MailModule() {
     <div className="h-[calc(100vh)] flex flex-col bg-black overflow-hidden">
 
       {/* ═══════════════════════════════════════════════════════════════════
-          TOP COMMAND BAR — Full width, always visible
+          TOP COMMAND BAR
           ═══════════════════════════════════════════════════════════════════ */}
       <div className="h-14 border-b border-zinc-800/80 flex items-center gap-3 px-4 bg-black flex-shrink-0">
         {/* Sidebar toggle */}
@@ -899,7 +1123,7 @@ export default function MailModule() {
           ) : null}
         </div>
 
-        {/* Search — centered, prominent */}
+        {/* Search */}
         <div className="flex-1 flex justify-center max-w-xl mx-auto">
           <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="w-full relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-600" />
@@ -960,7 +1184,7 @@ export default function MailModule() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          MAIN CONTENT AREA — Sidebar + Thread List + Reading Pane
+          MAIN CONTENT AREA
           ═══════════════════════════════════════════════════════════════════ */}
       <div className="flex-1 flex overflow-hidden">
 
@@ -980,6 +1204,7 @@ export default function MailModule() {
                       setPageToken(undefined);
                       setSearchQuery("");
                       setSearchInput("");
+                      setCategory("all");
                     }}
                     className={`
                       w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-all
@@ -1003,13 +1228,22 @@ export default function MailModule() {
           </div>
         )}
 
-        {/* Thread List */}
+        {/* Thread List + Category Tabs */}
         <div
           className={`
             ${selectedThreadId ? "hidden lg:flex" : "flex"} flex-col border-r border-zinc-800/60
             ${sidebarOpen ? "w-[360px] min-w-[360px]" : "w-[400px] min-w-[400px]"}
           `}
         >
+          {/* Category Tabs — Superhuman Split Inbox */}
+          {folder === "inbox" && !searchQuery && (
+            <CategoryTabs
+              activeCategory={category}
+              onSelect={(cat) => { setCategory(cat); setSelectedThreadId(null); }}
+              counts={categoryCounts}
+            />
+          )}
+
           {/* Thread list content */}
           <div className="flex-1 overflow-y-auto">
             {threadsQuery.isLoading ? (
@@ -1021,21 +1255,22 @@ export default function MailModule() {
                 <AlertCircle className="h-5 w-5 mb-2" />
                 <span className="text-xs">{threadsQuery.data.error}</span>
               </div>
-            ) : !threadsQuery.data?.threads?.length ? (
-              <EmptyInbox folder={folder} />
+            ) : !filteredThreads.length ? (
+              <EmptyInbox folder={folder} category={category} />
             ) : (
               <>
-                {threadsQuery.data.threads.map((thread) => (
+                {filteredThreads.map((thread) => (
                   <ThreadRow
                     key={thread.threadId}
                     thread={thread}
                     isSelected={selectedThreadId === thread.threadId}
                     onClick={() => setSelectedThreadId(thread.threadId)}
+                    category={thread.category}
                   />
                 ))}
 
                 {/* Load More */}
-                {threadsQuery.data.nextPageToken && (
+                {threadsQuery.data?.nextPageToken && category === "all" && (
                   <div className="p-4 flex justify-center">
                     <button
                       onClick={() => setPageToken(threadsQuery.data?.nextPageToken)}
@@ -1049,12 +1284,14 @@ export default function MailModule() {
             )}
           </div>
 
-          {/* Thread list footer — count */}
-          {threadsQuery.data?.resultSizeEstimate && (
-            <div className="px-4 py-2 border-t border-zinc-800/40 text-[11px] text-zinc-600 text-center">
-              {threadsQuery.data.resultSizeEstimate} conversations
-            </div>
-          )}
+          {/* Thread list footer */}
+          <div className="px-4 py-2 border-t border-zinc-800/40 text-[11px] text-zinc-600 text-center">
+            {category !== "all" ? (
+              <span>{filteredThreads.length} in {CATEGORY_CONFIG[category].label}</span>
+            ) : threadsQuery.data?.resultSizeEstimate ? (
+              <span>{threadsQuery.data.resultSizeEstimate} conversations</span>
+            ) : null}
+          </div>
         </div>
 
         {/* Reading Pane */}
@@ -1075,8 +1312,8 @@ export default function MailModule() {
                 </div>
                 <p className="text-sm text-zinc-500">Select a conversation</p>
                 <p className="text-[11px] text-zinc-700 mt-1">
-                  {threadsQuery.data?.resultSizeEstimate
-                    ? `${threadsQuery.data.resultSizeEstimate} conversations in ${activeFolder?.label || folder}`
+                  {filteredThreads.length > 0
+                    ? `${filteredThreads.length} conversations${category !== "all" ? ` in ${CATEGORY_CONFIG[category].label}` : ""}`
                     : `Viewing ${activeFolder?.label || folder}`}
                 </p>
               </div>

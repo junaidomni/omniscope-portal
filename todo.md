@@ -1121,3 +1121,25 @@
 - [x] Ensure images, tables, and styled content display properly (white bg with proper text colors)
 - [x] Text in emails with transparent backgrounds remains readable
 - [x] All 268 tests passing
+
+## v30 — Email Categorization & Smart Filtering
+### Revert
+- [x] Revert email body rendering back to dark theme (remove white container)
+
+### Research & Strategy
+- [x] Research Superhuman Split Inbox, Hey Imbox/Feed/Paper Trail, Gmail categories, Spark Smart Inbox
+- [x] Define categorization strategy: Superhuman-inspired split inbox with auto-categorization
+
+### Email Categorization System
+- [x] Build smart categorization engine using Gmail labelIds + sender pattern matching + unsubscribe headers
+- [x] Categories: Important (person-to-person), Team (internal @omniscopex.ae), Newsletters (promotions/unsubscribe), Notifications (automated/transactional), Other
+- [x] Horizontal category tabs at top of thread list with counts per category
+- [x] Gold active tab indicator with smooth transitions
+- [x] "All" tab shows full inbox, category tabs filter to specific types
+- [x] Empty state shows category-specific message ("X conversations in [Category]")
+- [x] hasUnsubscribe flag added to Gmail service layer for newsletter detection
+- [x] List-Unsubscribe header extraction from Gmail metadata
+
+### Testing
+- [x] Visual verification: Important (3 real person emails), Newsletters (13 marketing emails), Notifications (33 automated)
+- [x] All 268 tests passing across 20 files

@@ -52,6 +52,7 @@ export interface ThreadListItem {
   messageCount: number;
   hasAttachments: boolean;
   labelIds: string[];
+  hasUnsubscribe?: boolean;
 }
 
 export interface SendEmailParams {
@@ -157,7 +158,7 @@ export async function listGmailThreads(
           userId: "me",
           id: t.id,
           format: "metadata",
-          metadataHeaders: ["From", "Subject", "Date"],
+          metadataHeaders: ["From", "Subject", "Date", "List-Unsubscribe"],
         });
 
         const messages = threadDetail.data.messages || [];
@@ -190,6 +191,10 @@ export async function listGmailThreads(
           messageCount: messages.length,
           hasAttachments,
           labelIds: lastMsg.labelIds || [],
+          hasUnsubscribe: messages.some((m) => {
+            const hdrs = m.payload?.headers || [];
+            return hdrs.some((h: any) => h.name?.toLowerCase() === "list-unsubscribe");
+          }),
         });
       } catch (err) {
         // Skip threads that fail to load
