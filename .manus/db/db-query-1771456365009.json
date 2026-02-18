@@ -1,0 +1,15 @@
+{
+  "query": "SELECT id, meetingTitle, DATE(createdAt) as created FROM meetings WHERE meetingTitle LIKE '%Zulfiq%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, meetingTitle, DATE(createdAt) as created FROM meetings WHERE meetingTitle LIKE '%Zulfiq%';",
+  "rows": [
+    {
+      "id": "210001",
+      "meetingTitle": "Zulfiqar x Carbon Credits Pakistan",
+      "created": "2026-02-18"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tmeetingTitle\tcreated\n210001\tZulfiqar x Carbon Credits Pakistan\t2026-02-18\n",
+  "stderr": "",
+  "execution_time_ms": 346
+}

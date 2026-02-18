@@ -7,12 +7,13 @@ import { toast } from "sonner";
 import {
   Mail, Inbox, Send, FileText, Star, Search, RefreshCw, MailPlus,
   PanelLeft, PanelLeftClose, Loader2, X, AlertCircle, ChevronLeft,
-  Reply, ReplyAll, Forward, Trash2, Users,
+  Reply, ReplyAll, Forward, Trash2, Users, User, Plus,
   DollarSign, Repeat, Newspaper, ArrowDown, Zap,
   CheckSquare, Building2, Link2, Unlink,
   Sparkles, ChevronDown, ChevronUp, RotateCw, Target, ListChecks, Hash,
-  BarChart3, Check, Minus, SquareCheck
+  BarChart3, Check, Minus, SquareCheck, UserPlus, Briefcase
 } from "lucide-react";
+import { PersonAutocomplete, type PersonResult } from "@/components/PersonAutocomplete";
 
 // ============================================================================
 // TYPES — aligned with server/gmailService.ts
@@ -265,8 +266,15 @@ function ComposeModal({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [showCc, setShowCc] = useState(false);
+  const [toContact, setToContact] = useState<PersonResult | null>(null);
+  const [showCreateContact, setShowCreateContact] = useState(false);
   const sendMutation = trpc.mail.send.useMutation();
   const signatureQuery = trpc.profile.getSignatureHtml.useQuery(undefined, { enabled: open });
+  const findByEmailQuery = trpc.directory.findByEmail.useQuery(
+    { email: to },
+    { enabled: open && to.includes("@") && to.includes(".") && !toContact }
+  );
+  const createContactMutation = trpc.directory.quickCreateContact.useMutation();
   const utils = trpc.useUtils();
 
   useEffect(() => {
@@ -342,18 +350,78 @@ function ComposeModal({
         <div className="px-5 py-3 space-y-0 border-b border-zinc-800/50">
           <div className="flex items-center gap-2 py-2 border-b border-zinc-800/30">
             <span className="text-xs text-zinc-500 w-8">To</span>
-            <input
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-600"
-              placeholder="recipient@example.com"
-            />
+            <div className="flex-1 relative">
+              <PersonAutocomplete
+                value={toContact}
+                onChange={(person) => {
+                  setToContact(person);
+                  if (person?.email) setTo(person.email);
+                }}
+                emailMode
+                emailValue={to}
+                onEmailChange={(val) => {
+                  setTo(val);
+                  if (toContact) setToContact(null);
+                  setShowCreateContact(false);
+                }}
+                placeholder="recipient@example.com"
+                allowCreate={false}
+              />
+              {/* Create contact suggestion */}
+              {!toContact && to.includes("@") && findByEmailQuery.data && !findByEmailQuery.data.contact && !showCreateContact && (
+                <button
+                  onClick={() => setShowCreateContact(true)}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[10px] text-amber-600 hover:text-amber-400 transition-colors mr-2"
+                >
+                  <UserPlus className="h-3 w-3" /> Save contact
+                </button>
+              )}
+              {toContact && (
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 text-[10px] text-emerald-500 mr-2">
+                  <Check className="h-3 w-3" /> Known contact
+                </div>
+              )}
+            </div>
             {!showCc && (
               <button onClick={() => setShowCc(true)} className="text-[11px] text-zinc-600 hover:text-zinc-400">
                 Cc
               </button>
             )}
           </div>
+          {/* Quick create contact inline */}
+          {showCreateContact && !toContact && (
+            <div className="flex items-center gap-2 py-2 border-b border-zinc-800/30 bg-zinc-800/20 px-2 rounded">
+              <UserPlus className="h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
+              <span className="text-[11px] text-zinc-400">New contact:</span>
+              <input
+                id="newContactName"
+                placeholder="Name"
+                className="flex-1 bg-transparent text-[12px] text-white outline-none placeholder:text-zinc-600"
+              />
+              <button
+                onClick={async () => {
+                  const nameInput = document.getElementById("newContactName") as HTMLInputElement;
+                  const name = nameInput?.value?.trim();
+                  if (!name || !to) return;
+                  try {
+                    const result = await createContactMutation.mutateAsync({ name, email: to });
+                    if (result.contact) {
+                      setToContact(result.contact as any);
+                      toast.success(result.created ? `Contact "${name}" created` : `Contact found: ${result.contact.name}`);
+                    }
+                    setShowCreateContact(false);
+                  } catch { toast.error("Failed to create contact"); }
+                }}
+                disabled={createContactMutation.isPending}
+                className="text-[11px] text-amber-500 hover:text-amber-300 font-medium"
+              >
+                {createContactMutation.isPending ? "Saving..." : "Save"}
+              </button>
+              <button onClick={() => setShowCreateContact(false)} className="text-zinc-600 hover:text-white">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
           {showCc && (
             <div className="flex items-center gap-2 py-2 border-b border-zinc-800/30">
               <span className="text-xs text-zinc-500 w-8">Cc</span>
@@ -531,6 +599,17 @@ function StarPrioritySelector({
 // CONVERT TO TASK MODAL
 // ============================================================================
 
+interface TaskItem {
+  id: string;
+  title: string;
+  description: string;
+  priority: "low" | "medium" | "high";
+  assignee: PersonResult | null;
+  assignedName: string;
+  dueDate: string;
+  category: string;
+}
+
 function ConvertToTaskModal({
   open,
   onClose,
@@ -544,28 +623,52 @@ function ConvertToTaskModal({
   subject: string;
   fromEmail: string;
 }) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
-  const [assignedName, setAssignedName] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [category, setCategory] = useState("");
-  const convertMutation = trpc.mail.convertToTask.useMutation();
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const convertMutation = trpc.mail.convertToTasks.useMutation();
+  const threadTasksQuery = trpc.mail.getThreadTasks.useQuery({ threadId }, { enabled: open });
+  const utils = trpc.useUtils();
 
   useEffect(() => {
     if (open) {
-      setTitle(subject || "");
-      setDescription(`From: ${fromEmail}\nThread: ${threadId}`);
-      setPriority("medium");
-      setAssignedName("");
-      setDueDate("");
-      setCategory("");
+      setTasks([{
+        id: crypto.randomUUID(),
+        title: subject || "",
+        description: `From: ${fromEmail}`,
+        priority: "medium",
+        assignee: null,
+        assignedName: "",
+        dueDate: "",
+        category: "",
+      }]);
     }
-  }, [open, subject, fromEmail, threadId]);
+  }, [open, subject, fromEmail]);
+
+  const addTask = () => {
+    setTasks(prev => [...prev, {
+      id: crypto.randomUUID(),
+      title: "",
+      description: "",
+      priority: "medium" as const,
+      assignee: null,
+      assignedName: "",
+      dueDate: "",
+      category: "",
+    }]);
+  };
+
+  const removeTask = (id: string) => {
+    if (tasks.length <= 1) return;
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  const updateTask = (id: string, updates: Partial<TaskItem>) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+  };
 
   const handleConvert = async () => {
-    if (!title.trim()) {
-      toast.error("Task title required");
+    const validTasks = tasks.filter(t => t.title.trim());
+    if (!validTasks.length) {
+      toast.error("At least one task title required");
       return;
     }
     try {
@@ -573,123 +676,143 @@ function ConvertToTaskModal({
         threadId,
         subject,
         fromEmail,
-        title: title.trim(),
-        description: description || undefined,
-        priority,
-        assignedName: assignedName || undefined,
-        dueDate: dueDate || undefined,
-        category: category || undefined,
+        tasks: validTasks.map(t => ({
+          title: t.title.trim(),
+          description: t.description || undefined,
+          priority: t.priority,
+          assignedName: t.assignee?.name || t.assignedName || undefined,
+          assigneeContactId: t.assignee?.id || undefined,
+          dueDate: t.dueDate || undefined,
+          category: t.category || undefined,
+          companyId: t.assignee?.companyId || undefined,
+        })),
       });
-      toast.success("Task created", {
-        description: `Task #${result.id} created from email`,
+      toast.success(`${result.count} task${result.count !== 1 ? "s" : ""} created`, {
+        description: `Linked to email thread`,
         action: {
           label: "View Tasks",
           onClick: () => { window.location.href = "/todo"; },
         },
       });
+      utils.mail.getThreadTasks.invalidate({ threadId });
       onClose();
     } catch (err: any) {
-      toast.error(err.message || "Failed to create task");
+      toast.error(err.message || "Failed to create tasks");
     }
   };
 
   if (!open) return null;
 
+  const existingTasks = threadTasksQuery.data || [];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800">
+      <div className="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800 flex-shrink-0">
           <div className="flex items-center gap-2">
             <CheckSquare className="h-4 w-4 text-yellow-600" />
-            <h3 className="text-sm font-medium text-white">Convert to Task</h3>
+            <h3 className="text-sm font-medium text-white">Create Tasks from Email</h3>
+            <span className="text-[10px] bg-zinc-800 text-zinc-400 rounded-full px-2 py-0.5">{tasks.length}</span>
           </div>
           <button onClick={onClose} className="p-1 text-zinc-500 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-3">
-          <div>
-            <label className="text-[11px] text-zinc-500 mb-1 block">Title</label>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full h-9 px-3 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors"
-              placeholder="Task title"
-            />
+        {/* Existing linked tasks */}
+        {existingTasks.length > 0 && (
+          <div className="px-5 py-2 border-b border-zinc-800/50 bg-zinc-800/20 flex-shrink-0">
+            <div className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Already linked ({existingTasks.length})</div>
+            <div className="flex flex-wrap gap-1.5">
+              {existingTasks.map((t: any) => (
+                <span key={t.id} className="text-[10px] bg-zinc-800/60 border border-zinc-700/30 text-zinc-400 rounded-full px-2 py-0.5 flex items-center gap-1">
+                  <CheckSquare className="h-2.5 w-2.5 text-emerald-500" />
+                  {t.title}
+                </span>
+              ))}
+            </div>
           </div>
+        )}
 
-          <div>
-            <label className="text-[11px] text-zinc-500 mb-1 block">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors resize-none"
-              placeholder="Optional description"
-            />
-          </div>
+        {/* Task list */}
+        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-4">
+          {tasks.map((task, idx) => (
+            <div key={task.id} className="bg-zinc-800/20 border border-zinc-800/40 rounded-xl p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-zinc-600 uppercase tracking-wider font-semibold">Task {idx + 1}</span>
+                {tasks.length > 1 && (
+                  <button onClick={() => removeTask(task.id)} className="text-zinc-600 hover:text-red-400 transition-colors">
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] text-zinc-500 mb-1 block">Priority</label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high")}
-                className="w-full h-9 px-3 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[11px] text-zinc-500 mb-1 block">Due Date</label>
               <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full h-9 px-3 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors [color-scheme:dark]"
+                value={task.title}
+                onChange={(e) => updateTask(task.id, { title: e.target.value })}
+                className="w-full h-8 px-3 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-[12px] text-white outline-none focus:border-yellow-600/50 transition-colors"
+                placeholder="Task title"
               />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] text-zinc-500 mb-1 block">Assign To</label>
-              <input
-                value={assignedName}
-                onChange={(e) => setAssignedName(e.target.value)}
-                className="w-full h-9 px-3 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors"
-                placeholder="Name"
-              />
+              <div className="grid grid-cols-3 gap-2">
+                <select
+                  value={task.priority}
+                  onChange={(e) => updateTask(task.id, { priority: e.target.value as "low" | "medium" | "high" })}
+                  className="h-8 px-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-[11px] text-white outline-none focus:border-yellow-600/50 transition-colors"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+                <input
+                  type="date"
+                  value={task.dueDate}
+                  onChange={(e) => updateTask(task.id, { dueDate: e.target.value })}
+                  className="h-8 px-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-[11px] text-white outline-none focus:border-yellow-600/50 transition-colors [color-scheme:dark]"
+                />
+                <input
+                  value={task.category}
+                  onChange={(e) => updateTask(task.id, { category: e.target.value })}
+                  className="h-8 px-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-[11px] text-white outline-none focus:border-yellow-600/50 transition-colors"
+                  placeholder="Category"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-zinc-600 mb-1 block">Assign To</label>
+                <PersonAutocomplete
+                  value={task.assignee}
+                  onChange={(person) => updateTask(task.id, { assignee: person, assignedName: person?.name || "" })}
+                  placeholder="Search contacts to assign..."
+                  allowCreate={false}
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-[11px] text-zinc-500 mb-1 block">Category</label>
-              <input
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full h-9 px-3 bg-zinc-800/60 border border-zinc-700/50 rounded-lg text-sm text-white outline-none focus:border-yellow-600/50 transition-colors"
-                placeholder="e.g. BTC, Gold"
-              />
-            </div>
-          </div>
+          ))}
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-zinc-800">
-          <Button variant="outline" size="sm" onClick={onClose} className="text-xs border-zinc-700 text-zinc-400 bg-transparent">
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleConvert}
-            disabled={convertMutation.isPending || !title.trim()}
-            className="bg-yellow-600 hover:bg-yellow-500 text-black font-semibold text-xs"
+        <div className="flex items-center justify-between px-5 py-3 border-t border-zinc-800 flex-shrink-0">
+          <button
+            onClick={addTask}
+            className="flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-amber-400 transition-colors"
           >
-            {convertMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <CheckSquare className="h-3.5 w-3.5 mr-1.5" />}
-            Create Task
-          </Button>
+            <Plus className="h-3 w-3" /> Add another task
+          </button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onClose} className="text-xs border-zinc-700 text-zinc-400 bg-transparent">
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConvert}
+              disabled={convertMutation.isPending || !tasks.some(t => t.title.trim())}
+              className="bg-yellow-600 hover:bg-yellow-500 text-black font-semibold text-xs"
+            >
+              {convertMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <CheckSquare className="h-3.5 w-3.5 mr-1.5" />}
+              Create {tasks.filter(t => t.title.trim()).length} Task{tasks.filter(t => t.title.trim()).length !== 1 ? "s" : ""}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -940,6 +1063,8 @@ function ThreadView({
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [companyModalOpen, setCompanyModalOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [personCardOpen, setPersonCardOpen] = useState(false);
+  const [personCardContactId, setPersonCardContactId] = useState<number | null>(null);
 
   // AI Summary
   const summaryQuery = trpc.mail.getThreadSummary.useQuery({ threadId });
@@ -995,6 +1120,22 @@ function ThreadView({
   const lastMsg = messages[messages.length - 1];
   const companyLinks = companyLinksQuery.data || [];
 
+  // Find contact from sender email
+  const senderLookup = trpc.directory.findByEmail.useQuery(
+    { email: lastMsg.fromEmail },
+    { enabled: !!lastMsg.fromEmail }
+  );
+  const senderContact = senderLookup.data?.contact;
+  const senderCompany = senderLookup.data?.company;
+
+  // Person card query
+  const personCardQuery = trpc.directory.personCard.useQuery(
+    { contactId: personCardContactId! },
+    { enabled: !!personCardContactId && personCardOpen }
+  );
+  const threadTasksQuery = trpc.mail.getThreadTasks.useQuery({ threadId });
+  const linkedTasks = threadTasksQuery.data || [];
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Thread Header */}
@@ -1007,7 +1148,24 @@ function ThreadView({
         </button>
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-medium text-white truncate">{lastMsg.subject || "(no subject)"}</h2>
-          <p className="text-[11px] text-zinc-600 mt-0.5">{messages.length} message{messages.length !== 1 ? "s" : ""}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-[11px] text-zinc-600">{messages.length} message{messages.length !== 1 ? "s" : ""}</p>
+            {senderContact && (
+              <button
+                onClick={() => { setPersonCardContactId(senderContact.id); setPersonCardOpen(true); }}
+                className="flex items-center gap-1 text-[10px] text-amber-600/70 hover:text-amber-400 transition-colors"
+              >
+                <User className="h-2.5 w-2.5" />
+                <span>{senderContact.name}</span>
+                {senderCompany && <span className="text-zinc-600">· {senderCompany.name}</span>}
+              </button>
+            )}
+            {linkedTasks.length > 0 && (
+              <span className="flex items-center gap-1 text-[10px] text-emerald-600">
+                <CheckSquare className="h-2.5 w-2.5" /> {linkedTasks.length} task{linkedTasks.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Action buttons */}
@@ -1290,6 +1448,119 @@ function ThreadView({
         onClose={() => setCompanyModalOpen(false)}
         threadId={threadId}
       />
+
+      {/* Person Card Sidebar */}
+      {personCardOpen && personCardContactId && (
+        <div className="fixed right-0 top-0 h-full w-80 bg-zinc-900 border-l border-zinc-800 shadow-2xl z-40 overflow-y-auto">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-amber-500" />
+              <span className="text-[12px] font-semibold text-white uppercase tracking-wider">Contact</span>
+            </div>
+            <button onClick={() => setPersonCardOpen(false)} className="p-1 text-zinc-500 hover:text-white rounded">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {personCardQuery.isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-5 w-5 animate-spin text-zinc-600" />
+            </div>
+          ) : personCardQuery.data ? (
+            <div className="p-4 space-y-4">
+              {/* Person header */}
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-full ${avatarColor(personCardQuery.data.email || "")} flex items-center justify-center`}>
+                  {personCardQuery.data.photoUrl ? (
+                    <img src={personCardQuery.data.photoUrl} alt="" className="w-12 h-12 rounded-full object-cover" />
+                  ) : (
+                    <span className="text-sm font-semibold text-white">{senderInitials(personCardQuery.data.name)}</span>
+                  )}
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-white">{personCardQuery.data.name}</div>
+                  {personCardQuery.data.title && (
+                    <div className="text-[11px] text-zinc-500">{personCardQuery.data.title}</div>
+                  )}
+                  {personCardQuery.data.email && (
+                    <div className="text-[11px] text-zinc-600">{personCardQuery.data.email}</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Company */}
+              {personCardQuery.data.company && (
+                <div className="bg-zinc-800/30 rounded-lg p-3 border border-zinc-800/40">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Building2 className="h-3 w-3 text-blue-400" />
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Company</span>
+                  </div>
+                  <div className="text-[12px] text-white font-medium">{personCardQuery.data.company.name}</div>
+                  {personCardQuery.data.company.industry && (
+                    <div className="text-[10px] text-zinc-500 mt-0.5">{personCardQuery.data.company.industry}</div>
+                  )}
+                </div>
+              )}
+
+              {/* Recent tasks */}
+              {personCardQuery.data.recentTasks?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <CheckSquare className="h-3 w-3 text-amber-500" />
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Tasks</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {personCardQuery.data.recentTasks.map((t: any) => (
+                      <div key={t.id} className="flex items-center gap-2 text-[11px]">
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                          t.status === "completed" ? "bg-emerald-500" :
+                          t.priority === "high" ? "bg-red-400" : "bg-zinc-600"
+                        }`} />
+                        <span className="text-zinc-300 truncate">{t.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent meetings */}
+              {personCardQuery.data.recentMeetings?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Users className="h-3 w-3 text-purple-400" />
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Meetings</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {personCardQuery.data.recentMeetings.map((m: any) => (
+                      <div key={m.id} className="text-[11px] text-zinc-400">
+                        {m.meetingTitle || "Untitled meeting"}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick actions */}
+              <div className="pt-2 border-t border-zinc-800/40 space-y-1.5">
+                <button
+                  onClick={() => { setTaskModalOpen(true); setPersonCardOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-zinc-400 hover:text-white hover:bg-zinc-800/40 rounded-lg transition-colors"
+                >
+                  <CheckSquare className="h-3 w-3 text-amber-500" /> Create task for this person
+                </button>
+                <button
+                  onClick={() => { setCompanyModalOpen(true); setPersonCardOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-zinc-400 hover:text-white hover:bg-zinc-800/40 rounded-lg transition-colors"
+                >
+                  <Building2 className="h-3 w-3 text-blue-400" /> Link company
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 text-center text-[11px] text-zinc-600">Contact not found</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1266,3 +1266,55 @@
 - [x] Write vitest tests for bulk star procedures (35 tests)
 - [x] Write vitest tests for analytics calculations
 - [x] All 415 tests passing across 24 files
+
+## v35 — Unified Directory System & Data Cleanup
+
+### Data Cleanup
+- [x] Remove all test tasks created today (keep only real data)
+- [x] Remove test meetings from today (keep only Zulfiqar)
+- [x] Clean up any test "in progress" or "high priority" items from today
+
+### Schema Updates
+- [x] Add assigneeContactId to tasks table (nullable FK to contacts)
+- [x] Add sourceThreadId to tasks for email-to-task linking
+- [x] Add sourceMeetingId to tasks for meeting-to-task linking
+- [x] Migration: push schema changes
+
+### Unified Directory Search API
+- [x] tRPC procedure: directory.search — searches contacts by name/email, returns id, name, email, company
+- [x] tRPC procedure: directory.personCard — full person card with company, recent tasks, meetings
+- [x] tRPC procedure: directory.findByEmail — lookup contact + company by email
+- [x] tRPC procedure: directory.quickCreateContact — create contact from email compose
+- [x] Auto-detect company from email domain when creating new contacts
+
+### Reusable PersonAutocomplete Component
+- [x] Build PersonAutocomplete component with debounced search (300ms)
+- [x] Shows contact name, email, company in dropdown
+- [x] Email mode + name mode for different contexts
+- [x] Returns person_id (not just text string) for entity linking
+
+### Email Compose — Contact Autocomplete
+- [x] Replace plain text "To" field with PersonAutocomplete
+- [x] Paste new email → suggest "Save contact?" with inline create form
+- [x] Shows "Known contact" badge when email matches existing contact
+
+### Multi-Task Creation from Email
+- [x] Replace single ConvertToTask modal with multi-task creator
+- [x] Add/remove task rows dynamically (+ Add another task)
+- [x] Each task has: title, assignee (PersonAutocomplete), priority, due date, category
+- [x] All tasks linked to thread via sourceThreadId
+- [x] Assignee stored as assigneeContactId (entity-linked)
+- [x] Shows existing linked tasks count
+
+### Thread Sidebar — Person Card
+- [x] Show sender's Person Card in thread view sidebar (slide-out panel)
+- [x] Card shows: name, title, email, company, recent tasks, recent meetings
+- [x] Quick actions: Create Task, Link Company
+- [x] Clickable sender badge in thread header opens person card
+- [x] Linked tasks count shown in thread header
+
+### Testing
+- [x] Write vitest tests for directory search (24 tests)
+- [x] Write vitest tests for multi-task creation
+- [x] Write vitest tests for person linking
+- [x] All 439 tests passing across 25 files

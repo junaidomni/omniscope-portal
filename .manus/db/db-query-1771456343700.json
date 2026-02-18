@@ -1,0 +1,14 @@
+{
+  "query": "SELECT id, meetingTitle FROM meetings WHERE meetingTitle LIKE '%ulfiq%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, meetingTitle FROM meetings WHERE meetingTitle LIKE '%ulfiq%';",
+  "rows": [
+    {
+      "id": "210001",
+      "meetingTitle": "Zulfiqar x Carbon Credits Pakistan"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tmeetingTitle\n210001\tZulfiqar x Carbon Credits Pakistan\n",
+  "stderr": "",
+  "execution_time_ms": 357
+}

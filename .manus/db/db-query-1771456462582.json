@@ -1,0 +1,19 @@
+{
+  "query": "SELECT COUNT(*) as meetings_today FROM meetings WHERE DATE(createdAt) = CURDATE(); SELECT COUNT(*) as tasks_today FROM tasks WHERE DATE(createdAt) = CURDATE();",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT COUNT(*) as meetings_today FROM meetings WHERE DATE(createdAt) = CURDATE(); SELECT COUNT(*) as tasks_today FROM tasks WHERE DATE(createdAt) = CURDATE();",
+  "rows": [
+    {
+      "meetings_today": "1"
+    },
+    {
+      "meetings_today": "tasks_today"
+    },
+    {
+      "meetings_today": "3"
+    }
+  ],
+  "messages": [],
+  "stdout": "meetings_today\n1\ntasks_today\n3\n",
+  "stderr": "",
+  "execution_time_ms": 413
+}

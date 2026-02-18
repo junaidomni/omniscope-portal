@@ -1,0 +1,9 @@
+{
+  "query": "DELETE FROM meeting_contacts WHERE meetingId IN (SELECT id FROM meetings WHERE DATE(createdAt) = CURDATE() AND id != 210001); DELETE FROM meeting_tags WHERE meetingId IN (SELECT id FROM meetings WHERE DATE(createdAt) = CURDATE() AND id != 210001); DELETE FROM tasks WHERE DATE(createdAt) = CURDATE() AND id NOT IN (210001, 210002, 210003); DELETE FROM meetings WHERE DATE(createdAt) = CURDATE() AND id != 210001;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute DELETE FROM meeting_contacts WHERE meetingId IN (SELECT id FROM meetings WHERE DATE(createdAt) = CURDATE() AND id != 210001); DELETE FROM meeting_tags WHERE meetingId IN (SELECT id FROM meetings WHERE DATE(createdAt) = CURDATE() AND id != 210001); DELETE FROM tasks WHERE DATE(createdAt) = CURDATE() AND id NOT IN (210001, 210002, 210003); DELETE FROM meetings WHERE DATE(createdAt) = CURDATE() AND id != 210001;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 533
+}

@@ -1,0 +1,255 @@
+{
+  "query": "SELECT id, meetingTitle, DATE(createdAt) as created FROM meetings WHERE DATE(createdAt) = CURDATE() ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, meetingTitle, DATE(createdAt) as created FROM meetings WHERE DATE(createdAt) = CURDATE() ORDER BY id;",
+  "rows": [
+    {
+      "id": "210001",
+      "meetingTitle": "Zulfiqar x Carbon Credits Pakistan",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "240001",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "240002",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "240004",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "240005",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "240006",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "240008",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "240009",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "240011",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "240012",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "240013",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "240015",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "240016",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "270001",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "270003",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "270004",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300001",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300003",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300004",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300005",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300007",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300008",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300009",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300011",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300012",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300013",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300015",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300016",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300017",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300019",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300020",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300021",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300023",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300024",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300026",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300027",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300028",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300029",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300031",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300032",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300034",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300035",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300036",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300038",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300039",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300040",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300042",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300043",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    },
+    {
+      "id": "300044",
+      "meetingTitle": "NULL",
+      "created": "2026-02-18"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tmeetingTitle\tcreated\n210001\tZulfiqar x Carbon Credits Pakistan\t2026-02-18\n240001\tNULL\t2026-02-18\n240002\tNULL\t2026-02-18\n240004\tNULL\t2026-02-18\n240005\tNULL\t2026-02-18\n240006\tNULL\t2026-02-18\n240008\tNULL\t2026-02-18\n240009\tNULL\t2026-02-18\n240011\tNULL\t2026-02-18\n240012\tNULL\t2026-02-18\n240013\tNULL\t2026-02-18\n240015\tNULL\t2026-02-18\n240016\tNULL\t2026-02-18\n270001\tNULL\t2026-02-18\n270003\tNULL\t2026-02-18\n270004\tNULL\t2026-02-18\n300001\tNULL\t2026-02-18\n300003\tNULL\t2026-02-18\n300004\tNULL\t2026-02-18\n300005\tNULL\t2026-02-18\n300007\tNULL\t2026-02-18\n300008\tNULL\t2026-02-18\n300009\tNULL\t2026-02-18\n300011\tNULL\t2026-02-18\n300012\tNULL\t2026-02-18\n300013\tNULL\t2026-02-18\n300015\tNULL\t2026-02-18\n300016\tNULL\t2026-02-18\n300017\tNULL\t2026-02-18\n300019\tNULL\t2026-02-18\n300020\tNULL\t2026-02-18\n300021\tNULL\t2026-02-18\n300023\tNULL\t2026-02-18\n300024\tNULL\t2026-02-18\n300026\tNULL\t2026-02-18\n300027\tNULL\t2026-02-18\n300028\tNULL\t2026-02-18\n300029\tNULL\t2026-02-18\n300031\tNULL\t2026-02-18\n300032\tNULL\t2026-02-18\n300034\tNULL\t2026-02-18\n300035\tNULL\t2026-02-18\n300036\tNULL\t2026-02-18\n300038\tNULL\t2026-02-18\n300039\tNULL\t2026-02-18\n300040\tNULL\t2026-02-18\n300042\tNULL\t2026-02-18\n300043\tNULL\t2026-02-18\n300044\tNULL\t2026-02-18\n",
+  "stderr": "",
+  "execution_time_ms": 339
+}
