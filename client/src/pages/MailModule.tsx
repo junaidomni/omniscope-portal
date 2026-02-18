@@ -577,16 +577,20 @@ function ThreadView({
                     <div className="px-5 pb-5">
                       <div className="ml-12">
                         {msg.bodyHtml ? (
-                          <div
-                            className="text-sm text-zinc-200 leading-relaxed prose prose-invert prose-sm max-w-none
-                              [&_a]:text-yellow-500 [&_a]:no-underline [&_a:hover]:underline
-                              [&_img]:max-w-full [&_img]:rounded-lg
-                              [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-700 [&_blockquote]:pl-4 [&_blockquote]:text-zinc-400
-                              [&_pre]:bg-zinc-800 [&_pre]:rounded-lg [&_pre]:p-3
-                              [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-700 [&_td]:px-3 [&_td]:py-1.5
-                              [&_th]:border [&_th]:border-zinc-700 [&_th]:px-3 [&_th]:py-1.5 [&_th]:bg-zinc-800"
-                            dangerouslySetInnerHTML={{ __html: msg.bodyHtml }}
-                          />
+                          <div className="rounded-lg overflow-hidden border border-zinc-700/30">
+                            <div
+                              className="bg-white text-zinc-900 text-sm leading-relaxed p-5 max-w-none
+                                [&_a]:text-blue-600 [&_a]:no-underline [&_a:hover]:underline
+                                [&_img]:max-w-full [&_img]:h-auto
+                                [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-300 [&_blockquote]:pl-4 [&_blockquote]:text-zinc-600
+                                [&_pre]:bg-zinc-100 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:text-zinc-800
+                                [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-200 [&_td]:px-3 [&_td]:py-1.5
+                                [&_th]:border [&_th]:border-zinc-200 [&_th]:px-3 [&_th]:py-1.5 [&_th]:bg-zinc-50
+                                [&_h1]:text-zinc-900 [&_h2]:text-zinc-900 [&_h3]:text-zinc-900
+                                [&_p]:text-zinc-800 [&_li]:text-zinc-800 [&_span]:text-inherit"
+                              dangerouslySetInnerHTML={{ __html: msg.bodyHtml }}
+                            />
+                          </div>
                         ) : (
                           <pre className="text-sm text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">{msg.body}</pre>
                         )}

@@ -1115,3 +1115,9 @@
 - [x] Visual verification across all states (inbox, thread view, compose)
 - [x] All 268 existing tests still passing across 20 files
 - [x] Zero TypeScript errors
+
+## v29 Hotfix — Email Body Rendering
+- [x] Wrap HTML email body in white container so emails render correctly against dark theme
+- [x] Ensure images, tables, and styled content display properly (white bg with proper text colors)
+- [x] Text in emails with transparent backgrounds remains readable
+- [x] All 268 tests passing
