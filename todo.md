@@ -1073,3 +1073,45 @@
 ### Testing
 - [x] 18 new onboarding tests (onboarding.test.ts) — routing, redirect logic, URL construction
 - [x] All 268 tests passing across 20 test files
+
+## v29 — Mail Module Redesign (Apple/Superhuman-Inspired)
+
+### Design Philosophy
+- [x] Research Apple Mail, Superhuman, Linear, Spark email UX patterns
+- [x] Define design direction: minimal, fast, keyboard-first, premium feel
+
+### Layout Architecture
+- [x] Full-width top command bar (search, compose, refresh)
+- [x] Collapsible left folder sidebar (Inbox, Sent, Drafts, Starred, All Mail) with gold active indicator
+- [x] Thread list panel (clean, scannable, colored sender avatars)
+- [x] Reading pane (right-side, shows on thread click)
+- [x] Distinct from Relationship Hub layout — its own full-width experience
+
+### Thread List
+- [x] Clean sender name, subject, snippet, timestamp
+- [x] Unread indicator (gold dot + bold weight)
+- [x] Hover highlight with gold left border on selected
+- [x] Smooth selection and scroll
+
+### Thread/Reading View
+- [x] Full message rendering with sender details
+- [x] Clean HTML body rendering
+- [x] Reply, Reply All, Forward buttons at bottom
+- [x] Delete (trash) button in header
+- [x] "1 message" / "N messages" count
+
+### Compose
+- [x] Slide-up compose drawer
+- [x] To/Cc fields, Subject, Body
+- [x] Reply/Forward prefill
+
+### Micro-interactions
+- [x] Smooth transitions between views
+- [x] Loading skeletons for thread list
+- [x] Empty state with mail icon and conversation count
+- [x] Sidebar collapse/expand animation
+
+### Testing
+- [x] Visual verification across all states (inbox, thread view, compose)
+- [x] All 268 existing tests still passing across 20 files
+- [x] Zero TypeScript errors
