@@ -1076,6 +1076,23 @@ function ThreadView({
   });
   const summaryData = summarizeMutation.data || (summaryQuery.data ? { ...summaryQuery.data, cached: true } : null);
 
+  // Find contact from sender email — must be above early returns to maintain hook order
+  const firstFromEmail = data?.messages?.[data.messages.length - 1]?.fromEmail || "";
+  const senderLookup = trpc.directory.findByEmail.useQuery(
+    { email: firstFromEmail },
+    { enabled: !!firstFromEmail }
+  );
+  const senderContact = senderLookup.data?.contact;
+  const senderCompany = senderLookup.data?.company;
+
+  // Person card query
+  const personCardQuery = trpc.directory.personCard.useQuery(
+    { contactId: personCardContactId! },
+    { enabled: !!personCardContactId && personCardOpen }
+  );
+  const threadTasksQuery = trpc.mail.getThreadTasks.useQuery({ threadId });
+  const linkedTasks = threadTasksQuery.data || [];
+
   const handleTrash = async (msgId: string) => {
     try {
       await trashMutation.mutateAsync({ messageId: msgId });
@@ -1119,22 +1136,6 @@ function ThreadView({
   const messages = data.messages as ServerMessage[];
   const lastMsg = messages[messages.length - 1];
   const companyLinks = companyLinksQuery.data || [];
-
-  // Find contact from sender email
-  const senderLookup = trpc.directory.findByEmail.useQuery(
-    { email: lastMsg.fromEmail },
-    { enabled: !!lastMsg.fromEmail }
-  );
-  const senderContact = senderLookup.data?.contact;
-  const senderCompany = senderLookup.data?.company;
-
-  // Person card query
-  const personCardQuery = trpc.directory.personCard.useQuery(
-    { contactId: personCardContactId! },
-    { enabled: !!personCardContactId && personCardOpen }
-  );
-  const threadTasksQuery = trpc.mail.getThreadTasks.useQuery({ threadId });
-  const linkedTasks = threadTasksQuery.data || [];
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">

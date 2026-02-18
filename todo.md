@@ -1318,3 +1318,7 @@
 - [x] Write vitest tests for multi-task creation
 - [x] Write vitest tests for person linking
 - [x] All 439 tests passing across 25 files
+
+## Bug Fixes
+
+- [x] Fix React error #310 (hooks ordering) when clicking email thread in Mail module
