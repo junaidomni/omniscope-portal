@@ -95,7 +95,7 @@ export default function CompanyProfile() {
 
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<any>({});
-  const [activeTab, setActiveTab] = useState<"overview" | "people" | "timeline" | "ai" | "tasks">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "people" | "timeline" | "ai" | "tasks" | "documents">("overview");
   const [linkSearch, setLinkSearch] = useState("");
 
   const updateContactMutation = trpc.contacts.update.useMutation({
@@ -149,6 +149,7 @@ export default function CompanyProfile() {
     { key: "timeline", label: `Timeline (${profile.interactions?.length || 0})`, icon: Clock },
     { key: "tasks", label: `Tasks (${profile.tasks?.length || 0})`, icon: CheckSquare },
     { key: "ai", label: "AI Memory", icon: Sparkles },
+    { key: "documents", label: "Documents", icon: FileText },
   ];
 
   return (
@@ -599,6 +600,11 @@ export default function CompanyProfile() {
         </div>
       )}
 
+      {/* ===== DOCUMENTS TAB ===== */}
+      {activeTab === "documents" && (
+        <CompanyDocumentsTab companyId={companyId} companyName={profile.name} />
+      )}
+
       {/* ===== AI MEMORY TAB ===== */}
       {activeTab === "ai" && (
         <Card className="bg-zinc-900/50 border-zinc-800">
@@ -626,6 +632,67 @@ export default function CompanyProfile() {
             )}
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+// ─── Company Documents Tab ───
+function CompanyDocumentsTab({ companyId, companyName }: { companyId: number; companyName: string }) {
+  const docs = trpc.vault.listDocuments.useQuery({ entityType: "company", entityId: companyId });
+  const [uploadOpen, setUploadOpen] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-semibold text-white flex items-center gap-2">
+          <FileText className="h-4 w-4 text-yellow-600" /> Documents
+        </h3>
+        <div className="flex items-center gap-2">
+          <Link href="/vault">
+            <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-400 text-xs">
+              Open Vault
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {docs.isLoading ? (
+        <div className="space-y-2">
+          {[1,2,3].map(i => <Skeleton key={i} className="h-14 bg-zinc-800/50 rounded-lg" />)}
+        </div>
+      ) : !docs.data?.length ? (
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardContent className="py-12 text-center">
+            <FileText className="h-10 w-10 text-zinc-700 mx-auto mb-3" />
+            <p className="text-sm text-zinc-500">No documents linked to {companyName}</p>
+            <p className="text-xs text-zinc-600 mt-1">Upload documents in the Vault and tag them to this company</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-1">
+          {docs.data.map((doc: any) => (
+            <div key={doc.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-900/60 transition-all group">
+              <div className="h-8 w-8 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
+                <FileText className="h-4 w-4 text-emerald-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">{doc.title}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {doc.category && <Badge variant="outline" className="text-[10px] border-zinc-700 text-zinc-500">{doc.category}</Badge>}
+                  <span className="text-[10px] text-zinc-600">
+                    {new Date(doc.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                </div>
+              </div>
+              {doc.fileUrl && (
+                <Button variant="ghost" size="sm" onClick={() => window.open(doc.fileUrl, "_blank")} className="opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-white">
+                  <Eye className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

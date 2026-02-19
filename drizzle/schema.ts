@@ -973,3 +973,267 @@ export const companyAliasRelations = relations(companyAliases, ({ one }) => ({
     references: [companies.id],
   }),
 }));
+
+
+// ============================================================================
+// INTELLIGENCE VAULT — Document Management System
+// ============================================================================
+
+/**
+ * Document folders — hierarchical folder structure for the Vault.
+ * Folders can be linked to entities (company/contact) for counterparty collections.
+ */
+export const documentFolders = mysqlTable("document_folders", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 500 }).notNull(),
+  parentId: int("parentId"), // self-referencing FK (null = root)
+  collection: mysqlEnum("folderCollection", ["company_repo", "personal", "counterparty", "templates", "signed", "transactions"]).notNull(),
+  ownerId: int("ownerId").references(() => users.id, { onDelete: "set null" }), // for personal folders
+  entityType: mysqlEnum("folderEntityType", ["company", "contact"]), // for counterparty folders
+  entityId: int("folderEntityId"), // linked entity ID
+  googleFolderId: varchar("googleFolderId", { length: 500 }), // Google Drive folder ID
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  parentIdx: index("df_parent_idx").on(table.parentId),
+  collectionIdx: index("df_collection_idx").on(table.collection),
+  ownerIdx: index("df_owner_idx").on(table.ownerId),
+  entityIdx: index("df_entity_idx").on(table.entityType, table.entityId),
+}));
+
+export type DocumentFolder = typeof documentFolders.$inferSelect;
+export type InsertDocumentFolder = typeof documentFolders.$inferInsert;
+
+/**
+ * Documents — central record for every document in the Vault.
+ * Supports Google Drive files, uploaded files, and generated documents.
+ */
+export const documents = mysqlTable("documents", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("docTitle", { length: 1000 }).notNull(),
+  description: text("docDescription"),
+  sourceType: mysqlEnum("docSourceType", ["google_doc", "google_sheet", "google_slide", "pdf", "uploaded", "generated"]).notNull(),
+  googleFileId: varchar("googleFileId", { length: 500 }),
+  googleMimeType: varchar("googleMimeType", { length: 255 }),
+  s3Url: varchar("docS3Url", { length: 1000 }),
+  s3Key: varchar("docS3Key", { length: 500 }),
+  fileName: varchar("docFileName", { length: 500 }),
+  mimeType: varchar("docMimeType", { length: 255 }),
+  collection: mysqlEnum("docCollection", ["company_repo", "personal", "counterparty", "template", "transaction", "signed"]).default("company_repo").notNull(),
+  category: mysqlEnum("docCategory2", ["agreement", "compliance", "intake", "profile", "strategy", "operations", "transaction", "correspondence", "template", "other"]).default("other").notNull(),
+  subcategory: varchar("docSubcategory", { length: 255 }), // e.g. "sppp", "ncnda", "jva", "kyc"
+  status: mysqlEnum("docStatus", ["draft", "active", "pending_signature", "sent", "viewed", "signed", "voided", "declined", "archived"]).default("active").notNull(),
+  visibility: mysqlEnum("docVisibility", ["organization", "team", "private", "restricted"]).default("organization").notNull(),
+  folderId: int("docFolderId").references(() => documentFolders.id, { onDelete: "set null" }),
+  ownerId: int("docOwnerId").references(() => users.id, { onDelete: "set null" }),
+  isTemplate: boolean("isTemplate").default(false).notNull(),
+  fileSize: int("docFileSize"), // bytes
+  aiSummary: text("docAiSummary"), // AI-generated document summary
+  aiExtractedEntities: text("docAiEntities"), // JSON: AI-detected entity names
+  lastSyncedAt: timestamp("docLastSyncedAt"),
+  googleModifiedAt: timestamp("docGoogleModifiedAt"),
+  createdAt: timestamp("docCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("docUpdatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  titleIdx: index("doc_title_idx").on(table.title),
+  collectionIdx: index("doc_collection_idx").on(table.collection),
+  categoryIdx: index("doc_category_idx").on(table.category),
+  statusIdx: index("doc_status_idx").on(table.status),
+  ownerIdx: index("doc_owner_idx").on(table.ownerId),
+  folderIdx: index("doc_folder_idx").on(table.folderId),
+  templateIdx: index("doc_template_idx").on(table.isTemplate),
+  googleFileIdx: index("doc_google_file_idx").on(table.googleFileId),
+}));
+
+export type Document = typeof documents.$inferSelect;
+export type InsertDocument = typeof documents.$inferInsert;
+
+/**
+ * Document entity links — many-to-many between documents and CRM entities.
+ * This is the core of entity-first retrieval.
+ */
+export const documentEntityLinks = mysqlTable("document_entity_links", {
+  id: int("id").autoincrement().primaryKey(),
+  documentId: int("delDocumentId").notNull().references(() => documents.id, { onDelete: "cascade" }),
+  entityType: mysqlEnum("delEntityType", ["company", "contact", "meeting"]).notNull(),
+  entityId: int("delEntityId").notNull(),
+  linkType: mysqlEnum("delLinkType", ["primary", "related", "mentioned", "generated_for", "signed_by"]).default("primary").notNull(),
+  createdAt: timestamp("delCreatedAt").defaultNow().notNull(),
+}, (table) => ({
+  documentIdx: index("del_document_idx").on(table.documentId),
+  entityIdx: index("del_entity_idx").on(table.entityType, table.entityId),
+  docEntityIdx: index("del_doc_entity_idx").on(table.documentId, table.entityType, table.entityId),
+}));
+
+export type DocumentEntityLink = typeof documentEntityLinks.$inferSelect;
+export type InsertDocumentEntityLink = typeof documentEntityLinks.$inferInsert;
+
+/**
+ * Document access — per-document and per-folder permission grants.
+ */
+export const documentAccess = mysqlTable("document_access", {
+  id: int("id").autoincrement().primaryKey(),
+  documentId: int("daDocumentId").references(() => documents.id, { onDelete: "cascade" }),
+  folderId: int("daFolderId").references(() => documentFolders.id, { onDelete: "cascade" }),
+  userId: int("daUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  accessLevel: mysqlEnum("daAccessLevel", ["view", "edit", "admin"]).default("view").notNull(),
+  grantedBy: int("daGrantedBy").references(() => users.id),
+  createdAt: timestamp("daCreatedAt").defaultNow().notNull(),
+}, (table) => ({
+  documentIdx: index("da_document_idx").on(table.documentId),
+  folderIdx: index("da_folder_idx").on(table.folderId),
+  userIdx: index("da_user_idx").on(table.userId),
+}));
+
+export type DocumentAccess = typeof documentAccess.$inferSelect;
+export type InsertDocumentAccess = typeof documentAccess.$inferInsert;
+
+/**
+ * Document favorites — per-user document bookmarks.
+ */
+export const documentFavorites = mysqlTable("document_favorites", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("dfUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  documentId: int("dfDocumentId").notNull().references(() => documents.id, { onDelete: "cascade" }),
+  createdAt: timestamp("dfCreatedAt").defaultNow().notNull(),
+}, (table) => ({
+  userDocIdx: uniqueIndex("df_user_doc_idx").on(table.userId, table.documentId),
+}));
+
+export type DocumentFavorite = typeof documentFavorites.$inferSelect;
+export type InsertDocumentFavorite = typeof documentFavorites.$inferInsert;
+
+/**
+ * Document templates — registered templates with merge field schemas.
+ * Templates are Google Docs with {{placeholder}} fields that get auto-filled.
+ */
+export const documentTemplates = mysqlTable("document_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("dtName", { length: 500 }).notNull(),
+  description: text("dtDescription"),
+  category: mysqlEnum("dtCategory", ["agreement", "compliance", "intake", "profile", "other"]).default("agreement").notNull(),
+  subcategory: varchar("dtSubcategory", { length: 255 }), // "sppp", "ncnda", "jva", "cis"
+  googleFileId: varchar("dtGoogleFileId", { length: 500 }), // Google Doc template file ID
+  s3Url: varchar("dtS3Url", { length: 1000 }), // S3 URL for uploaded templates
+  mergeFieldSchema: text("dtMergeFieldSchema"), // JSON: field definitions for the generation modal
+  defaultRecipientRoles: text("dtDefaultRecipientRoles"), // JSON: default signer roles
+  version: int("dtVersion").default(1).notNull(),
+  isActive: boolean("dtIsActive").default(true).notNull(),
+  timesUsed: int("dtTimesUsed").default(0).notNull(),
+  createdBy: int("dtCreatedBy").references(() => users.id),
+  createdAt: timestamp("dtCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("dtUpdatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  nameIdx: index("dt_name_idx").on(table.name),
+  categoryIdx: index("dt_category_idx").on(table.category),
+  activeIdx: index("dt_active_idx").on(table.isActive),
+}));
+
+export type DocumentTemplate = typeof documentTemplates.$inferSelect;
+export type InsertDocumentTemplate = typeof documentTemplates.$inferInsert;
+
+/**
+ * Signing providers — stores connected e-signature provider configurations.
+ * Supports multiple providers: Firma, SignatureAPI, DocuSeal, PandaDocs, DocuSign, BoldSign, eSignly.
+ */
+export const signingProviders = mysqlTable("signing_providers", {
+  id: int("id").autoincrement().primaryKey(),
+  provider: mysqlEnum("spProvider", ["firma", "signatureapi", "docuseal", "pandadocs", "docusign", "boldsign", "esignly"]).notNull(),
+  displayName: varchar("spDisplayName", { length: 255 }).notNull(),
+  isActive: boolean("spIsActive").default(false).notNull(),
+  isDefault: boolean("spIsDefault").default(false).notNull(),
+  apiKey: text("spApiKey"), // encrypted API key
+  apiSecret: text("spApiSecret"), // encrypted API secret (if needed)
+  baseUrl: varchar("spBaseUrl", { length: 500 }), // custom API base URL (for self-hosted)
+  webhookSecret: varchar("spWebhookSecret", { length: 500 }), // webhook verification secret
+  config: text("spConfig"), // JSON: provider-specific configuration
+  createdBy: int("spCreatedBy").references(() => users.id),
+  createdAt: timestamp("spCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("spUpdatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  providerIdx: index("sp_provider_idx").on(table.provider),
+  activeIdx: index("sp_active_idx").on(table.isActive),
+  defaultIdx: index("sp_default_idx").on(table.isDefault),
+}));
+
+export type SigningProvider = typeof signingProviders.$inferSelect;
+export type InsertSigningProvider = typeof signingProviders.$inferInsert;
+
+/**
+ * Signing envelopes — tracks e-signature requests across all providers.
+ * Each envelope = one document sent for signature to one or more recipients.
+ */
+export const signingEnvelopes = mysqlTable("signing_envelopes", {
+  id: int("id").autoincrement().primaryKey(),
+  documentId: int("seDocumentId").notNull().references(() => documents.id, { onDelete: "cascade" }),
+  providerId: int("seProviderId").notNull().references(() => signingProviders.id),
+  providerEnvelopeId: varchar("seProviderEnvelopeId", { length: 500 }), // ID from the signing provider
+  status: mysqlEnum("seStatus", ["draft", "sent", "viewed", "completed", "declined", "voided", "expired"]).default("draft").notNull(),
+  recipients: text("seRecipients"), // JSON: array of { name, email, role, order, status, signedAt }
+  sentAt: timestamp("seSentAt"),
+  completedAt: timestamp("seCompletedAt"),
+  signedDocumentUrl: varchar("seSignedDocUrl", { length: 1000 }), // S3 URL of signed PDF
+  signedDocumentKey: varchar("seSignedDocKey", { length: 500 }),
+  metadata: text("seMetadata"), // JSON: provider-specific metadata
+  createdBy: int("seCreatedBy").references(() => users.id),
+  createdAt: timestamp("seCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("seUpdatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  documentIdx: index("se_document_idx").on(table.documentId),
+  providerIdx: index("se_provider_idx").on(table.providerId),
+  statusIdx: index("se_status_idx").on(table.status),
+  providerEnvelopeIdx: index("se_provider_envelope_idx").on(table.providerEnvelopeId),
+}));
+
+export type SigningEnvelope = typeof signingEnvelopes.$inferSelect;
+export type InsertSigningEnvelope = typeof signingEnvelopes.$inferInsert;
+
+// ============================================================================
+// VAULT RELATIONS
+// ============================================================================
+
+export const documentFoldersRelations = relations(documentFolders, ({ one, many }) => ({
+  owner: one(users, { fields: [documentFolders.ownerId], references: [users.id] }),
+  documents: many(documents),
+}));
+
+export const documentsRelations = relations(documents, ({ one, many }) => ({
+  folder: one(documentFolders, { fields: [documents.folderId], references: [documentFolders.id] }),
+  owner: one(users, { fields: [documents.ownerId], references: [users.id] }),
+  entityLinks: many(documentEntityLinks),
+  favorites: many(documentFavorites),
+  accessGrants: many(documentAccess),
+  envelopes: many(signingEnvelopes),
+}));
+
+export const documentEntityLinksRelations = relations(documentEntityLinks, ({ one }) => ({
+  document: one(documents, { fields: [documentEntityLinks.documentId], references: [documents.id] }),
+}));
+
+export const documentAccessRelations = relations(documentAccess, ({ one }) => ({
+  document: one(documents, { fields: [documentAccess.documentId], references: [documents.id] }),
+  folder: one(documentFolders, { fields: [documentAccess.folderId], references: [documentFolders.id] }),
+  user: one(users, { fields: [documentAccess.userId], references: [users.id] }),
+  granter: one(users, { fields: [documentAccess.grantedBy], references: [users.id] }),
+}));
+
+export const documentFavoritesRelations = relations(documentFavorites, ({ one }) => ({
+  user: one(users, { fields: [documentFavorites.userId], references: [users.id] }),
+  document: one(documents, { fields: [documentFavorites.documentId], references: [documents.id] }),
+}));
+
+export const documentTemplatesRelations = relations(documentTemplates, ({ one }) => ({
+  creator: one(users, { fields: [documentTemplates.createdBy], references: [users.id] }),
+}));
+
+export const signingProvidersRelations = relations(signingProviders, ({ one, many }) => ({
+  creator: one(users, { fields: [signingProviders.createdBy], references: [users.id] }),
+  envelopes: many(signingEnvelopes),
+}));
+
+export const signingEnvelopesRelations = relations(signingEnvelopes, ({ one }) => ({
+  document: one(documents, { fields: [signingEnvelopes.documentId], references: [documents.id] }),
+  provider: one(signingProviders, { fields: [signingEnvelopes.providerId], references: [signingProviders.id] }),
+  creator: one(users, { fields: [signingEnvelopes.createdBy], references: [users.id] }),
+}));

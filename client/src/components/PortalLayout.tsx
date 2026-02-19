@@ -69,7 +69,7 @@ const domains: DomainItem[] = [
     icon: Radio, 
     label: "Intelligence", 
     path: "/intelligence",
-    matchPaths: ["/intelligence", "/meetings", "/meeting/"]
+    matchPaths: ["/intelligence", "/meetings", "/meeting/", "/vault", "/templates", "/pipeline"]
   },
   { 
     id: "communications", 

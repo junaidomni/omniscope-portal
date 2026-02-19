@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, like, lte, or, sql, inArray, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink, emailThreadSummaries, InsertEmailThreadSummary, emailMessages, pendingSuggestions, InsertPendingSuggestion, activityLog, InsertActivityLog, contactAliases, InsertContactAlias, companyAliases, InsertCompanyAlias } from "../drizzle/schema";
+import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink, emailThreadSummaries, InsertEmailThreadSummary, emailMessages, pendingSuggestions, InsertPendingSuggestion, activityLog, InsertActivityLog, contactAliases, InsertContactAlias, companyAliases, InsertCompanyAlias, documents, InsertDocument, documentEntityLinks, InsertDocumentEntityLink, documentFolders, InsertDocumentFolder, documentAccess, InsertDocumentAccess, documentFavorites, InsertDocumentFavorite, documentTemplates, InsertDocumentTemplate, signingProviders, InsertSigningProvider, signingEnvelopes, InsertSigningEnvelope } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1965,4 +1965,333 @@ export async function findCompanyByAlias(userId: number, name: string) {
     .limit(1);
   if (byName.length > 0) return byName[0].companyId;
   return null;
+}
+
+
+// ============================================================================
+// INTELLIGENCE VAULT — Document Operations
+// ============================================================================
+
+export async function listDocuments(filters?: {
+  collection?: string;
+  category?: string;
+  status?: string;
+  folderId?: number | null;
+  ownerId?: number;
+  isTemplate?: boolean;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const db = await getDb();
+  if (!db) return { items: [], total: 0 };
+  const conditions: any[] = [];
+  if (filters?.collection) conditions.push(eq(documents.collection, filters.collection as any));
+  if (filters?.category) conditions.push(eq(documents.category, filters.category as any));
+  if (filters?.status) conditions.push(eq(documents.status, filters.status as any));
+  if (filters?.folderId !== undefined) {
+    if (filters.folderId === null) {
+      conditions.push(sql`${documents.folderId} IS NULL`);
+    } else {
+      conditions.push(eq(documents.folderId, filters.folderId));
+    }
+  }
+  if (filters?.ownerId) conditions.push(eq(documents.ownerId, filters.ownerId));
+  if (filters?.isTemplate !== undefined) conditions.push(eq(documents.isTemplate, filters.isTemplate));
+  if (filters?.search) conditions.push(like(documents.title, `%${filters.search}%`));
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const limit = filters?.limit ?? 50;
+  const offset = filters?.offset ?? 0;
+
+  const [items, countResult] = await Promise.all([
+    db.select().from(documents).where(where).orderBy(desc(documents.updatedAt)).limit(limit).offset(offset),
+    db.select({ count: sql<number>`COUNT(*)` }).from(documents).where(where),
+  ]);
+  return { items, total: countResult[0]?.count ?? 0 };
+}
+
+export async function getDocumentById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [doc] = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+  if (!doc) return null;
+  const links = await db.select().from(documentEntityLinks).where(eq(documentEntityLinks.documentId, id));
+  const favs = await db.select().from(documentFavorites).where(eq(documentFavorites.documentId, id));
+  const envelopes = await db.select().from(signingEnvelopes).where(eq(signingEnvelopes.documentId, id));
+  return { ...doc, entityLinks: links, favorites: favs, envelopes };
+}
+
+export async function createDocument(data: InsertDocument) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(documents).values(data);
+  return { id: result.insertId, ...data };
+}
+
+export async function updateDocument(id: number, data: Partial<InsertDocument>) {
+  const db = await getDb();
+  if (!db) return null;
+  await db.update(documents).set(data).where(eq(documents.id, id));
+  return getDocumentById(id);
+}
+
+export async function deleteDocument(id: number) {
+  const db = await getDb();
+  if (!db) return false;
+  await db.delete(documents).where(eq(documents.id, id));
+  return true;
+}
+
+export async function getDocumentsByEntity(entityType: string, entityId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const links = await db.select().from(documentEntityLinks)
+    .where(and(eq(documentEntityLinks.entityType, entityType as any), eq(documentEntityLinks.entityId, entityId)));
+  if (links.length === 0) return [];
+  const docIds = links.map(l => l.documentId);
+  return db.select().from(documents).where(inArray(documents.id, docIds)).orderBy(desc(documents.updatedAt));
+}
+
+export async function getRecentDocuments(userId: number, limit: number = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(documents).orderBy(desc(documents.updatedAt)).limit(limit);
+}
+
+export async function getFavoriteDocuments(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const favs = await db.select().from(documentFavorites).where(eq(documentFavorites.userId, userId));
+  if (favs.length === 0) return [];
+  const docIds = favs.map(f => f.documentId);
+  return db.select().from(documents).where(inArray(documents.id, docIds)).orderBy(desc(documents.updatedAt));
+}
+
+export async function toggleFavorite(userId: number, documentId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const existing = await db.select().from(documentFavorites)
+    .where(and(eq(documentFavorites.userId, userId), eq(documentFavorites.documentId, documentId))).limit(1);
+  if (existing.length > 0) {
+    await db.delete(documentFavorites).where(eq(documentFavorites.id, existing[0].id));
+    return false; // unfavorited
+  } else {
+    await db.insert(documentFavorites).values({ userId, documentId });
+    return true; // favorited
+  }
+}
+
+// Entity links
+export async function addDocumentEntityLink(data: InsertDocumentEntityLink) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(documentEntityLinks).values(data);
+  return { id: result.insertId, ...data };
+}
+
+export async function removeDocumentEntityLink(id: number) {
+  const db = await getDb();
+  if (!db) return false;
+  await db.delete(documentEntityLinks).where(eq(documentEntityLinks.id, id));
+  return true;
+}
+
+export async function getDocumentEntityLinks(documentId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(documentEntityLinks).where(eq(documentEntityLinks.documentId, documentId));
+}
+
+// ============================================================================
+// VAULT — Folder Operations
+// ============================================================================
+
+export async function listFolders(filters?: { collection?: string; parentId?: number | null; ownerId?: number }) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions: any[] = [];
+  if (filters?.collection) conditions.push(eq(documentFolders.collection, filters.collection as any));
+  if (filters?.parentId !== undefined) {
+    if (filters.parentId === null) {
+      conditions.push(sql`${documentFolders.parentId} IS NULL`);
+    } else {
+      conditions.push(eq(documentFolders.parentId, filters.parentId));
+    }
+  }
+  if (filters?.ownerId) conditions.push(eq(documentFolders.ownerId, filters.ownerId));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  return db.select().from(documentFolders).where(where).orderBy(asc(documentFolders.sortOrder), asc(documentFolders.name));
+}
+
+export async function createFolder(data: InsertDocumentFolder) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(documentFolders).values(data);
+  return { id: result.insertId, ...data };
+}
+
+export async function updateFolder(id: number, data: Partial<InsertDocumentFolder>) {
+  const db = await getDb();
+  if (!db) return null;
+  await db.update(documentFolders).set(data).where(eq(documentFolders.id, id));
+  const [folder] = await db.select().from(documentFolders).where(eq(documentFolders.id, id)).limit(1);
+  return folder ?? null;
+}
+
+export async function deleteFolder(id: number) {
+  const db = await getDb();
+  if (!db) return false;
+  await db.delete(documentFolders).where(eq(documentFolders.id, id));
+  return true;
+}
+
+// ============================================================================
+// VAULT — Template Operations
+// ============================================================================
+
+export async function listTemplates(filters?: { category?: string; isActive?: boolean }) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions: any[] = [];
+  if (filters?.category) conditions.push(eq(documentTemplates.category, filters.category as any));
+  if (filters?.isActive !== undefined) conditions.push(eq(documentTemplates.isActive, filters.isActive));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  return db.select().from(documentTemplates).where(where).orderBy(desc(documentTemplates.timesUsed), asc(documentTemplates.name));
+}
+
+export async function getTemplateById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [template] = await db.select().from(documentTemplates).where(eq(documentTemplates.id, id)).limit(1);
+  return template ?? null;
+}
+
+export async function createTemplate(data: InsertDocumentTemplate) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(documentTemplates).values(data);
+  return { id: result.insertId, ...data };
+}
+
+export async function updateTemplate(id: number, data: Partial<InsertDocumentTemplate>) {
+  const db = await getDb();
+  if (!db) return null;
+  await db.update(documentTemplates).set(data).where(eq(documentTemplates.id, id));
+  return getTemplateById(id);
+}
+
+export async function incrementTemplateUsage(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(documentTemplates).set({ timesUsed: sql`${documentTemplates.timesUsed} + 1` }).where(eq(documentTemplates.id, id));
+}
+
+// ============================================================================
+// VAULT — Signing Provider Operations
+// ============================================================================
+
+export async function listSigningProviders() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(signingProviders).orderBy(desc(signingProviders.isDefault), asc(signingProviders.displayName));
+}
+
+export async function getSigningProviderById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [provider] = await db.select().from(signingProviders).where(eq(signingProviders.id, id)).limit(1);
+  return provider ?? null;
+}
+
+export async function getDefaultSigningProvider() {
+  const db = await getDb();
+  if (!db) return null;
+  const [provider] = await db.select().from(signingProviders).where(eq(signingProviders.isDefault, true)).limit(1);
+  return provider ?? null;
+}
+
+export async function upsertSigningProvider(data: InsertSigningProvider) {
+  const db = await getDb();
+  if (!db) return null;
+  // If setting as default, clear other defaults first
+  if (data.isDefault) {
+    await db.update(signingProviders).set({ isDefault: false }).where(eq(signingProviders.isDefault, true));
+  }
+  const existing = await db.select().from(signingProviders).where(eq(signingProviders.provider, data.provider)).limit(1);
+  if (existing.length > 0) {
+    await db.update(signingProviders).set(data).where(eq(signingProviders.id, existing[0].id));
+    return { ...existing[0], ...data };
+  }
+  const [result] = await db.insert(signingProviders).values(data);
+  return { id: result.insertId, ...data };
+}
+
+export async function deleteSigningProvider(id: number) {
+  const db = await getDb();
+  if (!db) return false;
+  await db.delete(signingProviders).where(eq(signingProviders.id, id));
+  return true;
+}
+
+// ============================================================================
+// VAULT — Signing Envelope Operations
+// ============================================================================
+
+export async function listSigningEnvelopes(filters?: { status?: string; documentId?: number; limit?: number; offset?: number }) {
+  const db = await getDb();
+  if (!db) return { items: [], total: 0 };
+  const conditions: any[] = [];
+  if (filters?.status) conditions.push(eq(signingEnvelopes.status, filters.status as any));
+  if (filters?.documentId) conditions.push(eq(signingEnvelopes.documentId, filters.documentId));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const limit = filters?.limit ?? 50;
+  const offset = filters?.offset ?? 0;
+  const [items, countResult] = await Promise.all([
+    db.select().from(signingEnvelopes).where(where).orderBy(desc(signingEnvelopes.updatedAt)).limit(limit).offset(offset),
+    db.select({ count: sql<number>`COUNT(*)` }).from(signingEnvelopes).where(where),
+  ]);
+  return { items, total: countResult[0]?.count ?? 0 };
+}
+
+export async function getSigningEnvelopeById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [envelope] = await db.select().from(signingEnvelopes).where(eq(signingEnvelopes.id, id)).limit(1);
+  return envelope ?? null;
+}
+
+export async function createSigningEnvelope(data: InsertSigningEnvelope) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(signingEnvelopes).values(data);
+  return { id: result.insertId, ...data };
+}
+
+export async function updateSigningEnvelope(id: number, data: Partial<InsertSigningEnvelope>) {
+  const db = await getDb();
+  if (!db) return null;
+  await db.update(signingEnvelopes).set(data).where(eq(signingEnvelopes.id, id));
+  return getSigningEnvelopeById(id);
+}
+
+// Document access
+export async function grantDocumentAccess(data: InsertDocumentAccess) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(documentAccess).values(data);
+  return { id: result.insertId, ...data };
+}
+
+export async function revokeDocumentAccess(id: number) {
+  const db = await getDb();
+  if (!db) return false;
+  await db.delete(documentAccess).where(eq(documentAccess.id, id));
+  return true;
+}
+
+export async function getDocumentAccessList(documentId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(documentAccess).where(eq(documentAccess.documentId, documentId));
 }

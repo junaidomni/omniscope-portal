@@ -14,6 +14,9 @@ import * as fathomIntegration from "./fathomIntegration";
 import { storagePut } from "./storage";
 import * as gmailService from "./gmailService";
 import { getGoogleAuthUrl, isGoogleConnected, syncGoogleCalendarEvents } from "./googleCalendar";
+import { getSigningAdapter, getAllAdapters, getAdapterInfo } from "./signingAdapters";
+import type { ProviderConfig } from "./signingAdapters";
+import { invokeLLM } from "./_core/llm";
 
 // ============================================================================
 // MEETINGS ROUTER
@@ -3588,6 +3591,564 @@ const dedupRouter = router({
 });
 
 // ============================================================================
+// INTELLIGENCE VAULT ROUTER
+// ============================================================================
+
+const vaultRouter = router({
+  // Document CRUD
+  listDocuments: protectedProcedure
+    .input(z.object({
+      collection: z.string().optional(),
+      category: z.string().optional(),
+      status: z.string().optional(),
+      folderId: z.number().nullable().optional(),
+      isTemplate: z.boolean().optional(),
+      search: z.string().optional(),
+      limit: z.number().min(1).max(100).default(50),
+      offset: z.number().min(0).default(0),
+    }).optional())
+    .query(async ({ input, ctx }) => {
+      return db.listDocuments(input ? { ...input, ownerId: undefined } : undefined);
+    }),
+
+  getDocument: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      const doc = await db.getDocumentById(input.id);
+      if (!doc) throw new TRPCError({ code: "NOT_FOUND", message: "Document not found" });
+      return doc;
+    }),
+
+  createDocument: protectedProcedure
+    .input(z.object({
+      title: z.string().min(1),
+      description: z.string().optional(),
+      sourceType: z.enum(["google_doc", "google_sheet", "google_slide", "pdf", "uploaded", "generated"]),
+      googleFileId: z.string().optional(),
+      s3Url: z.string().optional(),
+      s3Key: z.string().optional(),
+      fileName: z.string().optional(),
+      mimeType: z.string().optional(),
+      collection: z.enum(["company_repo", "personal", "counterparty", "template", "transaction", "signed"]).default("company_repo"),
+      category: z.enum(["agreement", "compliance", "intake", "profile", "strategy", "operations", "transaction", "correspondence", "template", "other"]).default("other"),
+      subcategory: z.string().optional(),
+      visibility: z.enum(["organization", "team", "private", "restricted"]).default("organization"),
+      folderId: z.number().optional(),
+      isTemplate: z.boolean().default(false),
+      fileSize: z.number().optional(),
+      entityLinks: z.array(z.object({
+        entityType: z.enum(["company", "contact", "meeting"]),
+        entityId: z.number(),
+        linkType: z.enum(["primary", "related", "mentioned", "generated_for", "signed_by"]).default("primary"),
+      })).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { entityLinks, ...docData } = input;
+      const doc = await db.createDocument({ ...docData, ownerId: ctx.user!.id });
+      if (!doc) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create document" });
+      // Add entity links
+      if (entityLinks && entityLinks.length > 0) {
+        for (const link of entityLinks) {
+          await db.addDocumentEntityLink({ documentId: doc.id!, entityType: link.entityType, entityId: link.entityId, linkType: link.linkType });
+        }
+      }
+      // Log activity
+      await db.logActivity({
+        userId: ctx.user!.id,
+        action: "document_created",
+        entityType: "document",
+        entityId: String(doc.id),
+        entityName: input.title,
+        details: JSON.stringify({ sourceType: input.sourceType, collection: input.collection, category: input.category }),
+      });
+      return doc;
+    }),
+
+  updateDocument: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      collection: z.enum(["company_repo", "personal", "counterparty", "template", "transaction", "signed"]).optional(),
+      category: z.enum(["agreement", "compliance", "intake", "profile", "strategy", "operations", "transaction", "correspondence", "template", "other"]).optional(),
+      subcategory: z.string().optional(),
+      status: z.enum(["draft", "active", "pending_signature", "sent", "viewed", "signed", "voided", "declined", "archived"]).optional(),
+      visibility: z.enum(["organization", "team", "private", "restricted"]).optional(),
+      folderId: z.number().nullable().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { id, ...data } = input;
+      const doc = await db.updateDocument(id, data);
+      if (!doc) throw new TRPCError({ code: "NOT_FOUND", message: "Document not found" });
+      return doc;
+    }),
+
+  deleteDocument: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const doc = await db.getDocumentById(input.id);
+      await db.deleteDocument(input.id);
+      if (doc) {
+        await db.logActivity({
+          userId: ctx.user!.id,
+          action: "document_deleted",
+          entityType: "document",
+          entityId: String(input.id),
+          entityName: doc.title,
+        });
+      }
+      return { success: true };
+    }),
+
+  // Entity links
+  addEntityLink: protectedProcedure
+    .input(z.object({
+      documentId: z.number(),
+      entityType: z.enum(["company", "contact", "meeting"]),
+      entityId: z.number(),
+      linkType: z.enum(["primary", "related", "mentioned", "generated_for", "signed_by"]).default("primary"),
+    }))
+    .mutation(async ({ input }) => {
+      return db.addDocumentEntityLink(input);
+    }),
+
+  removeEntityLink: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      return db.removeDocumentEntityLink(input.id);
+    }),
+
+  getDocumentsByEntity: protectedProcedure
+    .input(z.object({
+      entityType: z.enum(["company", "contact", "meeting"]),
+      entityId: z.number(),
+    }))
+    .query(async ({ input }) => {
+      return db.getDocumentsByEntity(input.entityType, input.entityId);
+    }),
+
+  // Favorites
+  toggleFavorite: protectedProcedure
+    .input(z.object({ documentId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const isFavorited = await db.toggleFavorite(ctx.user!.id, input.documentId);
+      return { isFavorited };
+    }),
+
+  getFavorites: protectedProcedure
+    .query(async ({ ctx }) => {
+      return db.getFavoriteDocuments(ctx.user!.id);
+    }),
+
+  getRecent: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(50).default(20) }).optional())
+    .query(async ({ input, ctx }) => {
+      return db.getRecentDocuments(ctx.user!.id, input?.limit);
+    }),
+
+  // Folders
+  listFolders: protectedProcedure
+    .input(z.object({
+      collection: z.string().optional(),
+      parentId: z.number().nullable().optional(),
+    }).optional())
+    .query(async ({ input }) => {
+      return db.listFolders(input || undefined);
+    }),
+
+  createFolder: protectedProcedure
+    .input(z.object({
+      name: z.string().min(1),
+      collection: z.enum(["company_repo", "personal", "counterparty", "templates", "signed", "transactions"]),
+      parentId: z.number().optional(),
+      entityType: z.enum(["company", "contact"]).optional(),
+      entityId: z.number().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      return db.createFolder({ ...input, ownerId: ctx.user!.id });
+    }),
+
+  updateFolder: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      name: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { id, ...data } = input;
+      return db.updateFolder(id, data);
+    }),
+
+  deleteFolder: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      return db.deleteFolder(input.id);
+    }),
+
+  // AI Document Analysis
+  analyzeDocument: protectedProcedure
+    .input(z.object({
+      title: z.string(),
+      fileName: z.string().optional(),
+      mimeType: z.string().optional(),
+      textContent: z.string().optional(), // extracted text for analysis
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are an institutional document analyst for OmniScope, a private financial infrastructure platform. Analyze the document and extract structured metadata. Return JSON only.
+
+Categories: agreement, compliance, intake, profile, strategy, operations, transaction, correspondence, template, other
+Subcategories: sppp (Strategic Private Placement Program), ncnda (Non-Circumvention Non-Disclosure Agreement), jva (Joint Venture Agreement), kyc (Know Your Customer), kyb (Know Your Business), cis (Customer Information Sheet), nda, mou, loi, sow, invoice, receipt, report, memo, other
+Collections: company_repo, counterparty, transaction, signed
+
+Return JSON with: { "suggestedTitle": string, "category": string, "subcategory": string, "collection": string, "summary": string (2-3 sentences), "detectedEntities": { "companies": string[], "people": string[] }, "tags": string[] }`,
+            },
+            {
+              role: "user",
+              content: `Analyze this document:\nTitle: ${input.title}\nFilename: ${input.fileName || "unknown"}\nMIME Type: ${input.mimeType || "unknown"}\n\nContent excerpt:\n${(input.textContent || "").slice(0, 4000)}`,
+            },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "document_analysis",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  suggestedTitle: { type: "string", description: "Clean, professional title" },
+                  category: { type: "string", description: "Document category" },
+                  subcategory: { type: "string", description: "Document subcategory" },
+                  collection: { type: "string", description: "Vault collection" },
+                  summary: { type: "string", description: "2-3 sentence summary" },
+                  detectedEntities: {
+                    type: "object",
+                    properties: {
+                      companies: { type: "array", items: { type: "string" } },
+                      people: { type: "array", items: { type: "string" } },
+                    },
+                    required: ["companies", "people"],
+                    additionalProperties: false,
+                  },
+                  tags: { type: "array", items: { type: "string" } },
+                },
+                required: ["suggestedTitle", "category", "subcategory", "collection", "summary", "detectedEntities", "tags"],
+                additionalProperties: false,
+              },
+            },
+          },
+        });
+        const content = response.choices?.[0]?.message?.content;
+        if (content) return JSON.parse(content);
+        return null;
+      } catch (error) {
+        console.error("[Vault] AI analysis failed:", error);
+        return null;
+      }
+    }),
+});
+
+// ============================================================================
+// TEMPLATE ENGINE ROUTER
+// ============================================================================
+
+const templateRouter = router({
+  list: protectedProcedure
+    .input(z.object({
+      category: z.string().optional(),
+      isActive: z.boolean().optional(),
+    }).optional())
+    .query(async ({ input }) => {
+      return db.listTemplates(input || undefined);
+    }),
+
+  getById: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      const template = await db.getTemplateById(input.id);
+      if (!template) throw new TRPCError({ code: "NOT_FOUND", message: "Template not found" });
+      return template;
+    }),
+
+  create: protectedProcedure
+    .input(z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+      category: z.enum(["agreement", "compliance", "intake", "profile", "other"]).default("agreement"),
+      subcategory: z.string().optional(),
+      googleFileId: z.string().optional(),
+      s3Url: z.string().optional(),
+      mergeFieldSchema: z.string().optional(), // JSON string
+      defaultRecipientRoles: z.string().optional(), // JSON string
+    }))
+    .mutation(async ({ input, ctx }) => {
+      return db.createTemplate({ ...input, createdBy: ctx.user!.id });
+    }),
+
+  update: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      name: z.string().optional(),
+      description: z.string().optional(),
+      category: z.enum(["agreement", "compliance", "intake", "profile", "other"]).optional(),
+      subcategory: z.string().optional(),
+      mergeFieldSchema: z.string().optional(),
+      defaultRecipientRoles: z.string().optional(),
+      isActive: z.boolean().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { id, ...data } = input;
+      return db.updateTemplate(id, data);
+    }),
+
+  // Generate a document from a template with merge fields
+  generate: protectedProcedure
+    .input(z.object({
+      templateId: z.number(),
+      mergeFields: z.record(z.string()), // { "{{client_name}}": "Wintermute", ... }
+      title: z.string(), // generated document title
+      entityLinks: z.array(z.object({
+        entityType: z.enum(["company", "contact", "meeting"]),
+        entityId: z.number(),
+        linkType: z.enum(["primary", "related", "mentioned", "generated_for", "signed_by"]).default("generated_for"),
+      })).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const template = await db.getTemplateById(input.templateId);
+      if (!template) throw new TRPCError({ code: "NOT_FOUND", message: "Template not found" });
+
+      // Create document record
+      const doc = await db.createDocument({
+        title: input.title,
+        sourceType: "generated",
+        collection: "counterparty",
+        category: template.category as any,
+        subcategory: template.subcategory || undefined,
+        status: "draft",
+        visibility: "organization",
+        ownerId: ctx.user!.id,
+        isTemplate: false,
+      });
+      if (!doc) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create document" });
+
+      // Add entity links
+      if (input.entityLinks) {
+        for (const link of input.entityLinks) {
+          await db.addDocumentEntityLink({ documentId: doc.id!, entityType: link.entityType, entityId: link.entityId, linkType: link.linkType });
+        }
+      }
+
+      // Increment template usage
+      await db.incrementTemplateUsage(input.templateId);
+
+      // Log activity
+      await db.logActivity({
+        userId: ctx.user!.id,
+        action: "document_generated",
+        entityType: "document",
+        entityId: String(doc.id),
+        entityName: input.title,
+        details: JSON.stringify({ templateId: input.templateId, templateName: template.name }),
+      });
+
+      return doc;
+    }),
+});
+
+// ============================================================================
+// E-SIGNATURE ROUTER
+// ============================================================================
+
+const signingRouter = router({
+  // Provider management
+  listProviders: protectedProcedure
+    .query(async () => {
+      const configured = await db.listSigningProviders();
+      const allAdapters = getAdapterInfo();
+      return { configured, available: allAdapters };
+    }),
+
+  configureProvider: protectedProcedure
+    .input(z.object({
+      provider: z.enum(["firma", "signatureapi", "docuseal", "pandadocs", "docusign", "boldsign", "esignly"]),
+      displayName: z.string(),
+      apiKey: z.string(),
+      apiSecret: z.string().optional(),
+      baseUrl: z.string().optional(),
+      webhookSecret: z.string().optional(),
+      config: z.string().optional(), // JSON
+      isDefault: z.boolean().default(false),
+      isActive: z.boolean().default(true),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      return db.upsertSigningProvider({ ...input, createdBy: ctx.user!.id });
+    }),
+
+  removeProvider: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      return db.deleteSigningProvider(input.id);
+    }),
+
+  // Envelope operations
+  listEnvelopes: protectedProcedure
+    .input(z.object({
+      status: z.string().optional(),
+      documentId: z.number().optional(),
+      limit: z.number().min(1).max(100).default(50),
+      offset: z.number().min(0).default(0),
+    }).optional())
+    .query(async ({ input }) => {
+      return db.listSigningEnvelopes(input || undefined);
+    }),
+
+  getEnvelope: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      const envelope = await db.getSigningEnvelopeById(input.id);
+      if (!envelope) throw new TRPCError({ code: "NOT_FOUND", message: "Envelope not found" });
+      return envelope;
+    }),
+
+  sendForSignature: protectedProcedure
+    .input(z.object({
+      documentId: z.number(),
+      providerId: z.number().optional(), // uses default if not specified
+      recipients: z.array(z.object({
+        name: z.string(),
+        email: z.string(),
+        role: z.string().default("signer"),
+        order: z.number().optional(),
+      })),
+      subject: z.string().optional(),
+      message: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Get the document
+      const doc = await db.getDocumentById(input.documentId);
+      if (!doc) throw new TRPCError({ code: "NOT_FOUND", message: "Document not found" });
+
+      // Get the signing provider
+      let provider;
+      if (input.providerId) {
+        provider = await db.getSigningProviderById(input.providerId);
+      } else {
+        provider = await db.getDefaultSigningProvider();
+      }
+      if (!provider) throw new TRPCError({ code: "BAD_REQUEST", message: "No signing provider configured. Please set up a provider in Settings." });
+      if (!provider.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Selected signing provider is not active." });
+
+      // Get the adapter
+      const adapter = getSigningAdapter(provider.provider);
+      if (!adapter) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `No adapter found for provider: ${provider.provider}` });
+
+      // Build config
+      const config: ProviderConfig = {
+        apiKey: provider.apiKey || "",
+        apiSecret: provider.apiSecret || undefined,
+        baseUrl: provider.baseUrl || undefined,
+        webhookSecret: provider.webhookSecret || undefined,
+        extra: provider.config ? JSON.parse(provider.config) : undefined,
+      };
+
+      // Get document URL
+      const documentUrl = doc.s3Url || "";
+      if (!documentUrl) throw new TRPCError({ code: "BAD_REQUEST", message: "Document has no accessible URL for signing." });
+
+      // Create envelope via provider
+      const result = await adapter.createEnvelope({
+        documentUrl,
+        documentName: doc.title,
+        recipients: input.recipients,
+        subject: input.subject,
+        message: input.message,
+      }, config);
+
+      // Save envelope record
+      const envelope = await db.createSigningEnvelope({
+        documentId: input.documentId,
+        providerId: provider.id,
+        providerEnvelopeId: result.providerEnvelopeId,
+        status: result.status,
+        recipients: JSON.stringify(result.recipients),
+        sentAt: new Date(),
+        createdBy: ctx.user!.id,
+        metadata: JSON.stringify(result.rawResponse),
+      });
+
+      // Update document status
+      await db.updateDocument(input.documentId, { status: "sent" });
+
+      // Log activity
+      await db.logActivity({
+        userId: ctx.user!.id,
+        action: "document_sent_for_signature",
+        entityType: "document",
+        entityId: String(input.documentId),
+        entityName: doc.title,
+        details: JSON.stringify({
+          provider: provider.provider,
+          recipients: input.recipients.map(r => r.email),
+          envelopeId: envelope?.id,
+        }),
+      });
+
+      return envelope;
+    }),
+
+  voidEnvelope: protectedProcedure
+    .input(z.object({ id: z.number(), reason: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const envelope = await db.getSigningEnvelopeById(input.id);
+      if (!envelope) throw new TRPCError({ code: "NOT_FOUND" });
+      const provider = await db.getSigningProviderById(envelope.providerId);
+      if (!provider) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const adapter = getSigningAdapter(provider.provider);
+      if (!adapter) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const config: ProviderConfig = {
+        apiKey: provider.apiKey || "",
+        apiSecret: provider.apiSecret || undefined,
+        baseUrl: provider.baseUrl || undefined,
+      };
+      const success = await adapter.voidEnvelope(envelope.providerEnvelopeId || "", input.reason, config);
+      if (success) {
+        await db.updateSigningEnvelope(input.id, { status: "voided" });
+        await db.updateDocument(envelope.documentId, { status: "voided" });
+      }
+      return { success };
+    }),
+
+  refreshStatus: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const envelope = await db.getSigningEnvelopeById(input.id);
+      if (!envelope) throw new TRPCError({ code: "NOT_FOUND" });
+      const provider = await db.getSigningProviderById(envelope.providerId);
+      if (!provider) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const adapter = getSigningAdapter(provider.provider);
+      if (!adapter) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const config: ProviderConfig = {
+        apiKey: provider.apiKey || "",
+        apiSecret: provider.apiSecret || undefined,
+        baseUrl: provider.baseUrl || undefined,
+      };
+      const result = await adapter.getStatus(envelope.providerEnvelopeId || "", config);
+      await db.updateSigningEnvelope(input.id, {
+        status: result.status,
+        recipients: JSON.stringify(result.recipients),
+        ...(result.status === "completed" ? { completedAt: new Date(), signedDocumentUrl: result.signedDocumentUrl } : {}),
+      });
+      if (result.status === "completed") {
+        await db.updateDocument(envelope.documentId, { status: "signed" });
+      }
+      return result;
+    }),
+});
+
+// ============================================================================
 // MAIN APP ROUTER
 // ============================================================================
 
@@ -3627,6 +4188,9 @@ export const appRouter = router({
   triage: triageRouter,
   activityLog: activityLogRouter,
   dedup: dedupRouter,
+  vault: vaultRouter,
+  templates: templateRouter,
+  signing: signingRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -1820,3 +1820,93 @@
 - [x] Include all fields: date, time, action, entity type, entity name, details
 - [x] Proper CSV escaping for commas and quotes in field values
 - [x] Auto-generated filename with current date
+
+## v54 — Intelligence Vault (Document Management System)
+
+### Database Schema
+- [x] Create documents table (title, sourceType, googleFileId, s3Url, collection, category, status, visibility, etc.)
+- [x] Create document_entity_links table (many-to-many: documents ↔ companies/contacts/meetings)
+- [x] Create document_folders table (hierarchical folder structure with entity linking)
+- [x] Create document_access table (per-document and per-folder permissions)
+- [x] Create document_favorites table (per-user favorites)
+- [x] Create document_templates table (template registry with merge field schemas)
+- [x] Create signing_envelopes table (tracks e-signature requests across providers)
+- [x] Create signing_providers table (stores connected provider configs per user/org)
+- [x] Push database migrations
+
+### Server-Side — Vault Router
+- [x] List documents with filters (collection, category, status, entity links)
+- [x] Get document by ID with entity links and access check
+- [x] Create document (manual upload with S3 storage)
+- [x] Update document metadata (title, category, entity links)
+- [x] Delete/archive document
+- [x] Search documents (full-text across titles and descriptions)
+- [x] Favorite/unfavorite document
+- [x] Get recent documents
+- [x] Get documents by entity (company/contact)
+
+### Server-Side — Template Engine Router
+- [x] List templates
+- [x] Get template by ID with merge field schema
+- [x] Register new template
+- [x] Generate document from template (merge field substitution)
+- [x] Update template metadata
+
+### Server-Side — E-Signature Router
+- [x] Create signing envelope (send document for signature)
+- [x] Get envelope status
+- [x] List envelopes (pipeline view)
+- [x] Webhook handler for provider callbacks
+- [x] Download signed document
+
+### E-Signature Provider Adapters (Common Interface)
+- [x] Define SigningProvider interface (createEnvelope, getStatus, downloadSigned, parseWebhook)
+- [x] Firma.dev adapter ($0.029/envelope)
+- [x] SignatureAPI adapter ($0.25/envelope)
+- [x] DocuSeal adapter (open source)
+- [x] PandaDocs adapter
+- [x] DocuSign adapter
+- [x] BoldSign adapter
+- [x] eSignly adapter
+- [x] Provider settings management (connect/disconnect/configure)
+
+### Server-Side — AI Document Analysis
+- [x] Analyze uploaded document with LLM (extract title, category, entities, summary)
+- [x] Auto-suggest entity links based on document content
+- [x] Auto-categorize documents (agreement, compliance, intake, profile, etc.)
+
+### Vault UI
+- [x] Vault main page with sidebar (Recents, Favorites, Company Repo, My Workspace, Collections)
+- [x] Document list view with filters and search
+- [x] Document detail view (metadata, entity links, signing history)
+- [x] Manual upload flow with AI-powered prefill (drag & drop, AI analysis, entity tagging)
+- [x] Folder navigation (create, rename)
+- [x] Favorites management
+- [x] Document actions (download, archive, share, view in source)
+
+### Template Engine UI
+- [x] Template Library page (list all registered templates with grid view)
+- [x] Template registration dialog (name, type, Google Doc ID, merge fields)
+- [x] Generation Modal (select template → fill merge fields → generate)
+
+### Document Pipeline UI
+- [x] Pipeline view (Kanban-style: Draft, Sent, Viewed, Signed, Declined)
+- [x] List view with stage filtering and search
+- [x] Signing Providers tab with cost comparison and configuration
+- [x] Send for Signature dialog
+- [x] Provider configuration dialog
+
+### Entity Integration
+- [x] Documents tab on Company Profile page
+- [x] Documents tab on Contact Profile page (already existed with upload)
+- [x] Link existing documents to entities via entity links
+
+### Navigation
+- [x] Add Vault to Intelligence domain tabs
+- [x] Add Templates to Intelligence domain tabs
+- [x] Add Pipeline to Intelligence domain tabs
+- [x] Update sidebar matchPaths for new routes (/vault, /templates, /pipeline)
+
+### Activity Log Extension
+- [x] Log document.created, document.uploaded, document.signed events
+- [x] Log document.sent_for_signature, document.viewed events
