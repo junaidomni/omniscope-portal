@@ -17,6 +17,7 @@ import { getGoogleAuthUrl, isGoogleConnected, syncGoogleCalendarEvents } from ".
 import { getSigningAdapter, getAllAdapters, getAdapterInfo } from "./signingAdapters";
 import type { ProviderConfig } from "./signingAdapters";
 import { invokeLLM } from "./_core/llm";
+import * as googleDrive from "./googleDrive";
 
 // ============================================================================
 // MEETINGS ROUTER
@@ -3852,6 +3853,319 @@ Return JSON with: { "suggestedTitle": string, "category": string, "subcategory":
 });
 
 // ============================================================================
+// GOOGLE DRIVE / DOCS / SHEETS ROUTER
+// ============================================================================
+
+const driveRouter = router({
+  // Connection status
+  connectionStatus: protectedProcedure.query(async ({ ctx }) => {
+    const status = await isGoogleConnected(ctx.user.id);
+    return {
+      connected: status.connected,
+      email: status.email,
+      hasDriveScopes: (status as any).hasDriveScopes ?? false,
+      hasDocsScopes: (status as any).hasDocsScopes ?? false,
+      hasSheetsScopes: (status as any).hasSheetsScopes ?? false,
+    };
+  }),
+
+  // List files in a Drive folder
+  listFiles: protectedProcedure
+    .input(z.object({
+      folderId: z.string().optional(),
+      pageToken: z.string().optional(),
+      pageSize: z.number().min(1).max(100).default(50),
+      query: z.string().optional(),
+    }).optional())
+    .query(async ({ input, ctx }) => {
+      const result = await googleDrive.listDriveFiles(
+        ctx.user.id,
+        input?.folderId,
+        input?.pageToken,
+        input?.pageSize,
+        input?.query,
+      );
+      if (!result) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Google Drive not connected. Please connect your Google account in Settings." });
+      return result;
+    }),
+
+  // Search files across Drive
+  searchFiles: protectedProcedure
+    .input(z.object({ query: z.string().min(1), pageSize: z.number().default(20) }))
+    .query(async ({ input, ctx }) => {
+      const files = await googleDrive.searchDriveFiles(ctx.user.id, input.query, input.pageSize);
+      if (!files) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Google Drive not connected." });
+      return files;
+    }),
+
+  // Get file metadata
+  getFile: protectedProcedure
+    .input(z.object({ fileId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const file = await googleDrive.getDriveFile(ctx.user.id, input.fileId);
+      if (!file) throw new TRPCError({ code: "NOT_FOUND", message: "File not found or Drive not connected." });
+      return file;
+    }),
+
+  // Create a new folder in Drive
+  createFolder: protectedProcedure
+    .input(z.object({ name: z.string().min(1), parentFolderId: z.string().optional() }))
+    .mutation(async ({ input, ctx }) => {
+      const folder = await googleDrive.createDriveFolder(ctx.user.id, input.name, input.parentFolderId);
+      if (!folder) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create folder." });
+      await db.logActivity({
+        userId: ctx.user.id,
+        action: "drive_folder_created",
+        entityType: "document",
+        entityId: folder.id,
+        entityName: input.name,
+      });
+      return folder;
+    }),
+
+  // Create a new Google Doc
+  createDoc: protectedProcedure
+    .input(z.object({
+      title: z.string().min(1),
+      folderId: z.string().optional(),
+      // Optional: also register in Vault
+      registerInVault: z.boolean().default(true),
+      collection: z.enum(["company_repo", "personal", "counterparty", "template", "transaction", "signed"]).default("company_repo"),
+      category: z.enum(["agreement", "compliance", "intake", "profile", "strategy", "operations", "transaction", "correspondence", "template", "other"]).default("other"),
+      entityLinks: z.array(z.object({
+        entityType: z.enum(["company", "contact", "meeting"]),
+        entityId: z.number(),
+        linkType: z.enum(["primary", "related", "mentioned", "generated_for", "signed_by"]).default("primary"),
+      })).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const doc = await googleDrive.createGoogleDoc(ctx.user.id, input.title, input.folderId);
+      if (!doc) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create Google Doc. Ensure Drive is connected." });
+
+      let vaultDoc = null;
+      if (input.registerInVault) {
+        vaultDoc = await db.createDocument({
+          title: input.title,
+          sourceType: "google_doc",
+          googleFileId: doc.id,
+          googleMimeType: "application/vnd.google-apps.document",
+          collection: input.collection,
+          category: input.category,
+          status: "active",
+          visibility: "organization",
+          ownerId: ctx.user.id,
+        });
+        if (vaultDoc && input.entityLinks) {
+          for (const link of input.entityLinks) {
+            await db.addDocumentEntityLink({ documentId: vaultDoc.id!, entityType: link.entityType, entityId: link.entityId, linkType: link.linkType });
+          }
+        }
+      }
+
+      await db.logActivity({
+        userId: ctx.user.id,
+        action: "google_doc_created",
+        entityType: "document",
+        entityId: doc.id,
+        entityName: input.title,
+        details: JSON.stringify({ googleFileId: doc.id, webViewLink: doc.webViewLink, vaultDocId: vaultDoc?.id }),
+      });
+
+      return { ...doc, vaultDocId: vaultDoc?.id };
+    }),
+
+  // Create a new Google Sheet
+  createSheet: protectedProcedure
+    .input(z.object({
+      title: z.string().min(1),
+      folderId: z.string().optional(),
+      registerInVault: z.boolean().default(true),
+      collection: z.enum(["company_repo", "personal", "counterparty", "template", "transaction", "signed"]).default("company_repo"),
+      category: z.enum(["agreement", "compliance", "intake", "profile", "strategy", "operations", "transaction", "correspondence", "template", "other"]).default("other"),
+      entityLinks: z.array(z.object({
+        entityType: z.enum(["company", "contact", "meeting"]),
+        entityId: z.number(),
+        linkType: z.enum(["primary", "related", "mentioned", "generated_for", "signed_by"]).default("primary"),
+      })).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const sheet = await googleDrive.createGoogleSheet(ctx.user.id, input.title, input.folderId);
+      if (!sheet) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create Google Sheet. Ensure Drive is connected." });
+
+      let vaultDoc = null;
+      if (input.registerInVault) {
+        vaultDoc = await db.createDocument({
+          title: input.title,
+          sourceType: "google_sheet",
+          googleFileId: sheet.id,
+          googleMimeType: "application/vnd.google-apps.spreadsheet",
+          collection: input.collection,
+          category: input.category,
+          status: "active",
+          visibility: "organization",
+          ownerId: ctx.user.id,
+        });
+        if (vaultDoc && input.entityLinks) {
+          for (const link of input.entityLinks) {
+            await db.addDocumentEntityLink({ documentId: vaultDoc.id!, entityType: link.entityType, entityId: link.entityId, linkType: link.linkType });
+          }
+        }
+      }
+
+      await db.logActivity({
+        userId: ctx.user.id,
+        action: "google_sheet_created",
+        entityType: "document",
+        entityId: sheet.id,
+        entityName: input.title,
+        details: JSON.stringify({ googleFileId: sheet.id, webViewLink: sheet.webViewLink, vaultDocId: vaultDoc?.id }),
+      });
+
+      return { ...sheet, vaultDocId: vaultDoc?.id };
+    }),
+
+  // Read Google Doc text (for AI analysis or preview)
+  readDocText: protectedProcedure
+    .input(z.object({ docId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const text = await googleDrive.readGoogleDocText(ctx.user.id, input.docId);
+      return { text };
+    }),
+
+  // Read Google Sheet data (for preview)
+  readSheetData: protectedProcedure
+    .input(z.object({ spreadsheetId: z.string(), range: z.string().default("Sheet1!A1:Z100") }))
+    .query(async ({ input, ctx }) => {
+      return googleDrive.readSheetData(ctx.user.id, input.spreadsheetId, input.range);
+    }),
+
+  // List shared drives
+  listSharedDrives: protectedProcedure
+    .query(async ({ ctx }) => {
+      return googleDrive.listSharedDrives(ctx.user.id);
+    }),
+
+  // Generate document from template (Google Docs-based)
+  generateFromTemplate: protectedProcedure
+    .input(z.object({
+      templateDocId: z.string(), // Google Doc ID of the template
+      newTitle: z.string(),
+      mergeFields: z.record(z.string()), // { "client_name": "Wintermute", ... }
+      folderId: z.string().optional(),
+      // Vault registration
+      collection: z.enum(["company_repo", "personal", "counterparty", "template", "transaction", "signed"]).default("counterparty"),
+      category: z.enum(["agreement", "compliance", "intake", "profile", "strategy", "operations", "transaction", "correspondence", "template", "other"]).default("agreement"),
+      entityLinks: z.array(z.object({
+        entityType: z.enum(["company", "contact", "meeting"]),
+        entityId: z.number(),
+        linkType: z.enum(["primary", "related", "mentioned", "generated_for", "signed_by"]).default("generated_for"),
+      })).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const result = await googleDrive.generateFromTemplate(
+        ctx.user.id,
+        input.templateDocId,
+        input.newTitle,
+        input.mergeFields,
+        input.folderId,
+      );
+      if (!result) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to generate document from template." });
+
+      // Register in Vault
+      const vaultDoc = await db.createDocument({
+        title: input.newTitle,
+        sourceType: "google_doc",
+        googleFileId: result.id,
+        googleMimeType: "application/vnd.google-apps.document",
+        collection: input.collection,
+        category: input.category,
+        status: "draft",
+        visibility: "organization",
+        ownerId: ctx.user.id,
+      });
+
+      if (vaultDoc && input.entityLinks) {
+        for (const link of input.entityLinks) {
+          await db.addDocumentEntityLink({ documentId: vaultDoc.id!, entityType: link.entityType, entityId: link.entityId, linkType: link.linkType });
+        }
+      }
+
+      await db.logActivity({
+        userId: ctx.user.id,
+        action: "document_generated_from_template",
+        entityType: "document",
+        entityId: result.id,
+        entityName: input.newTitle,
+        details: JSON.stringify({
+          templateDocId: input.templateDocId,
+          mergeFieldCount: Object.keys(input.mergeFields).length,
+          webViewLink: result.webViewLink,
+          vaultDocId: vaultDoc?.id,
+        }),
+      });
+
+      return { ...result, vaultDocId: vaultDoc?.id };
+    }),
+
+  // Import a Drive file into the Vault
+  importToVault: protectedProcedure
+    .input(z.object({
+      googleFileId: z.string(),
+      title: z.string().optional(),
+      collection: z.enum(["company_repo", "personal", "counterparty", "template", "transaction", "signed"]).default("company_repo"),
+      category: z.enum(["agreement", "compliance", "intake", "profile", "strategy", "operations", "transaction", "correspondence", "template", "other"]).default("other"),
+      entityLinks: z.array(z.object({
+        entityType: z.enum(["company", "contact", "meeting"]),
+        entityId: z.number(),
+        linkType: z.enum(["primary", "related", "mentioned", "generated_for", "signed_by"]).default("primary"),
+      })).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Get file metadata from Drive
+      const file = await googleDrive.getDriveFile(ctx.user.id, input.googleFileId);
+      if (!file) throw new TRPCError({ code: "NOT_FOUND", message: "File not found in Google Drive." });
+
+      // Map MIME type to sourceType
+      let sourceType: "google_doc" | "google_sheet" | "google_slide" | "pdf" | "uploaded" = "uploaded";
+      if (file.mimeType === "application/vnd.google-apps.document") sourceType = "google_doc";
+      else if (file.mimeType === "application/vnd.google-apps.spreadsheet") sourceType = "google_sheet";
+      else if (file.mimeType === "application/vnd.google-apps.presentation") sourceType = "google_slide";
+      else if (file.mimeType === "application/pdf") sourceType = "pdf";
+
+      const vaultDoc = await db.createDocument({
+        title: input.title || file.name,
+        sourceType,
+        googleFileId: file.id,
+        googleMimeType: file.mimeType,
+        collection: input.collection,
+        category: input.category,
+        status: "active",
+        visibility: "organization",
+        ownerId: ctx.user.id,
+        fileSize: file.size ? parseInt(file.size) : undefined,
+        googleModifiedAt: file.modifiedTime ? new Date(file.modifiedTime) : undefined,
+      });
+
+      if (vaultDoc && input.entityLinks) {
+        for (const link of input.entityLinks) {
+          await db.addDocumentEntityLink({ documentId: vaultDoc.id!, entityType: link.entityType, entityId: link.entityId, linkType: link.linkType });
+        }
+      }
+
+      await db.logActivity({
+        userId: ctx.user.id,
+        action: "document_imported_from_drive",
+        entityType: "document",
+        entityId: String(vaultDoc?.id),
+        entityName: input.title || file.name,
+        details: JSON.stringify({ googleFileId: file.id, mimeType: file.mimeType }),
+      });
+
+      return vaultDoc;
+    }),
+});
+
+// ============================================================================
 // TEMPLATE ENGINE ROUTER
 // ============================================================================
 
@@ -4191,6 +4505,7 @@ export const appRouter = router({
   vault: vaultRouter,
   templates: templateRouter,
   signing: signingRouter,
+  drive: driveRouter,
 });
 
 export type AppRouter = typeof appRouter;

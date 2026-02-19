@@ -35,6 +35,11 @@ export function getGoogleAuthUrl(origin: string, userId: number, returnPath?: st
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/userinfo.email",
+    // Drive, Docs, Sheets scopes for Intelligence Vault
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/spreadsheets",
   ];
 
   return oauth2Client.generateAuthUrl({
@@ -213,12 +218,18 @@ export async function isGoogleConnected(userId: number): Promise<{
   const scopes = scopeStr.split(/\s+/).filter(Boolean);
   const hasCalendarScopes = scopes.some(s => s.includes("calendar"));
   const hasGmailScopes = scopes.some(s => s.includes("gmail.readonly")) && scopes.some(s => s.includes("gmail.modify"));
+  const hasDriveScopes = scopes.some(s => s.includes("drive"));
+  const hasDocsScopes = scopes.some(s => s.includes("documents"));
+  const hasSheetsScopes = scopes.some(s => s.includes("spreadsheets"));
 
   return {
     connected: true,
     email: tokens[0].email || undefined,
     hasCalendarScopes,
     hasGmailScopes,
+    hasDriveScopes,
+    hasDocsScopes,
+    hasSheetsScopes,
     scopes,
   };
 }

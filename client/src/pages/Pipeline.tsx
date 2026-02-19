@@ -5,7 +5,7 @@ import {
   Send, Clock, Eye, CheckCircle2, XCircle, AlertCircle,
   FileText, Search, MoreHorizontal, Loader2, Settings,
   Plus, Trash2, ExternalLink, Shield, RefreshCw, User,
-  Building2, ChevronRight, Download, Mail, ArrowRight
+  Building2, ChevronRight, Download, Mail, ArrowRight, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,19 +70,30 @@ export default function Pipeline() {
   const providers = trpc.signing.listProviders.useQuery();
 
   // Group envelopes by stage for Kanban view
+  const envelopeItems = useMemo(() => {
+    const raw = envelopes.data;
+    if (!raw) return [];
+    // Handle both array and { items, total } response formats
+    return Array.isArray(raw) ? raw : (raw as any).items || [];
+  }, [envelopes.data]);
+
   const stageGroups = useMemo(() => {
-    const items = envelopes.data || [];
     const groups: Record<string, any[]> = {};
     PIPELINE_STAGES.forEach(s => { groups[s.id] = []; });
-    items.forEach((env: any) => {
+    envelopeItems.forEach((env: any) => {
       const stage = groups[env.status] ? env.status : "draft";
       groups[stage].push(env);
     });
     return groups;
-  }, [envelopes.data]);
+  }, [envelopeItems]);
 
-  const totalEnvelopes = envelopes.data?.length || 0;
-  const activeProvider = providers.data?.find((p: any) => p.isActive);
+  const totalEnvelopes = envelopeItems.length;
+  const providerList = useMemo(() => {
+    const raw = providers.data;
+    if (!raw) return [];
+    return Array.isArray(raw) ? raw : (raw as any).configured || [];
+  }, [providers.data]);
+  const activeProvider = providerList.find((p: any) => p.isActive);
 
   return (
     <div className="h-full flex flex-col bg-black">
@@ -231,7 +242,7 @@ export default function Pipeline() {
             <div className="space-y-2">
               {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 bg-zinc-900" />)}
             </div>
-          ) : !envelopes.data?.length ? (
+          ) : !envelopeItems.length ? (
             <div className="text-center py-16">
               <Send className="h-12 w-12 text-zinc-700 mx-auto mb-3" />
               <p className="text-zinc-500">No documents in the pipeline</p>
@@ -239,7 +250,7 @@ export default function Pipeline() {
             </div>
           ) : (
             <div className="space-y-1">
-              {envelopes.data.map((env: any) => {
+              {envelopeItems.map((env: any) => {
                 const stage = PIPELINE_STAGES.find(s => s.id === env.status) || PIPELINE_STAGES[0];
                 const Icon = stage.icon;
                 return (
@@ -288,7 +299,7 @@ export default function Pipeline() {
             ) : (
               <div className="space-y-3">
                 {Object.entries(PROVIDER_INFO).map(([key, info]) => {
-                  const configured = providers.data?.find((p: any) => p.provider === key);
+                  const configured = providerList.find((p: any) => p.provider === key);
                   const isActive = configured?.isActive;
                   return (
                     <div

@@ -8,7 +8,8 @@ import {
   Building2, User, Calendar, Tag, Eye, Download, Trash2,
   Edit3, Link2, Sparkles, FolderPlus, ArrowLeft, Archive,
   Loader2, X, Check, Globe, Lock, Users, Shield,
-  FileSpreadsheet, Presentation, FilePlus, Send, Bookmark
+  FileSpreadsheet, Presentation, FilePlus, Send, Bookmark,
+  HardDrive, ExternalLink, Import, RefreshCw, PlusCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ─── Constants ───
 const COLLECTION_LABELS: Record<string, { label: string; icon: typeof FileText; color: string }> = {
@@ -69,6 +71,15 @@ function getFileIcon(sourceType: string) {
   return SOURCE_ICONS[sourceType] || FileText;
 }
 
+function getDriveMimeIcon(mimeType: string) {
+  if (mimeType === "application/vnd.google-apps.document") return FileText;
+  if (mimeType === "application/vnd.google-apps.spreadsheet") return FileSpreadsheet;
+  if (mimeType === "application/vnd.google-apps.presentation") return Presentation;
+  if (mimeType === "application/vnd.google-apps.folder") return FolderOpen;
+  if (mimeType?.includes("pdf")) return File;
+  return FileText;
+}
+
 function formatDate(date: Date | string | null) {
   if (!date) return "—";
   const d = new Date(date);
@@ -84,11 +95,21 @@ function formatDate(date: Date | string | null) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: d.getFullYear() !== now.getFullYear() ? "numeric" : undefined });
 }
 
+function formatBytes(bytes: number | string | null) {
+  if (!bytes) return "";
+  const b = typeof bytes === "string" ? parseInt(bytes) : bytes;
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 // ─── Main Component ───
-type ViewMode = "recents" | "collection" | "folder" | "search" | "favorites";
+type ViewMode = "recents" | "collection" | "folder" | "search" | "favorites" | "drive";
+type MainTab = "vault" | "drive";
 
 export default function Vault() {
   const { user } = useAuth();
+  const [mainTab, setMainTab] = useState<MainTab>("vault");
   const [viewMode, setViewMode] = useState<ViewMode>("recents");
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
@@ -99,11 +120,13 @@ export default function Vault() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [displayMode, setDisplayMode] = useState<"grid" | "list">("list");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createType, setCreateType] = useState<"doc" | "sheet">("doc");
   const [detailDocId, setDetailDocId] = useState<number | null>(null);
 
-  // Queries
-  const recentDocs = trpc.vault.getRecent.useQuery({ limit: 20 }, { enabled: viewMode === "recents" });
-  const favoriteDocs = trpc.vault.getFavorites.useQuery(undefined, { enabled: viewMode === "favorites" });
+  // Vault Queries
+  const recentDocs = trpc.vault.getRecent.useQuery({ limit: 20 }, { enabled: mainTab === "vault" && viewMode === "recents" });
+  const favoriteDocs = trpc.vault.getFavorites.useQuery(undefined, { enabled: mainTab === "vault" && viewMode === "favorites" });
   const collectionDocs = trpc.vault.listDocuments.useQuery(
     {
       collection: selectedCollection || undefined,
@@ -112,15 +135,15 @@ export default function Vault() {
       search: activeSearch || undefined,
       limit: 100,
     },
-    { enabled: viewMode === "collection" || viewMode === "search" }
+    { enabled: mainTab === "vault" && (viewMode === "collection" || viewMode === "search") }
   );
   const folderDocs = trpc.vault.listDocuments.useQuery(
     { folderId: selectedFolderId, limit: 100 },
-    { enabled: viewMode === "folder" && selectedFolderId !== null }
+    { enabled: mainTab === "vault" && viewMode === "folder" && selectedFolderId !== null }
   );
   const folders = trpc.vault.listFolders.useQuery(
     { collection: selectedCollection || undefined, parentId: selectedFolderId },
-    { enabled: viewMode === "collection" || viewMode === "folder" }
+    { enabled: mainTab === "vault" && (viewMode === "collection" || viewMode === "folder") }
   );
 
   const toggleFavorite = trpc.vault.toggleFavorite.useMutation({
@@ -194,90 +217,79 @@ export default function Vault() {
 
   return (
     <div className="h-full flex flex-col bg-black">
-      {/* Header Bar */}
-      <div className="shrink-0 px-6 py-4 border-b border-zinc-800/60">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {viewMode !== "recents" && (
-              <Button variant="ghost" size="sm" onClick={navigateBack} className="text-zinc-400 hover:text-white -ml-2">
-                <ArrowLeft className="h-4 w-4 mr-1" /> Back
-              </Button>
-            )}
-            <div>
-              <h2 className="text-lg font-semibold text-white">
-                {viewMode === "recents" && "Recent Documents"}
-                {viewMode === "favorites" && "Starred Documents"}
-                {viewMode === "collection" && (COLLECTION_LABELS[selectedCollection || ""]?.label || "Documents")}
-                {viewMode === "folder" && (folderBreadcrumbs[folderBreadcrumbs.length - 1]?.name || "Folder")}
-                {viewMode === "search" && `Search: "${activeSearch}"`}
-              </h2>
-              {viewMode === "folder" && folderBreadcrumbs.length > 0 && (
-                <div className="flex items-center gap-1 text-xs text-zinc-500 mt-0.5">
-                  <button onClick={() => navigateToCollection(selectedCollection || "")} className="hover:text-zinc-300">
-                    {COLLECTION_LABELS[selectedCollection || ""]?.label || "Root"}
-                  </button>
-                  {folderBreadcrumbs.map((bc, i) => (
-                    <span key={i} className="flex items-center gap-1">
-                      <ChevronRight className="h-3 w-3" />
-                      <button
-                        onClick={() => {
-                          setFolderBreadcrumbs(folderBreadcrumbs.slice(0, i + 1));
-                          setSelectedFolderId(bc.id);
-                        }}
-                        className={i === folderBreadcrumbs.length - 1 ? "text-zinc-300" : "hover:text-zinc-300"}
-                      >
-                        {bc.name}
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+      {/* Top Tab Bar */}
+      <div className="shrink-0 px-6 pt-4 border-b border-zinc-800/60">
+        <div className="flex items-center justify-between">
+          <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as MainTab)}>
+            <TabsList className="bg-zinc-900/60 border border-zinc-800/60">
+              <TabsTrigger value="vault" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-400">
+                <Shield className="h-4 w-4 mr-1.5" /> Vault
+              </TabsTrigger>
+              <TabsTrigger value="drive" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-400">
+                <HardDrive className="h-4 w-4 mr-1.5" /> Google Drive
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           <div className="flex items-center gap-2">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-              <Input
-                placeholder="Search documents..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="pl-9 w-64 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600"
-              />
-            </div>
+            {mainTab === "vault" && (
+              <>
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                  <Input
+                    placeholder="Search documents..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                    className="pl-9 w-64 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600"
+                  />
+                </div>
 
-            {/* View toggle */}
-            <div className="flex items-center border border-zinc-800 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setDisplayMode("list")}
-                className={`p-2 ${displayMode === "list" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-              >
-                <List className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setDisplayMode("grid")}
-                className={`p-2 ${displayMode === "grid" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
-              >
-                <Grid3X3 className="h-4 w-4" />
-              </button>
-            </div>
+                {/* View toggle */}
+                <div className="flex items-center border border-zinc-800 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setDisplayMode("list")}
+                    className={`p-2 ${displayMode === "list" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setDisplayMode("grid")}
+                    className={`p-2 ${displayMode === "grid" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+                  >
+                    <Grid3X3 className="h-4 w-4" />
+                  </button>
+                </div>
 
-            {/* Upload */}
-            <Button
-              onClick={() => setUploadDialogOpen(true)}
-              className="bg-yellow-600 hover:bg-yellow-700 text-black font-medium"
-              size="sm"
-            >
-              <Upload className="h-4 w-4 mr-1.5" /> Upload
-            </Button>
+                {/* Create New */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button className="bg-yellow-600 hover:bg-yellow-700 text-black font-medium" size="sm">
+                      <Plus className="h-4 w-4 mr-1.5" /> New
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 w-56">
+                    <DropdownMenuItem onClick={() => setUploadDialogOpen(true)}>
+                      <Upload className="h-4 w-4 mr-2 text-zinc-400" /> Upload Document
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-zinc-800" />
+                    <DropdownMenuItem onClick={() => { setCreateType("doc"); setCreateDialogOpen(true); }}>
+                      <FileText className="h-4 w-4 mr-2 text-blue-400" /> New Google Doc
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setCreateType("sheet"); setCreateDialogOpen(true); }}>
+                      <FileSpreadsheet className="h-4 w-4 mr-2 text-green-400" /> New Google Sheet
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
           </div>
         </div>
 
         {/* Quick filters when in collection/search view */}
-        {(viewMode === "collection" || viewMode === "search") && (
-          <div className="flex items-center gap-2 mt-3">
+        {mainTab === "vault" && (viewMode === "collection" || viewMode === "search") && (
+          <div className="flex items-center gap-2 mt-3 pb-3">
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-40 bg-zinc-900 border-zinc-800 text-sm h-8">
                 <SelectValue placeholder="Category" />
@@ -305,118 +317,184 @@ export default function Vault() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-auto p-6">
-        {/* Recents view: show collections grid + recent docs */}
-        {viewMode === "recents" && (
-          <div className="space-y-8">
-            {/* Quick Actions */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setViewMode("favorites")}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-yellow-500 hover:border-yellow-600/30 transition-all"
-              >
-                <Star className="h-4 w-4" /> Starred
-              </button>
-              <button
-                onClick={() => { setActiveSearch(""); setViewMode("search"); }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700 transition-all"
-              >
-                <Search className="h-4 w-4" /> Browse All
-              </button>
-            </div>
-
-            {/* Collections Grid */}
-            <div>
-              <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">Collections</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {Object.entries(COLLECTION_LABELS).map(([key, { label, icon: Icon, color }]) => (
-                  <button
-                    key={key}
-                    onClick={() => navigateToCollection(key)}
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900 transition-all group"
-                  >
-                    <div className={`h-10 w-10 rounded-lg bg-zinc-800 flex items-center justify-center ${color} group-hover:scale-110 transition-transform`}>
-                      <Icon className="h-5 w-5" />
+      <div className="flex-1 overflow-auto">
+        {mainTab === "vault" && (
+          <div className="p-6">
+            {/* Vault navigation header */}
+            {viewMode !== "recents" && (
+              <div className="flex items-center gap-3 mb-4">
+                <Button variant="ghost" size="sm" onClick={navigateBack} className="text-zinc-400 hover:text-white -ml-2">
+                  <ArrowLeft className="h-4 w-4 mr-1" /> Back
+                </Button>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">
+                    {viewMode === "favorites" && "Starred Documents"}
+                    {viewMode === "collection" && (COLLECTION_LABELS[selectedCollection || ""]?.label || "Documents")}
+                    {viewMode === "folder" && (folderBreadcrumbs[folderBreadcrumbs.length - 1]?.name || "Folder")}
+                    {viewMode === "search" && `Search: "${activeSearch}"`}
+                  </h2>
+                  {viewMode === "folder" && folderBreadcrumbs.length > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-zinc-500 mt-0.5">
+                      <button onClick={() => navigateToCollection(selectedCollection || "")} className="hover:text-zinc-300">
+                        {COLLECTION_LABELS[selectedCollection || ""]?.label || "Root"}
+                      </button>
+                      {folderBreadcrumbs.map((bc, i) => (
+                        <span key={i} className="flex items-center gap-1">
+                          <ChevronRight className="h-3 w-3" />
+                          <button
+                            onClick={() => {
+                              setFolderBreadcrumbs(folderBreadcrumbs.slice(0, i + 1));
+                              setSelectedFolderId(bc.id);
+                            }}
+                            className={i === folderBreadcrumbs.length - 1 ? "text-zinc-300" : "hover:text-zinc-300"}
+                          >
+                            {bc.name}
+                          </button>
+                        </span>
+                      ))}
                     </div>
-                    <span className="text-xs text-zinc-400 group-hover:text-white transition-colors text-center leading-tight">{label}</span>
-                  </button>
-                ))}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Recent Documents */}
-            <div>
-              <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">Recent</h3>
-              {isLoading ? (
-                <div className="space-y-2">
-                  {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 bg-zinc-900" />)}
+            {/* Recents view */}
+            {viewMode === "recents" && (
+              <div className="space-y-8">
+                {/* Quick Actions */}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setViewMode("favorites")}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-yellow-500 hover:border-yellow-600/30 transition-all"
+                  >
+                    <Star className="h-4 w-4" /> Starred
+                  </button>
+                  <button
+                    onClick={() => { setActiveSearch(""); setViewMode("search"); }}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700 transition-all"
+                  >
+                    <Search className="h-4 w-4" /> Browse All
+                  </button>
+                  <button
+                    onClick={() => setMainTab("drive")}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-blue-400 hover:border-blue-600/30 transition-all"
+                  >
+                    <HardDrive className="h-4 w-4" /> Google Drive
+                  </button>
                 </div>
-              ) : currentDocs.length === 0 ? (
-                <div className="text-center py-16">
-                  <FileText className="h-12 w-12 text-zinc-700 mx-auto mb-3" />
-                  <p className="text-zinc-500">No documents yet</p>
-                  <p className="text-zinc-600 text-sm mt-1">Upload a document or connect Google Drive to get started</p>
-                  <Button onClick={() => setUploadDialogOpen(true)} className="mt-4 bg-yellow-600 hover:bg-yellow-700 text-black" size="sm">
-                    <Upload className="h-4 w-4 mr-1.5" /> Upload Document
-                  </Button>
+
+                {/* Collections Grid */}
+                <div>
+                  <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">Collections</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {Object.entries(COLLECTION_LABELS).map(([key, { label, icon: Icon, color }]) => (
+                      <button
+                        key={key}
+                        onClick={() => navigateToCollection(key)}
+                        className="flex flex-col items-center gap-2 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900 transition-all group"
+                      >
+                        <div className={`h-10 w-10 rounded-lg bg-zinc-800 flex items-center justify-center ${color} group-hover:scale-110 transition-transform`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <span className="text-xs text-zinc-400 group-hover:text-white transition-colors text-center leading-tight">{label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <DocumentList
-                  documents={currentDocs}
-                  displayMode={displayMode}
-                  onToggleFavorite={(id) => toggleFavorite.mutate({ documentId: id })}
-                  onDelete={(id) => deleteDoc.mutate({ id })}
-                  onViewDetail={(id) => setDetailDocId(id)}
-                />
-              )}
-            </div>
+
+                {/* Recent Documents */}
+                <div>
+                  <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3">Recent</h3>
+                  {isLoading ? (
+                    <div className="space-y-2">
+                      {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 bg-zinc-900" />)}
+                    </div>
+                  ) : currentDocs.length === 0 ? (
+                    <div className="text-center py-16">
+                      <FileText className="h-12 w-12 text-zinc-700 mx-auto mb-3" />
+                      <p className="text-zinc-500">No documents yet</p>
+                      <p className="text-zinc-600 text-sm mt-1">Upload a document, create a Google Doc, or import from Drive</p>
+                      <div className="flex items-center justify-center gap-2 mt-4">
+                        <Button onClick={() => setUploadDialogOpen(true)} className="bg-yellow-600 hover:bg-yellow-700 text-black" size="sm">
+                          <Upload className="h-4 w-4 mr-1.5" /> Upload
+                        </Button>
+                        <Button onClick={() => { setCreateType("doc"); setCreateDialogOpen(true); }} variant="outline" className="border-zinc-700 text-zinc-300" size="sm">
+                          <FileText className="h-4 w-4 mr-1.5" /> New Doc
+                        </Button>
+                        <Button onClick={() => { setCreateType("sheet"); setCreateDialogOpen(true); }} variant="outline" className="border-zinc-700 text-zinc-300" size="sm">
+                          <FileSpreadsheet className="h-4 w-4 mr-1.5" /> New Sheet
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <DocumentList
+                      documents={currentDocs}
+                      displayMode={displayMode}
+                      onToggleFavorite={(id) => toggleFavorite.mutate({ documentId: id })}
+                      onDelete={(id) => deleteDoc.mutate({ id })}
+                      onViewDetail={(id) => setDetailDocId(id)}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Collection / Folder / Search / Favorites views */}
+            {viewMode !== "recents" && (
+              <div className="space-y-4">
+                {/* Subfolders */}
+                {(viewMode === "collection" || viewMode === "folder") && currentFolders.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Folders</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                      {currentFolders.map((folder: any) => (
+                        <button
+                          key={folder.id}
+                          onClick={() => navigateToFolder(folder.id, folder.name)}
+                          className="flex items-center gap-2.5 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900 transition-all group text-left"
+                        >
+                          <FolderOpen className="h-5 w-5 text-yellow-600 shrink-0" />
+                          <span className="text-sm text-zinc-300 group-hover:text-white truncate">{folder.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Documents */}
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-14 bg-zinc-900" />)}
+                  </div>
+                ) : currentDocs.length === 0 ? (
+                  <div className="text-center py-16">
+                    <FileText className="h-12 w-12 text-zinc-700 mx-auto mb-3" />
+                    <p className="text-zinc-500">
+                      {viewMode === "search" ? "No documents match your search" : "No documents in this collection"}
+                    </p>
+                  </div>
+                ) : (
+                  <DocumentList
+                    documents={currentDocs}
+                    displayMode={displayMode}
+                    onToggleFavorite={(id) => toggleFavorite.mutate({ documentId: id })}
+                    onDelete={(id) => deleteDoc.mutate({ id })}
+                    onViewDetail={(id) => setDetailDocId(id)}
+                  />
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Collection / Folder / Search / Favorites views */}
-        {viewMode !== "recents" && (
-          <div className="space-y-4">
-            {/* Subfolders */}
-            {(viewMode === "collection" || viewMode === "folder") && currentFolders.length > 0 && (
-              <div>
-                <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Folders</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                  {currentFolders.map((folder: any) => (
-                    <button
-                      key={folder.id}
-                      onClick={() => navigateToFolder(folder.id, folder.name)}
-                      className="flex items-center gap-2.5 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900 transition-all group text-left"
-                    >
-                      <FolderOpen className="h-5 w-5 text-yellow-600 shrink-0" />
-                      <span className="text-sm text-zinc-300 group-hover:text-white truncate">{folder.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Documents */}
-            {isLoading ? (
-              <div className="space-y-2">
-                {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-14 bg-zinc-900" />)}
-              </div>
-            ) : currentDocs.length === 0 ? (
-              <div className="text-center py-16">
-                <FileText className="h-12 w-12 text-zinc-700 mx-auto mb-3" />
-                <p className="text-zinc-500">
-                  {viewMode === "search" ? "No documents match your search" : "No documents in this collection"}
-                </p>
-              </div>
-            ) : (
-              <DocumentList
-                documents={currentDocs}
-                displayMode={displayMode}
-                onToggleFavorite={(id) => toggleFavorite.mutate({ documentId: id })}
-                onDelete={(id) => deleteDoc.mutate({ id })}
-                onViewDetail={(id) => setDetailDocId(id)}
-              />
-            )}
-          </div>
+        {/* Google Drive Tab */}
+        {mainTab === "drive" && (
+          <DriveBrowser
+            onImport={() => {
+              recentDocs.refetch();
+              collectionDocs.refetch();
+            }}
+          />
         )}
       </div>
 
@@ -426,6 +504,17 @@ export default function Vault() {
         collectionDocs.refetch();
       }} />
 
+      {/* Create Google Doc/Sheet Dialog */}
+      <CreateGoogleDialog
+        open={createDialogOpen}
+        type={createType}
+        onClose={() => setCreateDialogOpen(false)}
+        onSuccess={() => {
+          recentDocs.refetch();
+          collectionDocs.refetch();
+        }}
+      />
+
       {/* Document Detail Panel */}
       {detailDocId && (
         <DocumentDetailPanel
@@ -434,6 +523,359 @@ export default function Vault() {
         />
       )}
     </div>
+  );
+}
+
+// ─── Google Drive Browser ───
+function DriveBrowser({ onImport }: { onImport: () => void }) {
+  const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined);
+  const [folderPath, setFolderPath] = useState<Array<{ id: string | undefined; name: string }>>([{ id: undefined, name: "My Drive" }]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [importingFileId, setImportingFileId] = useState<string | null>(null);
+
+  const driveStatus = trpc.drive.connectionStatus.useQuery();
+  const driveFiles = trpc.drive.listFiles.useQuery(
+    { folderId: currentFolderId, pageSize: 50 },
+    { enabled: !!driveStatus.data?.connected && !isSearching }
+  );
+  const searchResults = trpc.drive.searchFiles.useQuery(
+    { query: searchQuery, pageSize: 30 },
+    { enabled: !!driveStatus.data?.connected && isSearching && searchQuery.length > 0 }
+  );
+
+  const importToVault = trpc.drive.importToVault.useMutation({
+    onSuccess: (doc) => {
+      toast.success(`"${doc?.title}" imported to Vault`);
+      setImportingFileId(null);
+      onImport();
+    },
+    onError: (err) => {
+      toast.error(err.message);
+      setImportingFileId(null);
+    },
+  });
+
+  const navigateToFolder = (folderId: string, folderName: string) => {
+    setCurrentFolderId(folderId);
+    setFolderPath(prev => [...prev, { id: folderId, name: folderName }]);
+    setIsSearching(false);
+    setSearchQuery("");
+  };
+
+  const navigateToPathIndex = (index: number) => {
+    const target = folderPath[index];
+    setCurrentFolderId(target.id);
+    setFolderPath(folderPath.slice(0, index + 1));
+    setIsSearching(false);
+  };
+
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      setIsSearching(true);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setIsSearching(false);
+  };
+
+  const handleImport = (fileId: string) => {
+    setImportingFileId(fileId);
+    importToVault.mutate({ googleFileId: fileId });
+  };
+
+  const files = isSearching ? (searchResults.data || []) : (driveFiles.data?.files || []);
+  const isLoadingFiles = isSearching ? searchResults.isLoading : driveFiles.isLoading;
+
+  if (!driveStatus.data?.connected) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-20">
+          <HardDrive className="h-16 w-16 text-zinc-700 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-white mb-2">Connect Google Drive</h3>
+          <p className="text-zinc-500 text-sm max-w-md mx-auto mb-6">
+            Connect your Google account to browse, import, and create documents directly from OmniScope.
+            Go to Settings and connect your Google account with Drive permissions.
+          </p>
+          <Badge variant="outline" className="text-zinc-400 border-zinc-700">
+            Settings → Integrations → Google Account
+          </Badge>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-4">
+      {/* Drive Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {/* Breadcrumbs */}
+          <div className="flex items-center gap-1 text-sm">
+            {folderPath.map((fp, i) => (
+              <span key={i} className="flex items-center gap-1">
+                {i > 0 && <ChevronRight className="h-3 w-3 text-zinc-600" />}
+                <button
+                  onClick={() => navigateToPathIndex(i)}
+                  className={`px-1.5 py-0.5 rounded ${i === folderPath.length - 1 ? "text-white font-medium" : "text-zinc-400 hover:text-white"}`}
+                >
+                  {fp.name}
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Search Drive */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <Input
+              placeholder="Search Drive..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              className="pl-9 w-64 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600"
+            />
+            {isSearching && (
+              <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => driveFiles.refetch()} className="text-zinc-400 hover:text-white">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {isSearching && (
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-zinc-400 border-zinc-700">
+            Search results for "{searchQuery}"
+          </Badge>
+          <button onClick={clearSearch} className="text-xs text-zinc-500 hover:text-white">Clear</button>
+        </div>
+      )}
+
+      {/* File List */}
+      {isLoadingFiles ? (
+        <div className="space-y-2">
+          {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-12 bg-zinc-900" />)}
+        </div>
+      ) : files.length === 0 ? (
+        <div className="text-center py-16">
+          <FolderOpen className="h-12 w-12 text-zinc-700 mx-auto mb-3" />
+          <p className="text-zinc-500">{isSearching ? "No files match your search" : "This folder is empty"}</p>
+        </div>
+      ) : (
+        <div className="space-y-0.5">
+          {/* Column headers */}
+          <div className="flex items-center gap-4 px-4 py-2 text-xs text-zinc-600 uppercase tracking-wider font-medium">
+            <div className="w-9" />
+            <div className="flex-1">Name</div>
+            <div className="w-24 text-right">Size</div>
+            <div className="w-28 text-right">Modified</div>
+            <div className="w-20" />
+          </div>
+
+          {files.map((file: any) => {
+            const isFolder = file.mimeType === "application/vnd.google-apps.folder";
+            const MimeIcon = getDriveMimeIcon(file.mimeType);
+            const isImporting = importingFileId === file.id;
+
+            return (
+              <div
+                key={file.id}
+                className="flex items-center gap-4 px-4 py-2.5 rounded-lg hover:bg-zinc-900/80 transition-all group"
+              >
+                <div className="h-9 w-9 rounded-lg bg-zinc-800/80 flex items-center justify-center shrink-0">
+                  <MimeIcon className={`h-4.5 w-4.5 ${isFolder ? "text-yellow-600" : "text-zinc-400"}`} />
+                </div>
+
+                <button
+                  className="flex-1 text-left min-w-0"
+                  onClick={() => isFolder ? navigateToFolder(file.id, file.name) : window.open(file.webViewLink, "_blank")}
+                >
+                  <p className="text-sm font-medium text-white truncate hover:text-yellow-500 transition-colors">{file.name}</p>
+                </button>
+
+                <span className="text-xs text-zinc-600 w-24 text-right shrink-0">
+                  {!isFolder && formatBytes(file.size)}
+                </span>
+
+                <span className="text-xs text-zinc-600 w-28 text-right shrink-0">
+                  {formatDate(file.modifiedTime)}
+                </span>
+
+                <div className="w-20 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  {!isFolder && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleImport(file.id)}
+                      disabled={isImporting}
+                      className="h-7 px-2 text-xs text-yellow-500 hover:text-yellow-400 hover:bg-yellow-600/10"
+                    >
+                      {isImporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Import className="h-3 w-3 mr-1" />}
+                      {isImporting ? "" : "Import"}
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(file.webViewLink, "_blank")}
+                    className="h-7 px-1.5 text-zinc-500 hover:text-white"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Create Google Doc/Sheet Dialog ───
+function CreateGoogleDialog({
+  open, type, onClose, onSuccess
+}: {
+  open: boolean;
+  type: "doc" | "sheet";
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [collection, setCollection] = useState("company_repo");
+  const [category, setCategory] = useState("other");
+
+  const createDoc = trpc.drive.createDoc.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Google Doc "${title}" created`);
+      if (data.webViewLink) {
+        window.open(data.webViewLink, "_blank");
+      }
+      onSuccess();
+      resetAndClose();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const createSheet = trpc.drive.createSheet.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Google Sheet "${title}" created`);
+      if (data.webViewLink) {
+        window.open(data.webViewLink, "_blank");
+      }
+      onSuccess();
+      resetAndClose();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const resetAndClose = () => {
+    setTitle("");
+    setCollection("company_repo");
+    setCategory("other");
+    onClose();
+  };
+
+  const handleCreate = () => {
+    const params = {
+      title,
+      registerInVault: true,
+      collection: collection as any,
+      category: category as any,
+    };
+    if (type === "doc") {
+      createDoc.mutate(params);
+    } else {
+      createSheet.mutate(params);
+    }
+  };
+
+  const isPending = createDoc.isPending || createSheet.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && resetAndClose()}>
+      <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-white flex items-center gap-2">
+            {type === "doc" ? (
+              <><FileText className="h-5 w-5 text-blue-400" /> New Google Doc</>
+            ) : (
+              <><FileSpreadsheet className="h-5 w-5 text-green-400" /> New Google Sheet</>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <Label className="text-zinc-400 text-xs">Title</Label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={type === "doc" ? "e.g., SPPP Agreement — Wintermute" : "e.g., OTC Deal Tracker Q1 2026"}
+              className="bg-zinc-900 border-zinc-800 text-white mt-1"
+              autoFocus
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-zinc-400 text-xs">Collection</Label>
+              <Select value={collection} onValueChange={setCollection}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-800 text-white mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(COLLECTION_LABELS).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-zinc-400 text-xs">Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-800 text-white mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-lg p-3">
+            <p className="text-xs text-zinc-500">
+              This will create a new {type === "doc" ? "Google Doc" : "Google Sheet"} in your Drive and register it in the Vault.
+              It will open in a new tab for editing.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={resetAndClose} className="border-zinc-700 text-zinc-400">Cancel</Button>
+          <Button
+            onClick={handleCreate}
+            disabled={!title.trim() || isPending}
+            className="bg-yellow-600 hover:bg-yellow-700 text-black"
+          >
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <PlusCircle className="h-4 w-4 mr-1.5" />}
+            Create & Open
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -477,6 +919,17 @@ function DocumentList({
                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleFavorite(doc.id); }}>
                       <Star className="h-4 w-4 mr-2" /> Toggle Star
                     </DropdownMenuItem>
+                    {doc.googleFileId && (
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        const baseUrl = doc.sourceType === "google_sheet"
+                          ? `https://docs.google.com/spreadsheets/d/${doc.googleFileId}/edit`
+                          : `https://docs.google.com/document/d/${doc.googleFileId}/edit`;
+                        window.open(baseUrl, "_blank");
+                      }}>
+                        <ExternalLink className="h-4 w-4 mr-2" /> Open in Google
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }} className="text-red-400">
                       <Trash2 className="h-4 w-4 mr-2" /> Delete
@@ -522,6 +975,12 @@ function DocumentList({
                     <span className="text-xs text-zinc-600 uppercase">{doc.subcategory}</span>
                   </>
                 )}
+                {doc.sourceType?.startsWith("google_") && (
+                  <>
+                    <span className="text-zinc-700">·</span>
+                    <span className="text-xs text-blue-500/60">Google</span>
+                  </>
+                )}
               </div>
             </div>
             <Badge variant="outline" className={`text-[10px] shrink-0 ${status.color}`}>{status.label}</Badge>
@@ -546,6 +1005,17 @@ function DocumentList({
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleFavorite(doc.id); }}>
                     <Star className="h-4 w-4 mr-2" /> Toggle Star
                   </DropdownMenuItem>
+                  {doc.googleFileId && (
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      const baseUrl = doc.sourceType === "google_sheet"
+                        ? `https://docs.google.com/spreadsheets/d/${doc.googleFileId}/edit`
+                        : `https://docs.google.com/document/d/${doc.googleFileId}/edit`;
+                      window.open(baseUrl, "_blank");
+                    }}>
+                      <ExternalLink className="h-4 w-4 mr-2" /> Open in Google
+                    </DropdownMenuItem>
+                  )}
                   {doc.s3Url && (
                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); window.open(doc.s3Url, "_blank"); }}>
                       <Download className="h-4 w-4 mr-2" /> Download
@@ -818,10 +1288,6 @@ function UploadDialog({ open, onClose, onSuccess }: { open: boolean; onClose: ()
 // ─── Document Detail Panel (Slide-over) ───
 function DocumentDetailPanel({ documentId, onClose }: { documentId: number; onClose: () => void }) {
   const doc = trpc.vault.getDocument.useQuery({ id: documentId });
-  const entityLinks = trpc.vault.getDocumentsByEntity.useQuery(
-    { entityType: "company", entityId: 0 },
-    { enabled: false }
-  );
 
   if (doc.isLoading) {
     return (
@@ -836,6 +1302,15 @@ function DocumentDetailPanel({ documentId, onClose }: { documentId: number; onCl
   const d = doc.data;
   const FileIcon = getFileIcon(d.sourceType);
   const status = STATUS_BADGES[d.status] || STATUS_BADGES.active;
+
+  // Determine the Google link based on source type
+  const googleLink = d.googleFileId
+    ? d.sourceType === "google_sheet"
+      ? `https://docs.google.com/spreadsheets/d/${d.googleFileId}/edit`
+      : d.sourceType === "google_slide"
+        ? `https://docs.google.com/presentation/d/${d.googleFileId}/edit`
+        : `https://docs.google.com/document/d/${d.googleFileId}/edit`
+    : null;
 
   return (
     <div className="fixed inset-y-0 right-0 w-[480px] bg-zinc-950 border-l border-zinc-800 z-50 flex flex-col shadow-2xl">
@@ -947,14 +1422,14 @@ function DocumentDetailPanel({ documentId, onClose }: { documentId: number; onCl
 
         {/* Actions */}
         <div className="space-y-2">
+          {googleLink && (
+            <Button variant="outline" className="w-full border-zinc-700 text-zinc-300" onClick={() => window.open(googleLink, "_blank")}>
+              <ExternalLink className="h-4 w-4 mr-2" /> Open in Google {d.sourceType === "google_sheet" ? "Sheets" : d.sourceType === "google_slide" ? "Slides" : "Docs"}
+            </Button>
+          )}
           {d.s3Url && (
             <Button variant="outline" className="w-full border-zinc-700 text-zinc-300" onClick={() => window.open(d.s3Url!, "_blank")}>
               <Download className="h-4 w-4 mr-2" /> Download Original
-            </Button>
-          )}
-          {d.googleFileId && (
-            <Button variant="outline" className="w-full border-zinc-700 text-zinc-300" onClick={() => window.open(`https://docs.google.com/document/d/${d.googleFileId}/edit`, "_blank")}>
-              <Globe className="h-4 w-4 mr-2" /> Open in Google Docs
             </Button>
           )}
         </div>

@@ -1910,3 +1910,33 @@
 ### Activity Log Extension
 - [x] Log document.created, document.uploaded, document.signed events
 - [x] Log document.sent_for_signature, document.viewed events
+
+## v55 — Pipeline Fix + Google Drive/Docs/Sheets Integration
+
+### Bug Fixes
+- [x] Fix Pipeline page not loading (missing Check import + API response format mismatch)
+- [x] Debug and resolve any console errors on Pipeline page
+
+### Google OAuth Integration
+- [x] Set up Google OAuth with Drive, Docs, Sheets scopes (expanded existing OAuth flow)
+- [x] Store Google tokens per user in database (existing googleTokens table)
+- [x] Token refresh flow for expired tokens (existing refresh mechanism)
+
+### Google Drive Integration
+- [x] Browse connected Google Drive folders from within portal (Google Drive tab in Vault)
+- [x] Sync/index Drive files into Vault (Import to Vault button)
+- [x] Create new folders in Drive from portal (createFolder in driveRouter)
+
+### Google Docs Integration
+- [x] Create new Google Docs from within the portal (New Doc button in Vault)
+- [x] Open/edit Google Docs in new tab (Open in Google Docs link)
+- [x] Use Google Docs as template source for Template Engine (generateFromTemplate)
+
+### Google Sheets Integration
+- [x] Create new Google Sheets from within the portal (New Sheet button in Vault)
+- [x] Open/edit Google Sheets in new tab (Open in Google Sheets link)
+- [x] Index Sheets into Vault with metadata (Import to Vault with readSheetData)
+
+### Vault Enhancement
+- [x] "New Document" and "New Spreadsheet" creation buttons in Vault
+- [x] Google file type icons (Doc, Sheet, Slide) in document lists
