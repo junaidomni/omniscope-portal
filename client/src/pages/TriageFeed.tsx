@@ -1,6 +1,8 @@
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
 import { useState, useEffect, useMemo, useCallback } from "react";
+import OmniAvatar from "@/components/OmniAvatar";
+import { useOmni } from "@/components/PortalLayout";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -754,6 +756,114 @@ function UnreadEmailsSection() {
   );
 }
 
+// ─── Greeting Bar (redesigned v45) ──────────────────────────────────────────
+function GreetingBar({
+  greeting, userName, statusLine, situationalSummary, timeIcon,
+  timeString, dateString, tzAbbr, quote, showQuote, setShowQuote,
+}: {
+  greeting: string; userName: string; statusLine: string; situationalSummary: string;
+  timeIcon: React.ReactNode; timeString: string; dateString: string; tzAbbr: string;
+  quote: { text: string; author: string }; showQuote: boolean; setShowQuote: (v: boolean) => void;
+}) {
+  const { omniMode, openChat } = useOmni();
+  const [omniHover, setOmniHover] = useState(false);
+
+  return (
+    <div className="bg-gradient-to-br from-zinc-900/80 via-zinc-900/60 to-zinc-900/40 border border-zinc-800/40 rounded-2xl p-5 lg:p-6">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6">
+        {/* Left: Greeting + Summary + Quote + Insights */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-3 mb-2">
+            <div className="hidden sm:flex p-2.5 rounded-xl bg-zinc-800/60 border border-zinc-700/30 shrink-0">
+              {timeIcon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-4">
+                <h1 className="text-2xl lg:text-3xl font-semibold text-white tracking-tight">
+                  {greeting}, <span className="text-yellow-500">{userName}</span>
+                </h1>
+                {/* Mobile clock */}
+                <div className="text-right hidden sm:block lg:hidden shrink-0">
+                  <div className="text-lg font-mono text-white tracking-wider tabular-nums">{timeString}</div>
+                  <p className="text-[10px] text-zinc-500">{dateString}</p>
+                </div>
+              </div>
+              <p className="text-sm text-zinc-400 mt-1 font-medium">{statusLine}</p>
+              <div className="flex items-center gap-2 mt-1.5 text-xs text-zinc-500 font-mono">
+                <span>{situationalSummary}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Quote */}
+          {showQuote && (
+            <div className="flex items-center gap-2 mt-2 pl-0 sm:pl-[52px]">
+              <Quote className="h-3 w-3 text-yellow-600/30 shrink-0" />
+              <p className="text-[11px] text-zinc-600 italic truncate">
+                "{quote.text}" <span className="text-zinc-700 not-italic">— {quote.author}</span>
+              </p>
+              <button
+                onClick={() => setShowQuote(false)}
+                className="p-0.5 rounded hover:bg-zinc-800 text-zinc-700 hover:text-zinc-500 transition-colors shrink-0"
+              >
+                <EyeOff className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+          {!showQuote && (
+            <button
+              onClick={() => setShowQuote(true)}
+              className="mt-2 pl-0 sm:pl-[52px] flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-500 transition-colors"
+            >
+              <Eye className="h-3 w-3" /> Show quote
+            </button>
+          )}
+
+          {/* Strategic Insights — under quote */}
+          <div className="mt-3 pl-0 sm:pl-[52px] border-t border-zinc-800/30 pt-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Brain className="h-3 w-3 text-yellow-500/60" />
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Strategic Insights</span>
+              <span className="text-[9px] text-yellow-600/40 ml-auto">AI</span>
+            </div>
+            <InlineInsights />
+          </div>
+        </div>
+
+        {/* Center-Right: Omni Character (large, interactive) */}
+        {omniMode !== "hidden" && (
+          <div className="hidden lg:flex flex-col items-center justify-center shrink-0 w-[160px] pt-2">
+            <div
+              className="cursor-pointer transition-transform duration-300 hover:scale-105"
+              onMouseEnter={() => setOmniHover(true)}
+              onMouseLeave={() => setOmniHover(false)}
+              onClick={openChat}
+              title="Ask Omni"
+            >
+              <OmniAvatar
+                mode={omniMode}
+                state={omniHover ? "wave" : "idle"}
+                size={110}
+                badge={false}
+              />
+            </div>
+            <p className="text-[10px] text-zinc-600 mt-2 text-center">Click to ask Omni</p>
+          </div>
+        )}
+
+        {/* Right: Clock */}
+        <div className="hidden lg:flex flex-col items-end shrink-0">
+          <div className="text-right">
+            <div className="text-xl font-mono text-white tracking-wider tabular-nums">{timeString}</div>
+            <p className="text-[10px] text-zinc-500 mt-0.5">{dateString}</p>
+            <p className="text-[9px] text-zinc-600">{tzAbbr}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Triage Feed ──────────────────────────────────────────────────────
 export default function TriageFeed() {
   const utils = trpc.useUtils();
@@ -928,84 +1038,19 @@ export default function TriageFeed() {
       )}
 
       {/* ── Greeting bar with integrated insights ──────────────────── */}
-      <div className="bg-gradient-to-br from-zinc-900/80 via-zinc-900/60 to-zinc-900/40 border border-zinc-800/40 rounded-2xl p-5 lg:p-6">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:gap-8">
-          {/* Left: Greeting + Summary */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start gap-3 mb-3">
-              <div className="hidden sm:flex p-2.5 rounded-xl bg-zinc-800/60 border border-zinc-700/30 shrink-0">
-                {timeIcon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-4">
-                  <h1 className="text-2xl lg:text-3xl font-semibold text-white tracking-tight">
-                    {greeting}, <span className="text-yellow-500">{data.userName}</span>
-                  </h1>
-                  <div className="text-right hidden sm:block lg:hidden shrink-0">
-                    <div className="text-lg font-mono text-white tracking-wider tabular-nums">{timeString}</div>
-                    <p className="text-[10px] text-zinc-500">{dateString}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-zinc-400 mt-1 font-medium">{statusLine}</p>
-                <div className="flex items-center gap-2 mt-2 text-xs text-zinc-500 font-mono">
-                  <span>{situationalSummary}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quote (toggleable, compact) */}
-            {showQuote && (
-              <div className="flex items-center gap-2 mt-2 pl-0 sm:pl-[52px]">
-                <Quote className="h-3 w-3 text-yellow-600/30 shrink-0" />
-                <p className="text-[11px] text-zinc-600 italic truncate">
-                  "{quote.text}" <span className="text-zinc-700 not-italic">— {quote.author}</span>
-                </p>
-                <button
-                  onClick={() => setShowQuote(false)}
-                  className="p-0.5 rounded hover:bg-zinc-800 text-zinc-700 hover:text-zinc-500 transition-colors shrink-0"
-                >
-                  <EyeOff className="h-3 w-3" />
-                </button>
-              </div>
-            )}
-            {!showQuote && (
-              <button
-                onClick={() => setShowQuote(true)}
-                className="mt-2 pl-0 sm:pl-[52px] flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-500 transition-colors"
-              >
-                <Eye className="h-3 w-3" /> Show quote
-              </button>
-            )}
-          </div>
-
-          {/* Right: Clock + Strategic Insights */}
-          <div className="hidden lg:flex flex-col items-end gap-3 shrink-0 w-[280px]">
-            <div className="text-right">
-              <div className="text-xl font-mono text-white tracking-wider tabular-nums">{timeString}</div>
-              <p className="text-[10px] text-zinc-500 mt-0.5">{dateString}</p>
-              <p className="text-[9px] text-zinc-600">{tzAbbr}</p>
-            </div>
-            <div className="w-full border-t border-zinc-800/40 pt-3">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Brain className="h-3 w-3 text-yellow-500/60" />
-                <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Strategic Insights</span>
-                <span className="text-[9px] text-yellow-600/40 ml-auto">AI</span>
-              </div>
-              <InlineInsights />
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile: Strategic Insights below greeting */}
-        <div className="lg:hidden mt-4 pt-3 border-t border-zinc-800/30">
-          <div className="flex items-center gap-1.5 mb-2">
-            <Brain className="h-3 w-3 text-yellow-500/60" />
-            <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Strategic Insights</span>
-            <span className="text-[9px] text-yellow-600/40 ml-auto">AI</span>
-          </div>
-          <InlineInsights />
-        </div>
-      </div>
+      <GreetingBar
+        greeting={greeting}
+        userName={data.userName}
+        statusLine={statusLine}
+        situationalSummary={situationalSummary}
+        timeIcon={timeIcon}
+        timeString={timeString}
+        dateString={dateString}
+        tzAbbr={tzAbbr}
+        quote={quote}
+        showQuote={showQuote}
+        setShowQuote={setShowQuote}
+      />
 
       {/* ── Quick stats row ───────────────────────────────────────────── */}
       <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2">

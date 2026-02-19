@@ -31,6 +31,14 @@ interface SidebarContextType {
 export const SidebarContext = createContext<SidebarContextType>({ collapsed: false, setCollapsed: () => {} });
 export const useSidebar = () => useContext(SidebarContext);
 
+// Omni context — lets child pages access Omni mode and open the chat panel
+interface OmniContextType {
+  omniMode: OmniMode;
+  openChat: () => void;
+}
+export const OmniContext = createContext<OmniContextType>({ omniMode: "sigil", openChat: () => {} });
+export const useOmni = () => useContext(OmniContext);
+
 interface PortalLayoutProps {
   children: React.ReactNode;
 }
@@ -209,6 +217,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
 
   return (
     <SidebarContext.Provider value={{ collapsed, setCollapsed }}>
+    <OmniContext.Provider value={{ omniMode, openChat: () => setOmniChatOpen(true) }}>
       <div className="min-h-screen bg-black flex">
         {/* Sidebar - Fixed */}
         <div className={`${sidebarWidth} bg-zinc-900 border-r border-zinc-800 flex flex-col fixed left-0 top-0 h-screen transition-all duration-300 ease-in-out z-50`}>
@@ -402,6 +411,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
           currentPage={location}
         />
       </div>
+    </OmniContext.Provider>
     </SidebarContext.Provider>
   );
 }

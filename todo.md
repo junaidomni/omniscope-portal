@@ -1596,3 +1596,29 @@
 - [x] Show sender, subject, and time for unread emails in 2-column grid
 - [x] Click to navigate to full inbox
 - [x] Unread indicator dot (violet) + falls back to today's emails if no unread
+
+## v45 — Greeting Bar Redesign + NOMI Emotions Upgrade
+
+### Move Strategic Insights
+- [x] Move Strategic Insights from right column to under the quote in the greeting bar
+- [x] Greeting bar now: left (greeting → status → summary → quote → insights), center-right (Omni), right (clock)
+- [x] Insights appear below the quote line, still with Brain icon and AI label
+
+### Embed Ask Omni in Greeting Bar
+- [x] Place Ask Omni character in the center-right of the greeting bar (size=110px)
+- [x] Only on Triage screen — the floating bottom-right version stays on all other pages
+- [x] Character is interactive — clicking opens the chat panel via OmniContext
+- [x] Uses the empty space visible in the current greeting bar layout
+- [x] "Click to ask Omni" label under the character
+- [x] OmniContext added to PortalLayout for cross-component state sharing
+
+### NOMI-Style Emotion Upgrade
+- [x] Thumbs up gesture when a task is completed (arm extends with thumb, sparkle particles)
+- [x] Waving animation when user hovers in greeting bar (arm wave with hand)
+- [x] Celebrating expression with confetti sparkles and wide happy eyes
+- [x] Thinking expression with narrowed eyes and pulsing glow
+- [x] Sleeping/drowsy expression for after-hours (closed eyes, zzz)
+- [x] Heart eyes expression for positive events (gold hearts)
+- [x] More expressive eye shapes — wider for surprise, squinted for thinking, arched for happy
+- [x] Smooth transitions between emotion states (transition-all duration-300)
+- [x] Research NIO NOMI interaction patterns — applied sphere body, pill eyes, gesture arms

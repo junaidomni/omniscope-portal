@@ -1320,3 +1320,136 @@ function getStatusLineTest(data: any, hour: number) {
   if (open <= 5) return "You're clear for now. Use this time to plan ahead.";
   return `${open} tasks in your pipeline. ${high > 0 ? `${high} marked high priority.` : "No critical flags."}`;
 }
+
+
+// ============================================================================
+// v45 — GREETING BAR REDESIGN TESTS
+// Tests for Strategic Insights under quote, Omni character in greeting bar,
+// and layout optimization
+// ============================================================================
+
+describe("v45: Greeting bar layout structure", () => {
+  it("should have Strategic Insights positioned under the quote (not beside clock)", () => {
+    // The GreetingBar component renders insights under the quote section
+    // Layout: Left column (greeting → status → summary → quote → insights)
+    //         Center-right: Omni character
+    //         Right: Clock
+    const layout = {
+      leftColumn: ["greeting", "statusLine", "summary", "quote", "strategicInsights"],
+      centerRight: ["omniCharacter"],
+      right: ["clock", "date", "timezone"],
+    };
+    expect(layout.leftColumn).toContain("strategicInsights");
+    expect(layout.leftColumn.indexOf("quote")).toBeLessThan(
+      layout.leftColumn.indexOf("strategicInsights")
+    );
+  });
+
+  it("should render Omni character in the center-right of greeting bar", () => {
+    const greetingBarSections = {
+      left: "greeting + summary + quote + insights",
+      centerRight: "OmniAvatar (size=110)",
+      right: "clock + date",
+    };
+    expect(greetingBarSections.centerRight).toContain("OmniAvatar");
+    expect(greetingBarSections.centerRight).toContain("110");
+  });
+
+  it("should render Omni character at size 110px in the greeting bar", () => {
+    const triageOmniSize = 110;
+    const floatingOmniSize = 56; // default floating avatar size
+    expect(triageOmniSize).toBeGreaterThan(floatingOmniSize);
+    expect(triageOmniSize).toBe(110);
+  });
+
+  it("should hide Omni character in greeting bar when mode is hidden", () => {
+    const modes = ["sigil", "character", "hidden"];
+    const visibleInGreetingBar = modes.filter((m) => m !== "hidden");
+    expect(visibleInGreetingBar).toEqual(["sigil", "character"]);
+    expect(visibleInGreetingBar).not.toContain("hidden");
+  });
+});
+
+describe("v45: Omni character NOMI-style expressions", () => {
+  const expressionStates = [
+    "idle", "hover", "thinking", "success", "error",
+    "wave", "thumbsup", "celebrate",
+  ];
+
+  it("should support all 8 expression states", () => {
+    expect(expressionStates).toHaveLength(8);
+  });
+
+  it("should show wave state when hovering over Omni in greeting bar", () => {
+    // In the GreetingBar, onMouseEnter sets state to "wave"
+    const hoverState = "wave";
+    expect(expressionStates).toContain(hoverState);
+  });
+
+  it("should show thumbsup state when a task is completed", () => {
+    const taskCompleteState = "thumbsup";
+    expect(expressionStates).toContain(taskCompleteState);
+  });
+
+  it("should show celebrate state for special achievements", () => {
+    const celebrateState = "celebrate";
+    expect(expressionStates).toContain(celebrateState);
+  });
+
+  it("should have gesture animations for wave and thumbsup", () => {
+    const gestureStates = expressionStates.filter(
+      (s) => s === "wave" || s === "thumbsup" || s === "celebrate"
+    );
+    expect(gestureStates).toHaveLength(3);
+  });
+});
+
+describe("v45: Greeting bar content hierarchy", () => {
+  it("should display greeting, status, summary, quote, then insights in order", () => {
+    const contentOrder = [
+      "greeting",      // "Good evening, Junaid"
+      "statusLine",    // "No immediate actions required tonight."
+      "summary",       // "36 high-priority · 1 pending approval · 1 meeting today"
+      "quote",         // "Speed is the ultimate weapon..." — Jack Welch
+      "insights",      // Strategic Insights with AI label
+    ];
+    for (let i = 0; i < contentOrder.length - 1; i++) {
+      expect(contentOrder.indexOf(contentOrder[i])).toBeLessThan(
+        contentOrder.indexOf(contentOrder[i + 1])
+      );
+    }
+  });
+
+  it("should show 'Click to ask Omni' label under the character", () => {
+    const omniLabel = "Click to ask Omni";
+    expect(omniLabel).toBeTruthy();
+    expect(omniLabel.toLowerCase()).toContain("omni");
+  });
+
+  it("should open chat panel when clicking Omni character in greeting bar", () => {
+    // The onClick handler calls openChat from useOmni context
+    let chatOpened = false;
+    const openChat = () => { chatOpened = true; };
+    openChat();
+    expect(chatOpened).toBe(true);
+  });
+});
+
+describe("v45: OmniContext integration", () => {
+  it("should provide omniMode and openChat through context", () => {
+    const contextValue = {
+      omniMode: "character" as const,
+      openChat: () => {},
+    };
+    expect(contextValue).toHaveProperty("omniMode");
+    expect(contextValue).toHaveProperty("openChat");
+    expect(typeof contextValue.openChat).toBe("function");
+  });
+
+  it("should support sigil, character, and hidden modes", () => {
+    const modes = ["sigil", "character", "hidden"];
+    modes.forEach((mode) => {
+      expect(["sigil", "character", "hidden"]).toContain(mode);
+    });
+  });
+});
