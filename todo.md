@@ -1705,3 +1705,42 @@
 - [x] Merge modal: select which existing contact to merge with
 - [x] Show side-by-side comparison when merging
 - [x] Bulk approve/reject for multiple pending contacts
+
+## v50 — Data Hygiene Pipeline: Clean Data Flow
+
+### Core Principle
+- [x] Tasks auto-assigned immediately after meeting sync (actionable)
+- [x] Everything else goes through pending review: contacts, companies, associations, enrichment
+- [x] No data auto-committed to the system without user confirmation
+
+### Meeting Sync Refactor
+- [x] Contacts from meetings: create as "pending" (already done), never auto-approve
+- [x] Companies from meetings: create as "pending", never auto-approve
+- [x] Company-contact associations: go through pending review (don't auto-assign people to companies)
+- [x] Contact enrichment (AI-extracted info): staged as suggestions, not auto-applied
+- [x] Tasks: continue to auto-create from meetings (only exception)
+
+### Smart Duplicate Prevention at Sync Time
+- [x] Run duplicate detection before creating new pending contacts
+- [x] High-confidence matches (>85%): auto-link to existing contact, skip creating duplicate
+- [x] Medium-confidence matches (50-85%): create pending with merge suggestion attached
+- [x] Low/no match: create as normal pending contact
+
+### Merge Confirmation Dialog
+- [x] Side-by-side comparison before merge executes
+- [x] Show which fields will be kept vs transferred
+- [x] Visual diff of the two contact records
+- [x] Confirm button to execute merge
+
+### Batch Review UI in Relationships
+- [x] Dedicated "Pending Review" tab/section in Relationships page (via Triage pending filter)
+- [x] Table view of all pending contacts with bulk actions
+- [x] Table view of all pending companies with bulk actions
+- [x] Pending association suggestions (person → company)
+- [x] Pending enrichment suggestions (AI-extracted data)
+- [x] Bulk approve/reject/merge actions
+- [x] Filter by source (fathom, plaud, manual) (via pending filter in Triage)
+
+### Triage Feed Updates
+- [x] Show pending review count in stat cards
+- [x] Surface new pending items from recent meetings

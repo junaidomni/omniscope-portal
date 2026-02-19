@@ -1278,6 +1278,22 @@ export default function TriageFeed() {
     onError: () => toast.error("Could not merge contact"),
   });
 
+  const approveSuggestionMutation = trpc.contacts.approveSuggestion.useMutation({
+    onSuccess: () => {
+      toast.success("Suggestion approved");
+      utils.triage.feed.invalidate();
+    },
+    onError: () => toast.error("Could not approve suggestion"),
+  });
+
+  const rejectSuggestionMutation = trpc.contacts.rejectSuggestion.useMutation({
+    onSuccess: () => {
+      toast.success("Suggestion dismissed");
+      utils.triage.feed.invalidate();
+    },
+    onError: () => toast.error("Could not dismiss suggestion"),
+  });
+
   // Local time values
   const localHour = now.getHours();
   const greeting = getGreeting(localHour);
@@ -1312,13 +1328,14 @@ export default function TriageFeed() {
   const hasStarredEmails = data.starredEmails.length > 0;
   const hasPendingContacts = data.pendingContacts.length > 0;
   const hasPendingCompanies = data.pendingCompanies.length > 0;
+  const hasPendingSuggestions = (data.pendingSuggestions?.length ?? 0) > 0;
   const hasRecentMeetings = data.recentMeetings.length > 0;
   const hasTomorrowTasks = (data.tomorrowTasks?.length ?? 0) > 0;
   const hasWeekTasks = (data.weekTasks?.length ?? 0) > 0;
   const hasCompletedToday = (data.completedTodayTasks?.length ?? 0) > 0;
 
   const nothingToTriage =
-    !hasOverdue && !hasTodayTasks && !hasHighPriority && !hasStarredEmails && !hasPendingContacts && !hasPendingCompanies;
+    !hasOverdue && !hasTodayTasks && !hasHighPriority && !hasStarredEmails && !hasPendingContacts && !hasPendingCompanies && !hasPendingSuggestions;
   const allTodayDone = !hasOverdue && !hasTodayTasks && hasCompletedToday;
 
   return (
@@ -1538,6 +1555,7 @@ export default function TriageFeed() {
       )}
 
       {activeFilter === "pending" && (
+        <>
         <Section
           icon={<UserPlus className="h-4 w-4 text-blue-400" />}
           title="Pending Approvals"
@@ -1580,6 +1598,44 @@ export default function TriageFeed() {
             </div>
           )}
         </Section>
+
+        {/* Data Review Suggestions in pending filter */}
+        {hasPendingSuggestions && (
+          <Section
+            icon={<Brain className="h-4 w-4 text-violet-400" />}
+            title="Data Review Suggestions"
+            count={data.pendingSuggestions?.length}
+            accentColor="bg-violet-950/40"
+          >
+            <div className="space-y-1.5">
+              {data.pendingSuggestions?.map((s: any) => {
+                const typeLabels: Record<string, string> = {
+                  company_link: "Company Association",
+                  enrichment: "Contact Enrichment",
+                  company_enrichment: "Company Enrichment",
+                };
+                return (
+                  <div key={s.id} className="group flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2.5 hover:border-zinc-700/50 transition-colors">
+                    <Brain className="h-3.5 w-3.5 text-violet-400/60" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-zinc-200 truncate">
+                        {s.type === 'company_link' ? `Link ${s.contactName} → ${s.suggestedCompanyName}` :
+                         s.type === 'enrichment' ? `Enrich ${s.contactName}` :
+                         `Enrich ${s.companyName}`}
+                      </p>
+                      <p className="text-[10px] text-zinc-500">{typeLabels[s.type]} {s.confidence ? `• ${s.confidence}%` : ''}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => approveSuggestionMutation.mutate({ id: s.id })} className="p-1 rounded hover:bg-emerald-950/50 text-zinc-600 hover:text-emerald-400 transition-colors" title="Approve"><Check className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => rejectSuggestionMutation.mutate({ id: s.id })} className="p-1 rounded hover:bg-red-950/50 text-zinc-600 hover:text-red-400 transition-colors" title="Dismiss"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+        </>
       )}
 
       {/* ── DEFAULT VIEW: No filter active ─────────────────────────── */}
@@ -1783,6 +1839,117 @@ export default function TriageFeed() {
                 )}
               </div>
             </div>
+          )}
+
+          {/* Data Review Suggestions */}
+          {hasPendingSuggestions && (
+            <Section
+              icon={<Brain className="h-4 w-4 text-violet-400" />}
+              title="Data Review"
+              count={data.pendingSuggestions?.length}
+              accentColor="bg-violet-950/40"
+            >
+              <div className="space-y-1.5">
+                {data.pendingSuggestions?.map((s: any) => {
+                  const typeLabels: Record<string, string> = {
+                    company_link: "Company Association",
+                    enrichment: "Contact Enrichment",
+                    company_enrichment: "Company Enrichment",
+                  };
+                  const typeIcons: Record<string, React.ReactNode> = {
+                    company_link: <Building2 className="h-3.5 w-3.5 text-purple-400/60" />,
+                    enrichment: <Sparkles className="h-3.5 w-3.5 text-amber-400/60" />,
+                    company_enrichment: <Building2 className="h-3.5 w-3.5 text-blue-400/60" />,
+                  };
+
+                  return (
+                    <div
+                      key={s.id}
+                      className="group bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2.5 hover:border-zinc-700/50 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5">{typeIcons[s.type] || <Zap className="h-3.5 w-3.5 text-zinc-500" />}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-[10px] font-medium text-violet-400/80 uppercase tracking-wider">
+                              {typeLabels[s.type] || s.type}
+                            </span>
+                            {s.confidence && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                s.confidence >= 80 ? 'bg-emerald-950/50 text-emerald-400' :
+                                s.confidence >= 50 ? 'bg-amber-950/50 text-amber-400' :
+                                'bg-zinc-800/50 text-zinc-400'
+                              }`}>
+                                {s.confidence}% match
+                              </span>
+                            )}
+                          </div>
+
+                          {s.type === 'company_link' && (
+                            <p className="text-sm text-zinc-200">
+                              Link <span className="text-white font-medium">{s.contactName}</span> to{" "}
+                              <span className="text-purple-300 font-medium">{s.suggestedCompanyName}</span>
+                            </p>
+                          )}
+
+                          {s.type === 'enrichment' && s.suggestedData && (
+                            <div>
+                              <p className="text-sm text-zinc-200 mb-1">
+                                Update <span className="text-white font-medium">{s.contactName}</span>
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(s.suggestedData).map(([key, val]) => (
+                                  <span key={key} className="text-[10px] bg-zinc-800/60 border border-zinc-700/30 rounded px-1.5 py-0.5 text-zinc-300">
+                                    {key}: <span className="text-amber-300">{String(val)}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {s.type === 'company_enrichment' && s.suggestedData && (
+                            <div>
+                              <p className="text-sm text-zinc-200 mb-1">
+                                Update <span className="text-white font-medium">{s.companyName}</span>
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(s.suggestedData).map(([key, val]) => (
+                                  <span key={key} className="text-[10px] bg-zinc-800/60 border border-zinc-700/30 rounded px-1.5 py-0.5 text-zinc-300">
+                                    {key}: <span className="text-blue-300">{String(val)}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {s.reason && <p className="text-[10px] text-zinc-500 mt-1">{s.reason}</p>}
+                        </div>
+
+                        {/* Quick actions */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => approveSuggestionMutation.mutate({ id: s.id })}
+                            disabled={approveSuggestionMutation.isPending}
+                            className="p-1.5 rounded-md hover:bg-emerald-950/50 text-zinc-500 hover:text-emerald-400 transition-colors"
+                            title="Approve"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => rejectSuggestionMutation.mutate({ id: s.id })}
+                            disabled={rejectSuggestionMutation.isPending}
+                            className="p-1.5 rounded-md hover:bg-red-950/50 text-zinc-500 hover:text-red-400 transition-colors"
+                            title="Dismiss"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
           )}
 
           {/* Unread Emails */}

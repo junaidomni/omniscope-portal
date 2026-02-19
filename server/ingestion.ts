@@ -252,17 +252,33 @@ export async function processIntelligenceData(rawData: IntelligenceData, created
           });
         }
         
-        // Try to auto-link company from organization
+        // Stage company-contact linking as a pending suggestion (not auto-applied)
         if (!isInternal && !contactRecord.companyId && data.organizations && data.organizations.length > 0) {
           for (const orgName of data.organizations) {
             if (!orgName) continue;
             let company = await db.getCompanyByName(orgName);
             if (!company) {
+              // Create company as pending — it still needs approval
               const newCompanyId = await db.createCompany({ name: orgName, status: "active", approvalStatus: "pending" });
               company = await db.getCompanyById(newCompanyId);
             }
             if (company) {
-              await db.updateContact(contactId, { companyId: company.id, organization: orgName });
+              // Don't auto-link — create a pending suggestion instead
+              const isDuplicate = await db.checkDuplicateSuggestion("company_link", contactId, undefined, company.id);
+              if (!isDuplicate) {
+                await db.createPendingSuggestion({
+                  type: "company_link",
+                  contactId,
+                  suggestedCompanyId: company.id,
+                  reason: `Mentioned together in meeting: ${data.meetingTitle || "Untitled"}`,
+                  sourceMeetingId: meetingId,
+                  confidence: 70,
+                });
+              }
+              // Still update the organization text field (informational, not a structural link)
+              if (!contactRecord.organization) {
+                await db.updateContact(contactId, { organization: orgName });
+              }
               break;
             }
           }

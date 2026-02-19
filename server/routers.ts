@@ -447,6 +447,112 @@ const contactsRouter = router({
       return { success: true };
     }),
 
+  // ========== PENDING SUGGESTIONS ==========
+
+  pendingSuggestions: protectedProcedure
+    .input(z.object({ type: z.string().optional(), status: z.string().optional() }).optional())
+    .query(async ({ input }) => {
+      const suggestions = await db.getPendingSuggestions({
+        type: input?.type,
+        status: input?.status || "pending",
+      });
+      // Enrich with contact/company names
+      const enriched = await Promise.all(suggestions.map(async (s) => {
+        const contact = s.contactId ? await db.getContactById(s.contactId) : null;
+        const company = s.companyId ? await db.getCompanyById(s.companyId) : null;
+        const suggestedCompany = s.suggestedCompanyId ? await db.getCompanyById(s.suggestedCompanyId) : null;
+        return {
+          ...s,
+          contactName: contact?.name || null,
+          contactEmail: contact?.email || null,
+          companyName: company?.name || null,
+          suggestedCompanyName: suggestedCompany?.name || null,
+          suggestedData: s.suggestedData ? JSON.parse(s.suggestedData) : null,
+        };
+      }));
+      return enriched;
+    }),
+
+  pendingSuggestionsCount: protectedProcedure
+    .query(async () => {
+      return await db.getPendingSuggestionsCount();
+    }),
+
+  approveSuggestion: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const suggestion = await db.getPendingSuggestionById(input.id);
+      if (!suggestion) throw new TRPCError({ code: "NOT_FOUND" });
+      if (suggestion.status !== "pending") throw new TRPCError({ code: "BAD_REQUEST", message: "Already reviewed" });
+
+      // Apply the suggestion based on type
+      if (suggestion.type === "company_link" && suggestion.contactId && suggestion.suggestedCompanyId) {
+        await db.updateContact(suggestion.contactId, { companyId: suggestion.suggestedCompanyId });
+      } else if (suggestion.type === "enrichment" && suggestion.contactId && suggestion.suggestedData) {
+        const data = JSON.parse(suggestion.suggestedData);
+        await db.updateContact(suggestion.contactId, data);
+      } else if (suggestion.type === "company_enrichment" && suggestion.companyId && suggestion.suggestedData) {
+        const data = JSON.parse(suggestion.suggestedData);
+        await db.updateCompany(suggestion.companyId, data);
+      }
+
+      await db.updatePendingSuggestion(input.id, {
+        status: "approved",
+        reviewedAt: new Date(),
+        reviewedBy: ctx.user.id,
+      });
+      return { success: true };
+    }),
+
+  rejectSuggestion: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const suggestion = await db.getPendingSuggestionById(input.id);
+      if (!suggestion) throw new TRPCError({ code: "NOT_FOUND" });
+
+      await db.updatePendingSuggestion(input.id, {
+        status: "rejected",
+        reviewedAt: new Date(),
+        reviewedBy: ctx.user.id,
+      });
+      return { success: true };
+    }),
+
+  bulkApproveSuggestions: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()) }))
+    .mutation(async ({ ctx, input }) => {
+      let approved = 0;
+      for (const id of input.ids) {
+        try {
+          const suggestion = await db.getPendingSuggestionById(id);
+          if (!suggestion || suggestion.status !== "pending") continue;
+          if (suggestion.type === "company_link" && suggestion.contactId && suggestion.suggestedCompanyId) {
+            await db.updateContact(suggestion.contactId, { companyId: suggestion.suggestedCompanyId });
+          } else if (suggestion.type === "enrichment" && suggestion.contactId && suggestion.suggestedData) {
+            await db.updateContact(suggestion.contactId, JSON.parse(suggestion.suggestedData));
+          } else if (suggestion.type === "company_enrichment" && suggestion.companyId && suggestion.suggestedData) {
+            await db.updateCompany(suggestion.companyId, JSON.parse(suggestion.suggestedData));
+          }
+          await db.updatePendingSuggestion(id, { status: "approved", reviewedAt: new Date(), reviewedBy: ctx.user.id });
+          approved++;
+        } catch {}
+      }
+      return { success: true, count: approved };
+    }),
+
+  bulkRejectSuggestions: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()) }))
+    .mutation(async ({ ctx, input }) => {
+      let rejected = 0;
+      for (const id of input.ids) {
+        try {
+          await db.updatePendingSuggestion(id, { status: "rejected", reviewedAt: new Date(), reviewedBy: ctx.user.id });
+          rejected++;
+        } catch {}
+      }
+      return { success: true, count: rejected };
+    }),
+
   syncFromMeetings: protectedProcedure
     .mutation(async () => {
       const allMeetings = await db.getAllMeetings({ limit: 500 });
@@ -697,25 +803,46 @@ IMPORTANT: Only include fields where you have high confidence from the meeting d
         extracted = JSON.parse((result.choices[0]?.message?.content as string) || '{}');
       } catch { extracted = {}; }
 
-      // Only update fields that are currently empty and AI found something
-      const updates: any = {};
-      if (!contact.email && extracted.email) updates.email = extracted.email;
-      if (!contact.phone && extracted.phone) updates.phone = extracted.phone;
-      if (!contact.organization && extracted.organization) updates.organization = extracted.organization;
-      if (!contact.title && extracted.title) updates.title = extracted.title;
-      if (!contact.website && extracted.website) updates.website = extracted.website;
-      if (!contact.linkedin && extracted.linkedin) updates.linkedin = extracted.linkedin;
-      if (!contact.address && extracted.address) updates.address = extracted.address;
+      // Stage AI-extracted data as pending suggestions instead of auto-applying
+      const suggestedUpdates: any = {};
+      if (!contact.email && extracted.email) suggestedUpdates.email = extracted.email;
+      if (!contact.phone && extracted.phone) suggestedUpdates.phone = extracted.phone;
+      if (!contact.organization && extracted.organization) suggestedUpdates.organization = extracted.organization;
+      if (!contact.title && extracted.title) suggestedUpdates.title = extracted.title;
+      if (!contact.website && extracted.website) suggestedUpdates.website = extracted.website;
+      if (!contact.linkedin && extracted.linkedin) suggestedUpdates.linkedin = extracted.linkedin;
+      if (!contact.address && extracted.address) suggestedUpdates.address = extracted.address;
 
-      // If employee is linked, sync employee data to contact
+      // Employee data is trusted — apply directly
+      const directUpdates: any = {};
       if (employee) {
-        if (!contact.email && employee.email) updates.email = employee.email;
-        if (!contact.phone && employee.phone) updates.phone = employee.phone;
-        if (!contact.address && employee.address) updates.address = employee.address;
+        if (!contact.email && employee.email) directUpdates.email = employee.email;
+        if (!contact.phone && employee.phone) directUpdates.phone = employee.phone;
+        if (!contact.address && employee.address) directUpdates.address = employee.address;
       }
 
-      if (Object.keys(updates).length > 0) {
-        await db.updateContact(input.id, updates);
+      if (Object.keys(directUpdates).length > 0) {
+        await db.updateContact(input.id, directUpdates);
+      }
+
+      // Create pending suggestion for AI-extracted fields (needs review)
+      if (Object.keys(suggestedUpdates).length > 0) {
+        // Remove fields already applied from employee data
+        for (const key of Object.keys(directUpdates)) {
+          delete suggestedUpdates[key];
+        }
+        if (Object.keys(suggestedUpdates).length > 0) {
+          const isDuplicate = await db.checkDuplicateSuggestion("enrichment", input.id);
+          if (!isDuplicate) {
+            await db.createPendingSuggestion({
+              type: "enrichment",
+              contactId: input.id,
+              suggestedData: JSON.stringify(suggestedUpdates),
+              reason: `AI-extracted from ${allRelevantMeetings.length} meeting(s)`,
+              confidence: 75,
+            });
+          }
+        }
       }
 
       // Also generate AI summary
@@ -2764,7 +2891,23 @@ const triageRouter = router({
     const totalHighPriority = allTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length;
     const completedToday = completedTodayTasks.length;
     const totalStarred = starredEmails.length;
-    const totalPendingApprovals = pendingContacts.length + pendingCompanies.length;
+    // 8. Pending suggestions (company links, enrichment)
+    const allSuggestions = await db.getPendingSuggestions({ status: "pending" });
+    const pendingSuggestionsData = await Promise.all(allSuggestions.slice(0, 10).map(async (s) => {
+      const contact = s.contactId ? await db.getContactById(s.contactId) : null;
+      const company = s.companyId ? await db.getCompanyById(s.companyId) : null;
+      const suggestedCompany = s.suggestedCompanyId ? await db.getCompanyById(s.suggestedCompanyId) : null;
+      return {
+        id: s.id, type: s.type, status: s.status,
+        contactId: s.contactId, contactName: contact?.name || null,
+        companyId: s.companyId, companyName: company?.name || null,
+        suggestedCompanyId: s.suggestedCompanyId, suggestedCompanyName: suggestedCompany?.name || null,
+        suggestedData: s.suggestedData ? JSON.parse(s.suggestedData) : null,
+        reason: s.reason, confidence: s.confidence, createdAt: s.createdAt,
+      };
+    }));
+
+    const totalPendingApprovals = pendingContacts.length + pendingCompanies.length + allSuggestions.length;
 
     // Time-based greeting — note: server runs in UTC, frontend will override with local time
     const hour = now.getHours();
@@ -2822,6 +2965,7 @@ const triageRouter = router({
         id: t.id, title: t.title, priority: t.priority, completedAt: t.updatedAt,
         assignedName: t.assignedName, category: t.category,
       })),
+      pendingSuggestions: pendingSuggestionsData,
     };
   }),
 

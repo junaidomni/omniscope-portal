@@ -820,3 +820,62 @@ export const emailThreadSummaries = mysqlTable("email_thread_summaries", {
 
 export type EmailThreadSummary = typeof emailThreadSummaries.$inferSelect;
 export type InsertEmailThreadSummary = typeof emailThreadSummaries.$inferInsert;
+
+/**
+ * Pending Suggestions — stages all auto-detected changes for user review.
+ * Types:
+ *   - "company_link": AI wants to link a contact to a company
+ *   - "enrichment": AI-extracted data for a contact (email, phone, title, etc.)
+ *   - "company_enrichment": AI-extracted data for a company
+ */
+export const pendingSuggestions = mysqlTable("pending_suggestions", {
+  id: int("id").autoincrement().primaryKey(),
+  type: mysqlEnum("suggestionType", ["company_link", "enrichment", "company_enrichment"]).notNull(),
+  status: mysqlEnum("suggestionStatus", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  // Target entity
+  contactId: int("contactId").references(() => contacts.id, { onDelete: "cascade" }),
+  companyId: int("companyId").references(() => companies.id, { onDelete: "cascade" }),
+  // For company_link: the company to link to
+  suggestedCompanyId: int("suggestedCompanyId").references(() => companies.id, { onDelete: "cascade" }),
+  // For enrichment: JSON of suggested field updates { email: "...", phone: "...", etc. }
+  suggestedData: text("suggestedData"),
+  // Context
+  reason: text("reason"), // Why this was suggested (e.g., "Mentioned in meeting: Deal Review")
+  sourceMeetingId: int("sourceMeetingId").references(() => meetings.id, { onDelete: "set null" }),
+  confidence: int("confidence"), // 0-100 confidence score
+  // Timestamps
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewedAt"),
+  reviewedBy: int("reviewedBy").references(() => users.id),
+}, (table) => ({
+  typeIdx: index("ps_type_idx").on(table.type),
+  statusIdx: index("ps_status_idx").on(table.status),
+  contactIdx: index("ps_contact_idx").on(table.contactId),
+  companyIdx: index("ps_company_idx").on(table.companyId),
+}));
+
+export type PendingSuggestion = typeof pendingSuggestions.$inferSelect;
+export type InsertPendingSuggestion = typeof pendingSuggestions.$inferInsert;
+
+export const pendingSuggestionsRelations = relations(pendingSuggestions, ({ one }) => ({
+  contact: one(contacts, {
+    fields: [pendingSuggestions.contactId],
+    references: [contacts.id],
+  }),
+  company: one(companies, {
+    fields: [pendingSuggestions.companyId],
+    references: [companies.id],
+  }),
+  suggestedCompany: one(companies, {
+    fields: [pendingSuggestions.suggestedCompanyId],
+    references: [companies.id],
+  }),
+  sourceMeeting: one(meetings, {
+    fields: [pendingSuggestions.sourceMeetingId],
+    references: [meetings.id],
+  }),
+  reviewer: one(users, {
+    fields: [pendingSuggestions.reviewedBy],
+    references: [users.id],
+  }),
+}));

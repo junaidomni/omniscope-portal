@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, like, lte, or, sql, inArray, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink, emailThreadSummaries, InsertEmailThreadSummary, emailMessages } from "../drizzle/schema";
+import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink, emailThreadSummaries, InsertEmailThreadSummary, emailMessages, pendingSuggestions, InsertPendingSuggestion } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -221,28 +221,15 @@ export async function getOrCreateContact(name: string, org?: string, email?: str
       contact = allContacts.find((c: any) => (c.name || '').toLowerCase().trim() === nameLower) || null;
     }
     
-    // Try first name match (e.g., "Jake" matches "Jacob McDonald" or "Jake Ryan")
-    if (!contact && nameParts.length === 1 && firstName.length >= 3) {
-      const matches = allContacts.filter((c: any) => {
-        const cName = (c.name || '').toLowerCase();
-        const cFirst = cName.split(/\s+/)[0];
-        return cFirst === firstName || cFirst.startsWith(firstName) || firstName.startsWith(cFirst);
-      });
-      if (matches.length === 1) contact = matches[0];
+    // Try reversed name match (e.g., "Ryan Jake" matches "Jake Ryan")
+    if (!contact && nameParts.length >= 2) {
+      const reversed = [...nameParts].reverse().join(' ');
+      contact = allContacts.find((c: any) => (c.name || '').toLowerCase().trim() === reversed) || null;
     }
     
-    // Try partial name match (e.g., "JAKE RYAN" matches "Jacob McDonald" via first name)
-    if (!contact && nameParts.length >= 2) {
-      const matches = allContacts.filter((c: any) => {
-        const cName = (c.name || '').toLowerCase();
-        const cParts = cName.split(/\s+/);
-        // Match if first names are similar
-        return cParts[0] === firstName || 
-               (cParts[0].length >= 3 && firstName.length >= 3 && 
-                (cParts[0].startsWith(firstName.substring(0, 3)) || firstName.startsWith(cParts[0].substring(0, 3))));
-      });
-      if (matches.length === 1) contact = matches[0];
-    }
+    // REMOVED: Loose first-name-only matching that caused false positives.
+    // Instead, if no exact/email/reversed match, create as new pending contact.
+    // The duplicate detection system will flag potential matches for manual review.
   }
   
   if (!contact) {
@@ -1749,4 +1736,70 @@ export async function findContactByEmail(email: string) {
   if (!db) return null;
   const result = await db.select().from(contacts).where(eq(contacts.email, email)).limit(1);
   return result[0] || null;
+}
+
+
+// ============================================================================
+// PENDING SUGGESTIONS OPERATIONS
+// ============================================================================
+
+export async function createPendingSuggestion(data: InsertPendingSuggestion) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(pendingSuggestions).values(data);
+  return result[0].insertId;
+}
+
+export async function getPendingSuggestions(filters?: { type?: string; status?: string; contactId?: number; companyId?: number }) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [];
+  if (filters?.type) conditions.push(eq(pendingSuggestions.type, filters.type as any));
+  if (filters?.status) conditions.push(eq(pendingSuggestions.status, filters.status as any));
+  if (filters?.contactId) conditions.push(eq(pendingSuggestions.contactId, filters.contactId));
+  if (filters?.companyId) conditions.push(eq(pendingSuggestions.companyId, filters.companyId));
+  
+  const query = conditions.length > 0
+    ? db.select().from(pendingSuggestions).where(and(...conditions)).orderBy(desc(pendingSuggestions.createdAt))
+    : db.select().from(pendingSuggestions).orderBy(desc(pendingSuggestions.createdAt));
+  return await query;
+}
+
+export async function getPendingSuggestionById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(pendingSuggestions).where(eq(pendingSuggestions.id, id)).limit(1);
+  return result[0] || null;
+}
+
+export async function updatePendingSuggestion(id: number, data: Partial<InsertPendingSuggestion>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(pendingSuggestions).set(data).where(eq(pendingSuggestions.id, id));
+}
+
+export async function getPendingSuggestionsCount() {
+  const db = await getDb();
+  if (!db) return { companyLink: 0, enrichment: 0, companyEnrichment: 0, total: 0 };
+  const all = await db.select().from(pendingSuggestions).where(eq(pendingSuggestions.status, "pending"));
+  return {
+    companyLink: all.filter(s => s.type === "company_link").length,
+    enrichment: all.filter(s => s.type === "enrichment").length,
+    companyEnrichment: all.filter(s => s.type === "company_enrichment").length,
+    total: all.length,
+  };
+}
+
+export async function checkDuplicateSuggestion(type: string, contactId?: number, companyId?: number, suggestedCompanyId?: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const conditions = [
+    eq(pendingSuggestions.type, type as any),
+    eq(pendingSuggestions.status, "pending"),
+  ];
+  if (contactId) conditions.push(eq(pendingSuggestions.contactId, contactId));
+  if (companyId) conditions.push(eq(pendingSuggestions.companyId, companyId));
+  if (suggestedCompanyId) conditions.push(eq(pendingSuggestions.suggestedCompanyId, suggestedCompanyId));
+  const result = await db.select().from(pendingSuggestions).where(and(...conditions)).limit(1);
+  return result.length > 0;
 }
