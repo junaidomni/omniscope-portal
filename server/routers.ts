@@ -3785,7 +3785,82 @@ const vaultRouter = router({
       return db.deleteFolder(input.id);
     }),
 
-  // AI Document Analysis
+  // Folder navigation
+  getFolderContents: protectedProcedure
+    .input(z.object({ folderId: z.number().nullable() }))
+    .query(async ({ input }) => {
+      return db.getFolderWithChildren(input.folderId);
+    }),
+
+  getFolderBreadcrumbs: protectedProcedure
+    .input(z.object({ folderId: z.number() }))
+    .query(async ({ input }) => {
+      return db.getFolderBreadcrumbs(input.folderId);
+    }),
+
+  getFolderById: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      return db.getFolderById(input.id);
+    }),
+
+  // Move documents to folder
+  moveDocumentToFolder: protectedProcedure
+    .input(z.object({ documentId: z.number(), folderId: z.number().nullable() }))
+    .mutation(async ({ input }) => {
+      return db.moveDocumentToFolder(input.documentId, input.folderId);
+    }),
+
+  moveDocumentsToFolder: protectedProcedure
+    .input(z.object({ documentIds: z.array(z.number()), folderId: z.number().nullable() }))
+    .mutation(async ({ input }) => {
+      return db.moveDocumentsToFolder(input.documentIds, input.folderId);
+    }),
+
+  // Move folder (change parent)
+  moveFolder: protectedProcedure
+    .input(z.object({ folderId: z.number(), newParentId: z.number().nullable() }))
+    .mutation(async ({ input }) => {
+      return db.updateFolder(input.folderId, { parentId: input.newParentId ?? undefined });
+    }),
+
+  // Access management
+  getDocumentAccess: protectedProcedure
+    .input(z.object({ documentId: z.number() }))
+    .query(async ({ input }) => {
+      return db.getDocumentAccessList(input.documentId);
+    }),
+
+  getFolderAccess: protectedProcedure
+    .input(z.object({ folderId: z.number() }))
+    .query(async ({ input }) => {
+      return db.getFolderAccessList(input.folderId);
+    }),
+
+  grantAccess: protectedProcedure
+    .input(z.object({
+      documentId: z.number().optional(),
+      folderId: z.number().optional(),
+      userId: z.number(),
+      accessLevel: z.enum(["view", "edit", "admin"]).default("view"),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      if (input.folderId) {
+        return db.grantFolderAccess({ folderId: input.folderId, userId: input.userId, accessLevel: input.accessLevel, grantedBy: ctx.user!.id });
+      }
+      if (input.documentId) {
+        return db.grantDocumentAccess({ documentId: input.documentId, userId: input.userId, accessLevel: input.accessLevel, grantedBy: ctx.user!.id });
+      }
+      return null;
+    }),
+
+  revokeAccess: protectedProcedure
+    .input(z.object({ accessId: z.number() }))
+    .mutation(async ({ input }) => {
+      return db.revokeDocumentAccess(input.accessId);
+    }),
+
+  // AI Document Analysiss
   analyzeDocument: protectedProcedure
     .input(z.object({
       title: z.string(),
@@ -4462,15 +4537,64 @@ ${textContent ? `Content preview (first 2000 chars):\n${textContent.substring(0,
 
       console.log(`[Batch Import] Complete: ${imported} imported, ${skipped} skipped out of ${allFiles.length} total`);
 
-      return {
+       return {
         totalScanned: allFiles.length,
         imported,
         skipped,
         results,
       };
     }),
-});
 
+  // Copy individual files from Drive to a Vault folder
+  copyToVault: protectedProcedure
+    .input(z.object({
+      files: z.array(z.object({
+        googleFileId: z.string(),
+        name: z.string(),
+        mimeType: z.string(),
+        size: z.number().optional(),
+      })),
+      folderId: z.number().nullable(),
+      collection: z.enum(["company_repo", "personal", "counterparty", "template", "transaction", "signed"]).default("company_repo"),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const results: Array<{ name: string; success: boolean; documentId?: number; error?: string }> = [];
+      for (const file of input.files) {
+        try {
+          // Check if already imported
+          const existing = await db.listDocuments({ search: file.name, limit: 1 });
+          if (existing.items.some((d: any) => d.googleFileId === file.googleFileId)) {
+            results.push({ name: file.name, success: true, error: 'Already exists' });
+            continue;
+          }
+          // Determine source type
+          let sourceType: 'google_doc' | 'google_sheet' | 'google_slide' | 'pdf' | 'uploaded' = 'uploaded';
+          if (file.mimeType === 'application/vnd.google-apps.document') sourceType = 'google_doc';
+          else if (file.mimeType === 'application/vnd.google-apps.spreadsheet') sourceType = 'google_sheet';
+          else if (file.mimeType === 'application/vnd.google-apps.presentation') sourceType = 'google_slide';
+          else if (file.mimeType === 'application/pdf') sourceType = 'pdf';
+
+          const doc = await db.createDocument({
+            title: file.name,
+            sourceType,
+            googleFileId: file.googleFileId,
+            googleMimeType: file.mimeType,
+            collection: input.collection,
+            category: 'other',
+            status: 'active',
+            visibility: 'organization',
+            folderId: input.folderId,
+            ownerId: ctx.user!.id,
+            fileSize: file.size ?? null,
+          });
+          results.push({ name: file.name, success: true, documentId: doc?.id });
+        } catch (e: any) {
+          results.push({ name: file.name, success: false, error: e.message });
+        }
+      }
+      return { imported: results.filter(r => r.success && !r.error).length, skipped: results.filter(r => r.error === 'Already exists').length, failed: results.filter(r => !r.success).length, results };
+    }),
+});
 // ============================================================================
 // TEMPLATE ENGINE ROUTER
 // ============================================================================

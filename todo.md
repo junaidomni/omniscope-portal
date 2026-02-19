@@ -2016,3 +2016,30 @@
 - [x] Rolled back code to v57 (internal document viewer, settings cards, smart import intact)
 - [x] Cleared all documents from Vault (fresh start for NCNDA use going forward)
 - [x] Cleared all entity links, notes, favorites, and signing envelopes
+
+## v59 — Custom Folders, Drive Copy/Move, Access Tagging
+
+### Custom Folder System
+- [x] Create folders in the Vault with custom names (New Folder dialog)
+- [x] Nested subfolders (parent-child hierarchy with parentId)
+- [x] Folder navigation with breadcrumbs
+- [x] Rename folders (via context menu)
+- [x] Delete folders with confirmation (documents moved to root)
+- [x] Folder context menu (rename, delete, share)
+- [x] Backend: createFolder, updateFolder, deleteFolder, listFolders, getFolderContents procedures
+- [x] Backend: moveDocumentToFolder procedure
+
+### Move/Copy from Google Drive
+- [x] "Add" dropdown on Drive files with Quick Import and Copy to Folder options
+- [x] Copy to Vault Folder dialog with folder picker (CopyToVaultFolderPicker)
+- [x] Folder picker with breadcrumb navigation and nested folder browsing
+- [x] Quick Import (root level) still available
+- [x] Backend: copyToVault procedure in drive router
+
+### Access Tagging (Permissions)
+- [x] documentAccess table already exists with view/edit/admin permission levels
+- [x] Share/Access dialog for both documents and folders
+- [x] Search contacts to grant access with permission level selector
+- [x] View and revoke existing access from Share dialog
+- [x] Backend: grantAccess, revokeAccess, getAccessList procedures
+- [x] All 938 tests passing across 37 files

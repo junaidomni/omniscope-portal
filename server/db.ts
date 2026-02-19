@@ -2322,3 +2322,65 @@ export async function getDocumentAccessList(documentId: number) {
   if (!db) return [];
   return db.select().from(documentAccess).where(eq(documentAccess.documentId, documentId));
 }
+
+export async function getFolderAccessList(folderId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(documentAccess).where(eq(documentAccess.folderId, folderId));
+}
+
+export async function grantFolderAccess(data: { folderId: number; userId: number; accessLevel: 'view' | 'edit' | 'admin'; grantedBy: number }) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(documentAccess).values(data);
+  return { id: result.insertId, ...data };
+}
+
+export async function moveDocumentToFolder(documentId: number, folderId: number | null) {
+  const db = await getDb();
+  if (!db) return null;
+  await db.update(documents).set({ folderId }).where(eq(documents.id, documentId));
+  return getDocumentById(documentId);
+}
+
+export async function moveDocumentsToFolder(documentIds: number[], folderId: number | null) {
+  const db = await getDb();
+  if (!db) return false;
+  await db.update(documents).set({ folderId }).where(inArray(documents.id, documentIds));
+  return true;
+}
+
+export async function getFolderById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [folder] = await db.select().from(documentFolders).where(eq(documentFolders.id, id)).limit(1);
+  return folder ?? null;
+}
+
+export async function getFolderWithChildren(folderId: number | null) {
+  const db = await getDb();
+  if (!db) return { folders: [], documents: [] };
+  const condition = folderId === null
+    ? sql`${documentFolders.parentId} IS NULL`
+    : eq(documentFolders.parentId, folderId);
+  const folders = await db.select().from(documentFolders).where(condition).orderBy(asc(documentFolders.sortOrder), asc(documentFolders.name));
+  const docCondition = folderId === null
+    ? sql`${documents.folderId} IS NULL`
+    : eq(documents.folderId, folderId);
+  const docs = await db.select().from(documents).where(docCondition).orderBy(desc(documents.createdAt));
+  return { folders, documents: docs };
+}
+
+export async function getFolderBreadcrumbs(folderId: number): Promise<Array<{ id: number; name: string }>> {
+  const db = await getDb();
+  if (!db) return [];
+  const crumbs: Array<{ id: number; name: string }> = [];
+  let currentId: number | null = folderId;
+  while (currentId !== null) {
+    const [folder] = await db.select({ id: documentFolders.id, name: documentFolders.name, parentId: documentFolders.parentId }).from(documentFolders).where(eq(documentFolders.id, currentId)).limit(1);
+    if (!folder) break;
+    crumbs.unshift({ id: folder.id, name: folder.name });
+    currentId = folder.parentId;
+  }
+  return crumbs;
+}

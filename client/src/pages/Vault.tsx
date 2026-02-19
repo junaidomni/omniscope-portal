@@ -130,6 +130,11 @@ export default function Vault() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<"doc" | "sheet">("doc");
   const [detailDocId, setDetailDocId] = useState<number | null>(null);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [moveToFolderOpen, setMoveToFolderOpen] = useState(false);
+  const [moveDocId, setMoveDocId] = useState<number | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<{ type: 'document' | 'folder'; id: number; name: string } | null>(null);
   const [, setLocation] = useLocation();
 
   // Vault Queries
@@ -170,6 +175,58 @@ export default function Vault() {
       collectionDocs.refetch();
       folderDocs.refetch();
     },
+  });
+
+  const createFolder = trpc.vault.createFolder.useMutation({
+    onSuccess: () => {
+      toast.success("Folder created");
+      folders.refetch();
+      setNewFolderOpen(false);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const moveDocToFolder = trpc.vault.moveDocumentToFolder.useMutation({
+    onSuccess: () => {
+      toast.success("Document moved");
+      recentDocs.refetch();
+      collectionDocs.refetch();
+      folderDocs.refetch();
+      setMoveToFolderOpen(false);
+      setMoveDocId(null);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const renameFolder = trpc.vault.updateFolder.useMutation({
+    onSuccess: () => {
+      toast.success("Folder renamed");
+      folders.refetch();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const deleteFolder = trpc.vault.deleteFolder.useMutation({
+    onSuccess: () => {
+      toast.success("Folder deleted");
+      folders.refetch();
+      recentDocs.refetch();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const grantAccess = trpc.vault.grantAccess.useMutation({
+    onSuccess: () => {
+      toast.success("Access granted");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const revokeAccess = trpc.vault.revokeAccess.useMutation({
+    onSuccess: () => {
+      toast.success("Access revoked");
+    },
+    onError: (e) => toast.error(e.message),
   });
 
   // Navigation helpers
@@ -287,6 +344,10 @@ export default function Vault() {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => { setCreateType("sheet"); setCreateDialogOpen(true); }}>
                       <FileSpreadsheet className="h-4 w-4 mr-2 text-green-400" /> New Google Sheet
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-zinc-800" />
+                    <DropdownMenuItem onClick={() => setNewFolderOpen(true)}>
+                      <FolderPlus className="h-4 w-4 mr-2 text-yellow-500" /> New Folder
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -441,6 +502,8 @@ export default function Vault() {
                       onToggleFavorite={(id) => toggleFavorite.mutate({ documentId: id })}
                       onDelete={(id) => deleteDoc.mutate({ id })}
                       onViewDetail={(id) => setLocation(`/vault/doc/${id}`)}
+                      onMoveToFolder={(id) => { setMoveDocId(id); setMoveToFolderOpen(true); }}
+                      onShare={(id, name) => { setShareTarget({ type: 'document', id, name }); setShareDialogOpen(true); }}
                     />
                   )}
                 </div>
@@ -456,14 +519,50 @@ export default function Vault() {
                     <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Folders</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                       {currentFolders.map((folder: any) => (
-                        <button
+                        <div
                           key={folder.id}
+                          className="flex items-center gap-2.5 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900 transition-all group text-left cursor-pointer relative"
                           onClick={() => navigateToFolder(folder.id, folder.name)}
-                          className="flex items-center gap-2.5 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900 transition-all group text-left"
                         >
                           <FolderOpen className="h-5 w-5 text-yellow-600 shrink-0" />
-                          <span className="text-sm text-zinc-300 group-hover:text-white truncate">{folder.name}</span>
-                        </button>
+                          <span className="text-sm text-zinc-300 group-hover:text-white truncate flex-1">{folder.name}</span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-1 rounded opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all"
+                              >
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800">
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShareTarget({ type: 'folder', id: folder.id, name: folder.name }); setShareDialogOpen(true); }}>
+                                <Users className="h-4 w-4 mr-2" /> Share / Tag Access
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                const newName = prompt("Rename folder:", folder.name);
+                                if (newName && newName.trim() !== folder.name) {
+                                  renameFolder.mutate({ id: folder.id, name: newName.trim() });
+                                }
+                              }}>
+                                <Edit3 className="h-4 w-4 mr-2" /> Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm(`Delete folder "${folder.name}"? Documents inside will be moved to root.`)) {
+                                    deleteFolder.mutate({ id: folder.id });
+                                  }
+                                }}
+                                className="text-red-400"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete Folder
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -488,6 +587,8 @@ export default function Vault() {
                     onToggleFavorite={(id) => toggleFavorite.mutate({ documentId: id })}
                     onDelete={(id) => deleteDoc.mutate({ id })}
                     onViewDetail={(id) => setLocation(`/vault/doc/${id}`)}
+                    onMoveToFolder={(id) => { setMoveDocId(id); setMoveToFolderOpen(true); }}
+                    onShare={(id, name) => { setShareTarget({ type: 'document', id, name }); setShareDialogOpen(true); }}
                   />
                 )}
               </div>
@@ -530,6 +631,42 @@ export default function Vault() {
           onClose={() => setDetailDocId(null)}
         />
       )}
+
+      {/* New Folder Dialog */}
+      <NewFolderDialog
+        open={newFolderOpen}
+        onClose={() => setNewFolderOpen(false)}
+        parentId={selectedFolderId}
+        collection={selectedCollection || "company_repo"}
+        onSubmit={(name, collection, parentId) => {
+          createFolder.mutate({ name, collection, parentId });
+        }}
+        isLoading={createFolder.isPending}
+      />
+
+      {/* Move to Folder Dialog */}
+      <MoveToFolderDialog
+        open={moveToFolderOpen}
+        onClose={() => { setMoveToFolderOpen(false); setMoveDocId(null); }}
+        documentId={moveDocId}
+        onMove={(docId, folderId) => {
+          moveDocToFolder.mutate({ documentId: docId, folderId });
+        }}
+        isLoading={moveDocToFolder.isPending}
+      />
+
+      {/* Share / Access Dialog */}
+      <ShareAccessDialog
+        open={shareDialogOpen}
+        onClose={() => { setShareDialogOpen(false); setShareTarget(null); }}
+        target={shareTarget}
+        onGrant={(targetType, targetId, contactId, level) => {
+          grantAccess.mutate({ targetType, targetId, contactId, level });
+        }}
+        onRevoke={(accessId) => {
+          revokeAccess.mutate({ id: accessId });
+        }}
+      />
     </div>
   );
 }
@@ -542,6 +679,10 @@ function DriveBrowser({ onImport }: { onImport: () => void }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [importingFileId, setImportingFileId] = useState<string | null>(null);
+  const [copyToVaultOpen, setCopyToVaultOpen] = useState(false);
+  const [copyFileId, setCopyFileId] = useState<string | null>(null);
+  const [copyFileName, setCopyFileName] = useState("");
+  const [copyFolderId, setCopyFolderId] = useState<number | null>(null);
 
   const driveStatus = trpc.drive.connectionStatus.useQuery();
   const sharedDrives = trpc.drive.listSharedDrives.useQuery(undefined, {
@@ -609,9 +750,27 @@ function DriveBrowser({ onImport }: { onImport: () => void }) {
     setIsSearching(false);
   };
 
+  const copyToVault = trpc.drive.copyToVault.useMutation({
+    onSuccess: (doc) => {
+      toast.success(`"${doc?.title}" copied to Vault`);
+      setCopyToVaultOpen(false);
+      setCopyFileId(null);
+      onImport();
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    },
+  });
+
   const handleImport = (fileId: string) => {
     setImportingFileId(fileId);
     importToVault.mutate({ googleFileId: fileId });
+  };
+
+  const handleCopyToVault = (fileId: string, fileName: string) => {
+    setCopyFileId(fileId);
+    setCopyFileName(fileName);
+    setCopyToVaultOpen(true);
   };
 
   const files = isSearching ? (searchResults.data || []) : (driveFiles.data?.files || []);
@@ -791,18 +950,29 @@ function DriveBrowser({ onImport }: { onImport: () => void }) {
                   {formatDate(file.modifiedTime)}
                 </span>
 
-                <div className="w-20 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="w-28 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   {!isFolder && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleImport(file.id)}
-                      disabled={isImporting}
-                      className="h-7 px-2 text-xs text-yellow-500 hover:text-yellow-400 hover:bg-yellow-600/10"
-                    >
-                      {isImporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Import className="h-3 w-3 mr-1" />}
-                      {isImporting ? "" : "Import"}
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isImporting}
+                          className="h-7 px-2 text-xs text-yellow-500 hover:text-yellow-400 hover:bg-yellow-600/10"
+                        >
+                          {isImporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Import className="h-3 w-3 mr-1" />}
+                          {isImporting ? "" : "Add"}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800">
+                        <DropdownMenuItem onClick={() => handleImport(file.id)}>
+                          <Import className="h-4 w-4 mr-2" /> Quick Import
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleCopyToVault(file.id, file.name)}>
+                          <FolderPlus className="h-4 w-4 mr-2" /> Copy to Folder...
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                   <Button
                     variant="ghost"
@@ -818,6 +988,107 @@ function DriveBrowser({ onImport }: { onImport: () => void }) {
           })}
         </div>
       )}
+
+      {/* Copy to Vault Folder Dialog */}
+      <Dialog open={copyToVaultOpen} onOpenChange={(v) => { if (!v) { setCopyToVaultOpen(false); setCopyFileId(null); } }}>
+        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <FolderPlus className="h-5 w-5 text-yellow-500" /> Copy to Vault Folder
+            </DialogTitle>
+            <p className="text-xs text-zinc-500 mt-1">
+              Copying: <span className="text-zinc-300">{copyFileName}</span>
+            </p>
+          </DialogHeader>
+          <CopyToVaultFolderPicker
+            selectedFolderId={copyFolderId}
+            onSelect={setCopyFolderId}
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCopyToVaultOpen(false)} className="text-zinc-400">Cancel</Button>
+            <Button
+              onClick={() => {
+                if (copyFileId) {
+                  copyToVault.mutate({ googleFileId: copyFileId, folderId: copyFolderId });
+                }
+              }}
+              disabled={copyToVault.isPending}
+              className="bg-yellow-600 hover:bg-yellow-700 text-black"
+            >
+              {copyToVault.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Import className="h-4 w-4 mr-1.5" />}
+              Copy to Vault
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ─── Copy to Vault Folder Picker ───
+function CopyToVaultFolderPicker({ selectedFolderId, onSelect }: { selectedFolderId: number | null; onSelect: (id: number | null) => void }) {
+  const [browseFolderId, setBrowseFolderId] = useState<number | null>(null);
+  const [breadcrumbs, setBreadcrumbs] = useState<Array<{ id: number | null; name: string }>>([{ id: null, name: "Root" }]);
+
+  const folders = trpc.vault.listFolders.useQuery({ parentId: browseFolderId });
+
+  return (
+    <div className="space-y-3 py-2">
+      <div className="flex items-center gap-1 text-xs text-zinc-500">
+        {breadcrumbs.map((bc, i) => (
+          <span key={i} className="flex items-center gap-1">
+            {i > 0 && <ChevronRight className="h-3 w-3" />}
+            <button
+              onClick={() => {
+                setBrowseFolderId(bc.id);
+                setBreadcrumbs(breadcrumbs.slice(0, i + 1));
+              }}
+              className={i === breadcrumbs.length - 1 ? "text-zinc-300" : "hover:text-zinc-300"}
+            >
+              {bc.name}
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="border border-zinc-800 rounded-lg overflow-hidden max-h-56 overflow-y-auto">
+        <button
+          onClick={() => onSelect(null)}
+          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${
+            selectedFolderId === null ? "bg-yellow-600/10 border-l-2 border-yellow-500" : "hover:bg-zinc-900"
+          }`}
+        >
+          <Archive className="h-4 w-4 text-zinc-500" />
+          <span className="text-sm text-zinc-300">No folder (root level)</span>
+        </button>
+        {folders.isLoading ? (
+          <div className="p-4 text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto text-zinc-500" /></div>
+        ) : (folders.data || []).length === 0 ? (
+          <div className="p-4 text-center text-xs text-zinc-600">No folders here.</div>
+        ) : (
+          (folders.data || []).map((f: any) => (
+            <div key={f.id} className="flex items-center">
+              <button
+                onClick={() => onSelect(f.id)}
+                className={`flex-1 flex items-center gap-3 px-4 py-3 text-left transition-all ${
+                  selectedFolderId === f.id ? "bg-yellow-600/10 border-l-2 border-yellow-500" : "hover:bg-zinc-900"
+                }`}
+              >
+                <FolderOpen className="h-4 w-4 text-yellow-600" />
+                <span className="text-sm text-zinc-300">{f.name}</span>
+              </button>
+              <button
+                onClick={() => {
+                  setBrowseFolderId(f.id);
+                  setBreadcrumbs(prev => [...prev, { id: f.id, name: f.name }]);
+                }}
+                className="px-3 py-3 text-zinc-600 hover:text-zinc-300 transition-colors"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -1072,12 +1343,16 @@ function DocumentList({
   onToggleFavorite,
   onDelete,
   onViewDetail,
+  onMoveToFolder,
+  onShare,
 }: {
   documents: any[];
   displayMode: "grid" | "list";
   onToggleFavorite: (id: number) => void;
   onDelete: (id: number) => void;
   onViewDetail: (id: number) => void;
+  onMoveToFolder?: (id: number) => void;
+  onShare?: (id: number, name: string) => void;
 }) {
   if (displayMode === "grid") {
     return (
@@ -1104,6 +1379,12 @@ function DocumentList({
                   <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800">
                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleFavorite(doc.id); }}>
                       <Star className="h-4 w-4 mr-2" /> Toggle Star
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMoveToFolder?.(doc.id); }}>
+                      <FolderOpen className="h-4 w-4 mr-2" /> Move to Folder
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onShare?.(doc.id, doc.title); }}>
+                      <Users className="h-4 w-4 mr-2" /> Share / Tag Access
                     </DropdownMenuItem>
                     {doc.googleFileId && (
                       <DropdownMenuItem onClick={(e) => {
@@ -1190,6 +1471,12 @@ function DocumentList({
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleFavorite(doc.id); }}>
                     <Star className="h-4 w-4 mr-2" /> Toggle Star
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMoveToFolder?.(doc.id); }}>
+                    <FolderOpen className="h-4 w-4 mr-2" /> Move to Folder
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onShare?.(doc.id, doc.title); }}>
+                    <Users className="h-4 w-4 mr-2" /> Share / Tag Access
                   </DropdownMenuItem>
                   {doc.googleFileId && (
                     <DropdownMenuItem onClick={(e) => {
@@ -1852,5 +2139,355 @@ function BatchImportButton({ driveId, driveName, onComplete }: { driveId: string
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+
+// ─── New Folder Dialog ───
+function NewFolderDialog({
+  open, onClose, parentId, collection, onSubmit, isLoading
+}: {
+  open: boolean;
+  onClose: () => void;
+  parentId: number | null;
+  collection: string;
+  onSubmit: (name: string, collection: string, parentId: number | null) => void;
+  isLoading: boolean;
+}) {
+  const [name, setName] = useState("");
+  const [selectedCollection, setSelectedCollection] = useState(collection);
+
+  const handleSubmit = () => {
+    if (!name.trim()) return;
+    onSubmit(name.trim(), selectedCollection, parentId);
+    setName("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); setName(""); } }}>
+      <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-white flex items-center gap-2">
+            <FolderPlus className="h-5 w-5 text-yellow-500" /> New Folder
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div>
+            <Label className="text-zinc-400 text-xs">Folder Name</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Kinetix KYB Package"
+              className="mt-1.5 bg-zinc-900 border-zinc-800 text-white"
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              autoFocus
+            />
+          </div>
+          <div>
+            <Label className="text-zinc-400 text-xs">Collection</Label>
+            <Select value={selectedCollection} onValueChange={setSelectedCollection}>
+              <SelectTrigger className="mt-1.5 bg-zinc-900 border-zinc-800 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(COLLECTION_LABELS).map(([key, { label }]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {parentId && (
+            <p className="text-xs text-zinc-500">
+              This folder will be created inside the current folder.
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} className="text-zinc-400">Cancel</Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!name.trim() || isLoading}
+            className="bg-yellow-600 hover:bg-yellow-700 text-black"
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <FolderPlus className="h-4 w-4 mr-1.5" />}
+            Create Folder
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Move to Folder Dialog ───
+function MoveToFolderDialog({
+  open, onClose, documentId, onMove, isLoading
+}: {
+  open: boolean;
+  onClose: () => void;
+  documentId: number | null;
+  onMove: (docId: number, folderId: number | null) => void;
+  isLoading: boolean;
+}) {
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+  const [browseFolderId, setBrowseFolderId] = useState<number | null>(null);
+  const [breadcrumbs, setBreadcrumbs] = useState<Array<{ id: number | null; name: string }>>([{ id: null, name: "Root" }]);
+
+  const allFolders = trpc.vault.listFolders.useQuery(
+    { parentId: browseFolderId },
+    { enabled: open }
+  );
+
+  const navigateInto = (folderId: number, folderName: string) => {
+    setBrowseFolderId(folderId);
+    setBreadcrumbs(prev => [...prev, { id: folderId, name: folderName }]);
+  };
+
+  const navigateToIndex = (index: number) => {
+    const target = breadcrumbs[index];
+    setBrowseFolderId(target.id);
+    setBreadcrumbs(breadcrumbs.slice(0, index + 1));
+  };
+
+  const handleMove = () => {
+    if (documentId === null) return;
+    onMove(documentId, selectedFolderId);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); setSelectedFolderId(null); setBrowseFolderId(null); setBreadcrumbs([{ id: null, name: "Root" }]); } }}>
+      <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-white flex items-center gap-2">
+            <FolderOpen className="h-5 w-5 text-yellow-500" /> Move to Folder
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          {/* Breadcrumbs */}
+          <div className="flex items-center gap-1 text-xs text-zinc-500">
+            {breadcrumbs.map((bc, i) => (
+              <span key={i} className="flex items-center gap-1">
+                {i > 0 && <ChevronRight className="h-3 w-3" />}
+                <button
+                  onClick={() => navigateToIndex(i)}
+                  className={i === breadcrumbs.length - 1 ? "text-zinc-300" : "hover:text-zinc-300"}
+                >
+                  {bc.name}
+                </button>
+              </span>
+            ))}
+          </div>
+
+          {/* Folder list */}
+          <div className="border border-zinc-800 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+            {/* Move to root option */}
+            <button
+              onClick={() => setSelectedFolderId(null)}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${
+                selectedFolderId === null ? "bg-yellow-600/10 border-l-2 border-yellow-500" : "hover:bg-zinc-900"
+              }`}
+            >
+              <Archive className="h-4 w-4 text-zinc-500" />
+              <span className="text-sm text-zinc-300">No folder (root level)</span>
+            </button>
+
+            {allFolders.isLoading ? (
+              <div className="p-4 text-center">
+                <Loader2 className="h-4 w-4 animate-spin mx-auto text-zinc-500" />
+              </div>
+            ) : (allFolders.data || []).length === 0 ? (
+              <div className="p-4 text-center text-xs text-zinc-600">
+                No folders here. Create one first.
+              </div>
+            ) : (
+              (allFolders.data || []).map((folder: any) => (
+                <div key={folder.id} className="flex items-center">
+                  <button
+                    onClick={() => setSelectedFolderId(folder.id)}
+                    className={`flex-1 flex items-center gap-3 px-4 py-3 text-left transition-all ${
+                      selectedFolderId === folder.id ? "bg-yellow-600/10 border-l-2 border-yellow-500" : "hover:bg-zinc-900"
+                    }`}
+                  >
+                    <FolderOpen className="h-4 w-4 text-yellow-600" />
+                    <span className="text-sm text-zinc-300">{folder.name}</span>
+                  </button>
+                  <button
+                    onClick={() => navigateInto(folder.id, folder.name)}
+                    className="px-3 py-3 text-zinc-600 hover:text-zinc-300 transition-colors"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} className="text-zinc-400">Cancel</Button>
+          <Button
+            onClick={handleMove}
+            disabled={isLoading}
+            className="bg-yellow-600 hover:bg-yellow-700 text-black"
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <FolderOpen className="h-4 w-4 mr-1.5" />}
+            Move Here
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Share / Access Dialog ───
+function ShareAccessDialog({
+  open, onClose, target, onGrant, onRevoke
+}: {
+  open: boolean;
+  onClose: () => void;
+  target: { type: 'document' | 'folder'; id: number; name: string } | null;
+  onGrant: (targetType: string, targetId: number, contactId: number, level: string) => void;
+  onRevoke: (accessId: number) => void;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
+  const [accessLevel, setAccessLevel] = useState<string>("view");
+
+  const accessList = trpc.vault.getAccessList.useQuery(
+    { targetType: target?.type || "document", targetId: target?.id || 0 },
+    { enabled: open && !!target }
+  );
+
+  const contactSearch = trpc.contacts.search.useQuery(
+    { query: searchQuery },
+    { enabled: searchQuery.length >= 2 }
+  );
+
+  const handleGrant = () => {
+    if (!target || !selectedContactId) return;
+    onGrant(target.type, target.id, selectedContactId, accessLevel);
+    setSearchQuery("");
+    setSelectedContactId(null);
+    setTimeout(() => accessList.refetch(), 500);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); setSearchQuery(""); setSelectedContactId(null); } }}>
+      <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-white flex items-center gap-2">
+            <Users className="h-5 w-5 text-yellow-500" /> Share Access
+          </DialogTitle>
+          {target && (
+            <p className="text-xs text-zinc-500 mt-1">
+              Managing access for: <span className="text-zinc-300">{target.name}</span>
+            </p>
+          )}
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          {/* Add person */}
+          <div className="space-y-2">
+            <Label className="text-zinc-400 text-xs">Tag a person for access</Label>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setSelectedContactId(null); }}
+                  placeholder="Search contacts..."
+                  className="pl-9 bg-zinc-900 border-zinc-800 text-white text-sm"
+                />
+                {searchQuery.length >= 2 && contactSearch.data && !selectedContactId && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 max-h-48 overflow-auto">
+                    {(contactSearch.data as any[]).length === 0 ? (
+                      <div className="p-3 text-xs text-zinc-500">No contacts found</div>
+                    ) : (
+                      (contactSearch.data as any[]).map((c: any) => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setSelectedContactId(c.id); setSearchQuery(c.name || c.email); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-zinc-800 text-left"
+                        >
+                          <User className="h-3.5 w-3.5 text-zinc-500" />
+                          <div>
+                            <p className="text-sm text-white">{c.name}</p>
+                            {c.email && <p className="text-xs text-zinc-500">{c.email}</p>}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              <Select value={accessLevel} onValueChange={setAccessLevel}>
+                <SelectTrigger className="w-28 bg-zinc-900 border-zinc-800 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="view">View</SelectItem>
+                  <SelectItem value="edit">Edit</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleGrant}
+                disabled={!selectedContactId}
+                size="sm"
+                className="bg-yellow-600 hover:bg-yellow-700 text-black"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Current access list */}
+          <div>
+            <Label className="text-zinc-400 text-xs">People with access</Label>
+            <div className="mt-2 space-y-1 max-h-48 overflow-auto">
+              {accessList.isLoading ? (
+                <div className="p-4 text-center">
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto text-zinc-500" />
+                </div>
+              ) : (accessList.data as any[] || []).length === 0 ? (
+                <div className="p-4 text-center text-xs text-zinc-600 border border-zinc-800/60 rounded-lg">
+                  <Lock className="h-5 w-5 mx-auto mb-1.5 text-zinc-700" />
+                  No one has been given access yet
+                </div>
+              ) : (
+                (accessList.data as any[] || []).map((access: any) => (
+                  <div key={access.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-zinc-900/60 border border-zinc-800/40">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-full bg-zinc-800 flex items-center justify-center">
+                        <User className="h-3.5 w-3.5 text-zinc-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-white">{access.contactName || "Unknown"}</p>
+                        <p className="text-xs text-zinc-500">{access.contactEmail || ""}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={`text-[10px] ${
+                        access.level === "admin" ? "text-red-400 border-red-600/30" :
+                        access.level === "edit" ? "text-yellow-400 border-yellow-600/30" :
+                        "text-zinc-400 border-zinc-700"
+                      }`}>
+                        {access.level}
+                      </Badge>
+                      <button
+                        onClick={() => { onRevoke(access.id); setTimeout(() => accessList.refetch(), 500); }}
+                        className="p-1 rounded text-zinc-600 hover:text-red-400 transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={onClose} className="bg-zinc-800 hover:bg-zinc-700 text-white">Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
