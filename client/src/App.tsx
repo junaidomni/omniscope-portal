@@ -55,6 +55,7 @@ function Router() {
         <Route path="/contact/:id" component={Relationships} />
         <Route path="/companies" component={Relationships} />
         <Route path="/company/:id" component={Relationships} />
+        <Route path="/pending-review" component={Relationships} />
 
         {/* Standalone pages */}
         <Route path="/ask" component={AskOmniScope} />

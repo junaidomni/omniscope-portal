@@ -3152,6 +3152,24 @@ const triageRouter = router({
       return { success: true };
     }),
 
+  bulkApproveCompanies: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()) }))
+    .mutation(async ({ input }) => {
+      for (const id of input.ids) {
+        await db.updateCompany(id, { approvalStatus: 'approved' });
+      }
+      return { approved: input.ids.length };
+    }),
+
+  bulkRejectCompanies: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()) }))
+    .mutation(async ({ input }) => {
+      for (const id of input.ids) {
+        await db.updateCompany(id, { approvalStatus: 'rejected' });
+      }
+      return { rejected: input.ids.length };
+    }),
+
   // AI Strategic Insights — generates contextual recommendations
   strategicInsights: protectedProcedure.query(async ({ ctx }) => {
     const { invokeLLM } = await import('./_core/llm');

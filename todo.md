@@ -1744,3 +1744,24 @@
 ### Triage Feed Updates
 - [x] Show pending review count in stat cards
 - [x] Surface new pending items from recent meetings
+
+## v51 — Batch Review, Notification Badge, Undo Toast
+
+### Batch Review Table in Relationships
+- [x] Add dedicated "Pending" tab in Relationships page
+- [x] Sortable table view for pending contacts with bulk actions
+- [x] Sortable table view for pending companies with bulk actions
+- [x] Pending suggestions section (company links, enrichment)
+- [x] Bulk approve/reject/merge actions from the table
+- [x] Select-all checkbox for batch operations
+
+### Notification Badge on Pending Stat Card
+- [x] Add subtle pulse animation on Pending stat card when count > 0
+- [x] Red dot indicator for new pending items
+- [x] Animation stops after user clicks the Pending card
+
+### Undo Toast for Approvals/Rejections
+- [x] Show 5-second toast after approve/reject actions
+- [x] Toast includes "Undo" button to reverse the action
+- [x] Undo reverts the contact/company/suggestion back to pending
+- [x] Toast auto-dismisses after 5 seconds if not undone

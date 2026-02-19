@@ -781,6 +781,7 @@ function StatCard({
   active,
   onClick,
   highlight,
+  hasNotification,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -789,11 +790,12 @@ function StatCard({
   active?: boolean;
   onClick?: () => void;
   highlight?: boolean;
+  hasNotification?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full border rounded-xl px-3 py-2.5 flex items-center gap-2.5 transition-all duration-200 cursor-pointer text-left hover:scale-[1.02] active:scale-[0.98] ${
+      className={`relative w-full border rounded-xl px-3 py-2.5 flex items-center gap-2.5 transition-all duration-200 cursor-pointer text-left hover:scale-[1.02] active:scale-[0.98] ${
         active
           ? "bg-yellow-600/15 border-yellow-500/40 ring-1 ring-yellow-500/20"
           : highlight
@@ -801,6 +803,12 @@ function StatCard({
             : "bg-zinc-900/40 border-zinc-800/40 hover:border-zinc-700/50"
       }`}
     >
+      {hasNotification && value > 0 && (
+        <span className="absolute -top-1 -right-1 flex h-3 w-3">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-zinc-900" />
+        </span>
+      )}
       <div className={`p-1.5 rounded-lg ${color}`}>{icon}</div>
       <div>
         <div className={`text-base font-bold font-mono ${active ? "text-yellow-400" : "text-white"}`}>{value}</div>
@@ -1129,8 +1137,8 @@ function GreetingBar({
                   <StatCard icon={<Flame className="h-3.5 w-3.5 text-yellow-400" />} label="High Priority" value={summary.totalHighPriority} color="bg-yellow-950/40" active={activeFilter === "high"} onClick={() => toggleFilter("high")} />
                   <StatCard icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />} label="Done Today" value={summary.completedToday} color="bg-emerald-950/40" active={activeFilter === "done"} onClick={() => toggleFilter("done")} />
                   <StatCard icon={<Star className="h-3.5 w-3.5 text-yellow-400" />} label="Starred Mail" value={summary.totalStarred} color="bg-yellow-950/40" active={activeFilter === "starred"} onClick={() => toggleFilter("starred")} />
-                  <StatCard icon={<Users className="h-3.5 w-3.5 text-blue-400" />} label="Pending" value={summary.totalPendingApprovals} color="bg-blue-950/40" active={activeFilter === "pending"} onClick={() => toggleFilter("pending")} />
-                </div>
+<StatCard icon={<Users className="h-3.5 w-3.5 text-blue-400" />} label="Pending" value={summary.totalPendingApprovals} color="bg-blue-950/40" active={activeFilter === "pending"} onClick={() => toggleFilter("pending")} hasNotification={summary.totalPendingApprovals > 0} />
+                 </div>
               </div>
             </div>
           </div>
@@ -1163,8 +1171,8 @@ function GreetingBar({
             <StatCard icon={<Flame className="h-3.5 w-3.5 text-yellow-400" />} label="High" value={summary.totalHighPriority} color="bg-yellow-950/40" active={activeFilter === "high"} onClick={() => toggleFilter("high")} />
             <StatCard icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />} label="Done" value={summary.completedToday} color="bg-emerald-950/40" active={activeFilter === "done"} onClick={() => toggleFilter("done")} />
             <StatCard icon={<Star className="h-3.5 w-3.5 text-yellow-400" />} label="Starred" value={summary.totalStarred} color="bg-yellow-950/40" active={activeFilter === "starred"} onClick={() => toggleFilter("starred")} />
-            <StatCard icon={<Users className="h-3.5 w-3.5 text-blue-400" />} label="Pending" value={summary.totalPendingApprovals} color="bg-blue-950/40" active={activeFilter === "pending"} onClick={() => toggleFilter("pending")} />
-          </div>
+<StatCard icon={<Users className="h-3.5 w-3.5 text-blue-400" />} label="Pending" value={summary.totalPendingApprovals} color="bg-blue-950/40" active={activeFilter === "pending"} onClick={() => toggleFilter("pending")} hasNotification={summary.totalPendingApprovals > 0} />
+           </div>
         </div>
       </div>
 
@@ -1234,37 +1242,69 @@ export default function TriageFeed() {
   });
 
   const approveContactMutation = trpc.triage.approveContact.useMutation({
-    onSuccess: () => {
-      toast.success("Contact approved");
+    onSuccess: (_data, variables) => {
       setSelectedApproval(null);
       utils.triage.feed.invalidate();
+      utils.contacts.list.invalidate();
+      toast("Contact approved", {
+        description: "Click Undo to reverse",
+        action: {
+          label: "Undo",
+          onClick: () => rejectContactMutation.mutate({ contactId: variables.contactId }),
+        },
+        duration: 5000,
+      });
     },
     onError: () => toast.error("Could not approve contact"),
   });
 
   const rejectContactMutation = trpc.triage.rejectContact.useMutation({
-    onSuccess: () => {
-      toast.success("Contact rejected");
+    onSuccess: (_data, variables) => {
       setSelectedApproval(null);
       utils.triage.feed.invalidate();
+      utils.contacts.list.invalidate();
+      toast("Contact rejected", {
+        description: "Click Undo to reverse",
+        action: {
+          label: "Undo",
+          onClick: () => approveContactMutation.mutate({ contactId: variables.contactId }),
+        },
+        duration: 5000,
+      });
     },
     onError: () => toast.error("Could not reject contact"),
   });
 
   const approveCompanyMutation = trpc.triage.approveCompany.useMutation({
-    onSuccess: () => {
-      toast.success("Company approved");
+    onSuccess: (_data, variables) => {
       setSelectedApproval(null);
       utils.triage.feed.invalidate();
+      utils.companies.list.invalidate();
+      toast("Company approved", {
+        description: "Click Undo to reverse",
+        action: {
+          label: "Undo",
+          onClick: () => rejectCompanyMutation.mutate({ companyId: variables.companyId }),
+        },
+        duration: 5000,
+      });
     },
     onError: () => toast.error("Could not approve company"),
   });
 
   const rejectCompanyMutation = trpc.triage.rejectCompany.useMutation({
-    onSuccess: () => {
-      toast.success("Company rejected");
+    onSuccess: (_data, variables) => {
       setSelectedApproval(null);
       utils.triage.feed.invalidate();
+      utils.companies.list.invalidate();
+      toast("Company rejected", {
+        description: "Click Undo to reverse",
+        action: {
+          label: "Undo",
+          onClick: () => approveCompanyMutation.mutate({ companyId: variables.companyId }),
+        },
+        duration: 5000,
+      });
     },
     onError: () => toast.error("Could not reject company"),
   });
@@ -1279,17 +1319,31 @@ export default function TriageFeed() {
   });
 
   const approveSuggestionMutation = trpc.contacts.approveSuggestion.useMutation({
-    onSuccess: () => {
-      toast.success("Suggestion approved");
+    onSuccess: (_data, variables) => {
       utils.triage.feed.invalidate();
+      toast("Suggestion approved", {
+        description: "Click Undo to reverse",
+        action: {
+          label: "Undo",
+          onClick: () => rejectSuggestionMutation.mutate({ id: variables.id }),
+        },
+        duration: 5000,
+      });
     },
     onError: () => toast.error("Could not approve suggestion"),
   });
 
   const rejectSuggestionMutation = trpc.contacts.rejectSuggestion.useMutation({
-    onSuccess: () => {
-      toast.success("Suggestion dismissed");
+    onSuccess: (_data, variables) => {
       utils.triage.feed.invalidate();
+      toast("Suggestion dismissed", {
+        description: "Click Undo to reverse",
+        action: {
+          label: "Undo",
+          onClick: () => approveSuggestionMutation.mutate({ id: variables.id }),
+        },
+        duration: 5000,
+      });
     },
     onError: () => toast.error("Could not dismiss suggestion"),
   });
