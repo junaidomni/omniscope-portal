@@ -2774,6 +2774,161 @@ const triageRouter = router({
       await db.updateTask(input.taskId, { dueDate: newDate });
       return { success: true, newDueDate: newDate };
     }),
+
+  // Delete a task from triage
+  deleteTask: protectedProcedure
+    .input(z.object({ taskId: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.deleteTask(input.taskId);
+      return { success: true };
+    }),
+
+  // Update a task from triage (inline edit)
+  updateTask: protectedProcedure
+    .input(z.object({
+      taskId: z.number(),
+      title: z.string().optional(),
+      priority: z.enum(['low', 'medium', 'high']).optional(),
+      status: z.enum(['open', 'in_progress', 'completed']).optional(),
+      assignedName: z.string().nullable().optional(),
+      dueDate: z.string().nullable().optional(),
+      notes: z.string().nullable().optional(),
+      category: z.string().nullable().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { taskId, ...updates } = input;
+      const cleanUpdates: any = {};
+      if (updates.title) cleanUpdates.title = updates.title;
+      if (updates.priority) cleanUpdates.priority = updates.priority;
+      if (updates.status) cleanUpdates.status = updates.status;
+      if (updates.assignedName !== undefined) cleanUpdates.assignedName = updates.assignedName;
+      if (updates.dueDate !== undefined) cleanUpdates.dueDate = updates.dueDate ? new Date(updates.dueDate) : null;
+      if (updates.notes !== undefined) cleanUpdates.notes = updates.notes;
+      if (updates.category !== undefined) cleanUpdates.category = updates.category;
+      await db.updateTask(taskId, cleanUpdates);
+      return { success: true };
+    }),
+
+  // Approve a contact from triage
+  approveContact: protectedProcedure
+    .input(z.object({ contactId: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.updateContact(input.contactId, { approvalStatus: 'approved' });
+      return { success: true };
+    }),
+
+  // Reject a contact from triage
+  rejectContact: protectedProcedure
+    .input(z.object({ contactId: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.updateContact(input.contactId, { approvalStatus: 'rejected' });
+      return { success: true };
+    }),
+
+  // Approve a company from triage
+  approveCompany: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.updateCompany(input.companyId, { approvalStatus: 'approved' });
+      return { success: true };
+    }),
+
+  // Reject a company from triage
+  rejectCompany: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.updateCompany(input.companyId, { approvalStatus: 'rejected' });
+      return { success: true };
+    }),
+
+  // AI Strategic Insights — generates contextual recommendations
+  strategicInsights: protectedProcedure.query(async ({ ctx }) => {
+    const { invokeLLM } = await import('./_core/llm');
+    const allTasks = await db.getAllTasks();
+    const allContacts = await db.getAllContacts();
+    const allCompanies = await db.getAllCompanies();
+    const recentMeetings = await db.getAllMeetings({ limit: 10 });
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Compute key metrics
+    const openTasks = allTasks.filter(t => t.status !== 'completed');
+    const overdueTasks = openTasks.filter(t => t.dueDate && new Date(t.dueDate) < startOfToday);
+    const highPriority = openTasks.filter(t => t.priority === 'high');
+    const pendingApprovals = allContacts.filter(c => c.approvalStatus === 'pending').length + allCompanies.filter(c => c.approvalStatus === 'pending').length;
+
+    // Stale contacts (starred/client not met in 10+ days)
+    const staleContacts: string[] = [];
+    for (const c of allContacts.filter(c => c.starred || c.category === 'client')) {
+      const meetings = await db.getMeetingsForContact(c.id);
+      if (meetings.length > 0) {
+        const daysSince = Math.floor((now.getTime() - new Date(meetings[0].meeting.meetingDate).getTime()) / 86400000);
+        if (daysSince > 10) staleContacts.push(`${c.name} (${daysSince} days)`);
+      }
+    }
+
+    const prompt = `You are OmniScope's strategic intelligence engine. Generate exactly 3 short, actionable insights based on this data. Each insight should be 1 sentence max, direct and commanding — like a military briefing or Tesla dashboard notification.
+
+Data:
+- Open tasks: ${openTasks.length}, Overdue: ${overdueTasks.length}, High priority: ${highPriority.length}
+- Pending approvals: ${pendingApprovals}
+- Stale contacts (no meeting 10+ days): ${staleContacts.slice(0, 5).join(', ') || 'None'}
+- Recent meetings: ${recentMeetings.slice(0, 5).map(m => m.meetingTitle).join(', ') || 'None'}
+- Today's date: ${now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+
+Rules:
+- If no risks: "No critical risks detected today."
+- If stale contacts: mention the specific name and days
+- If overdue tasks: mention count and urgency
+- If pending approvals: mention them
+- Be specific with names and numbers
+- No fluff, no emojis, no markdown
+- Return as JSON array of 3 strings
+
+Example output:
+["No critical risks detected today.", "You haven't contacted Kyle in 12 days.", "Three deals awaiting response."]`;
+
+    try {
+      const result = await invokeLLM({
+        messages: [
+          { role: 'system', content: 'You are a strategic intelligence engine. Return only a JSON array of 3 short insight strings. No markdown, no explanation.' },
+          { role: 'user', content: prompt },
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'insights',
+            strict: true,
+            schema: {
+              type: 'object',
+              properties: {
+                insights: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Array of exactly 3 strategic insight strings',
+                },
+              },
+              required: ['insights'],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+      const content = result.choices[0]?.message?.content as string;
+      const parsed = JSON.parse(content);
+      return { insights: parsed.insights?.slice(0, 3) || [] };
+    } catch {
+      // Fallback: generate insights from data without LLM
+      const insights: string[] = [];
+      if (overdueTasks.length > 0) insights.push(`${overdueTasks.length} overdue task${overdueTasks.length > 1 ? 's' : ''} require immediate attention.`);
+      else insights.push('No critical risks detected today.');
+      if (staleContacts.length > 0) insights.push(`You haven't contacted ${staleContacts[0].split(' (')[0]} in ${staleContacts[0].match(/\((\d+)/)?.[1] || '10+'} days.`);
+      else insights.push('All key contacts are up to date.');
+      if (pendingApprovals > 0) insights.push(`${pendingApprovals} approval${pendingApprovals > 1 ? 's' : ''} awaiting your review.`);
+      else insights.push(`${openTasks.length} open tasks across your pipeline.`);
+      return { insights: insights.slice(0, 3) };
+    }
+  }),
 });
 
 // ============================================================================

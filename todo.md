@@ -1465,3 +1465,37 @@
 - [x] Keep sidebar entry with ⌘K badge for discoverability
 - [x] Dismiss overlay (Esc or click backdrop) returns user to where they were
 - [x] Search meetings, contacts, tasks, companies from overlay with suggestions
+
+## v41 — Command Center Premium Upgrade
+
+### Situational Summary
+- [x] Add situational summary paragraph under "Good morning, Junaid" greeting
+- [x] Summary describes what needs to get done today (task count, meetings, priorities)
+- [x] Contextual status line: calm day / high activity / after-hours / no immediate actions
+- [x] Summary adapts based on actual data (overdue count, today tasks, meetings, emails)
+
+### Interactive Task & Approval Popups
+- [x] Clicking a task card opens a quick popup/modal (TaskModal)
+- [x] Popup allows: Mark complete, Delete, Edit (title, priority, category, notes)
+- [x] Clicking a pending approval (contact/company) opens approval popup (ApprovalModal)
+- [x] Approval popup allows: Approve, Reject, View full record
+- [x] Changes persist to database and refresh the triage feed
+- [x] Smooth, minimal modal design with backdrop blur and zoom-in animation
+
+### AI Strategic Insights Panel
+- [x] Dedicated StrategicInsightsPanel with brain icon and gold accent
+- [x] LLM generates 3 contextual recommendations based on current data (with JSON schema)
+- [x] Examples working: "No critical risks detected today", "JT Huskins has not been contacted in 13 days"
+- [x] Insights cached for 5 minutes, fallback to data-driven insights if LLM fails
+- [x] Subtle, premium presentation with Zap icons and "AI-powered" label
+
+### Contextual Quotes & Reminders
+- [x] Rotating quotes system (15 quotes: strategic, stoic, operational mindset)
+- [x] Contextual status line adapts: calm day, busy day, after-hours, high activity
+- [x] User toggle to enable/disable quotes (persisted in localStorage)
+- [x] Premium, subtle presentation integrated into greeting area with Quote icon
+
+### Polish & Feel
+- [x] Tesla/Apple-grade interactions — modals with backdrop blur, zoom-in animations
+- [x] Smooth transitions, no jarring state changes (animate-in, fade-in, duration-200)
+- [x] Consistent hover states and micro-interactions (group-hover opacity reveals)
