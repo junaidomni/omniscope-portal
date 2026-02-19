@@ -1377,3 +1377,42 @@
 ### Testing
 - [x] Write vitest tests for new task features (34 tests)
 - [x] All 493 tests passing across 27 files
+
+## v38 — 5-Domain Navigation Restructure
+
+### Sidebar Restructure
+- [x] Replace 9-item sidebar with 5 primary domains + Settings footer
+- [x] Command Center (Dashboard + Triage + Briefs)
+- [x] Intelligence (Meetings + Reports)
+- [x] Communications (Mail + Calendar)
+- [x] Operations (Tasks)
+- [x] Relationships (Contacts + Companies)
+- [x] Settings footer (Setup + HR Hub + Admin)
+- [x] Ask OmniScope as persistent utility
+- [x] Active domain highlighted with gold accent
+- [x] Smooth transitions between domains
+
+### Domain Tab Navigation
+- [x] Horizontal tab bar below domain header for each domain
+- [x] Command Center tabs: Triage, Overview, Daily Brief, Weekly Brief
+- [x] Intelligence tabs: Meetings (single tab for now)
+- [x] Communications tabs: Inbox, Calendar, Analytics
+- [x] Operations tabs: Tasks (default)
+- [x] Relationships tabs: People, Companies
+- [x] Gold underline for active tab
+
+### Triage Feed (Command Center)
+- [x] Unified attention feed — starred emails, overdue tasks, pending approvals, new meetings
+- [ ] Each triage card has inline actions (open, snooze, dismiss) — future enhancement
+- [ ] Items disappear from triage once acted upon — future enhancement
+- [x] Priority ordering: critical first, then by recency
+- [x] Empty state: "All clear — nothing needs your attention"
+
+### Route Updates
+- [x] Update all routes to use domain-based paths
+- [x] Preserve backward compatibility for existing bookmarks
+- [x] Update all internal links and navigation calls
+
+### Testing
+- [x] Write vitest tests for triage feed logic (46 new tests)
+- [x] All existing tests still passing (539 total passing across 28 files)

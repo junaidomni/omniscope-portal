@@ -5,56 +5,69 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import PortalLayout from "./components/PortalLayout";
-import Dashboard from "./pages/Dashboard";
-import MeetingDetail from "./pages/MeetingDetail";
-import Meetings from "./pages/Meetings";
-import ToDo from "./pages/ToDo";
+
+// Domain wrappers
+import CommandCenter from "./pages/domains/CommandCenter";
+import Intelligence from "./pages/domains/Intelligence";
+import Communications from "./pages/domains/Communications";
+import Operations from "./pages/domains/Operations";
+import Relationships from "./pages/domains/Relationships";
+
+// Standalone pages (not wrapped in domain tabs)
 import AskOmniScope from "./pages/AskOmniScope";
-import CalendarView from "./pages/CalendarView";
 import AdminPanel from "./pages/AdminPanel";
 import UserManagement from "./pages/UserManagement";
 import AccessDenied from "./pages/AccessDenied";
-import DailyReport from "./pages/DailyReport";
-import WeeklyReport from "./pages/WeeklyReport";
-import ContactProfile from "./pages/ContactProfile";
-import Contacts from "./pages/Contacts";
 import Onboarding from "./pages/Onboarding";
 import HRHub from "./pages/HRHub";
 import EmployeeProfile from "./pages/EmployeeProfile";
 import PayrollHub from "./pages/PayrollHub";
-import Companies from "./pages/Companies";
-import CompanyProfile from "./pages/CompanyProfile";
-import MailModule from "./pages/MailModule";
-import MailAnalytics from "./pages/MailAnalytics";
 import Setup from "./pages/Setup";
 
 function Router() {
   return (
     <PortalLayout>
       <Switch>
-        <Route path={"/"} component={Dashboard} />
-        <Route path="/meetings" component={Meetings} />
-        <Route path="/meeting/:id" component={MeetingDetail} />
-        <Route path="/contacts" component={Contacts} />
-        <Route path="/contact/:id" component={ContactProfile} />
-        <Route path="/companies" component={Companies} />
-        <Route path="/company/:id" component={CompanyProfile} />
-        <Route path="/mail" component={MailModule} />
-        <Route path="/mail/analytics" component={MailAnalytics} />
+        {/* Command Center domain */}
+        <Route path="/" component={CommandCenter} />
+        <Route path="/overview" component={CommandCenter} />
+        <Route path="/reports/daily" component={CommandCenter} />
+        <Route path="/reports/weekly" component={CommandCenter} />
+
+        {/* Intelligence domain */}
+        <Route path="/intelligence" component={Intelligence} />
+        <Route path="/meetings" component={Intelligence} />
+        <Route path="/meeting/:id" component={Intelligence} />
+
+        {/* Communications domain */}
+        <Route path="/communications" component={Communications} />
+        <Route path="/mail" component={Communications} />
+        <Route path="/mail/analytics" component={Communications} />
+        <Route path="/calendar" component={Communications} />
+
+        {/* Operations domain */}
+        <Route path="/operations" component={Operations} />
+        <Route path="/tasks" component={Operations} />
+
+        {/* Relationships domain */}
+        <Route path="/relationships" component={Relationships} />
+        <Route path="/contacts" component={Relationships} />
+        <Route path="/contact/:id" component={Relationships} />
+        <Route path="/companies" component={Relationships} />
+        <Route path="/company/:id" component={Relationships} />
+
+        {/* Standalone pages */}
+        <Route path="/ask" component={AskOmniScope} />
         <Route path="/setup" component={Setup} />
         <Route path="/integrations">{() => { window.location.href = "/setup?tab=integrations"; return null; }}</Route>
         <Route path="/onboarding" component={Onboarding} />
-        <Route path="/tasks" component={ToDo} />
         <Route path="/hr" component={HRHub} />
         <Route path="/hr/employee/:id" component={EmployeeProfile} />
         <Route path="/hr/payroll" component={PayrollHub} />
-          <Route path="/ask" component={AskOmniScope} />
-          <Route path="/calendar" component={CalendarView} />
-          <Route path="/admin" component={AdminPanel} />
-          <Route path="/admin/users" component={UserManagement} />
-          <Route path="/reports/daily" component={DailyReport} />
-          <Route path="/reports/weekly" component={WeeklyReport} />
-          <Route path="/access-denied" component={AccessDenied} />
+        <Route path="/admin" component={AdminPanel} />
+        <Route path="/admin/users" component={UserManagement} />
+        <Route path="/access-denied" component={AccessDenied} />
+
         <Route path={"/404"} component={NotFound} />
         {/* Final fallback route */}
         <Route component={NotFound} />

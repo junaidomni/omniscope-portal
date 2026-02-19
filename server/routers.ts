@@ -2599,6 +2599,101 @@ const directoryRouter = router({
 });
 
 // ============================================================================
+// TRIAGE ROUTER — Unified attention feed
+// ============================================================================
+const triageRouter = router({
+  feed: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.id;
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(startOfToday);
+    endOfToday.setDate(endOfToday.getDate() + 1);
+    const endOfWeek = new Date(startOfToday);
+    endOfWeek.setDate(endOfWeek.getDate() + (7 - endOfWeek.getDay()));
+
+    // 1. Overdue tasks
+    const allTasks = await db.getAllTasks();
+    const overdueTasks = allTasks
+      .filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < startOfToday)
+      .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+      .slice(0, 15);
+
+    // 2. Tasks due today
+    const todayTasks = allTasks
+      .filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) >= startOfToday && new Date(t.dueDate) < endOfToday)
+      .sort((a, b) => {
+        const prio = { high: 0, medium: 1, low: 2 };
+        return (prio[a.priority as keyof typeof prio] ?? 1) - (prio[b.priority as keyof typeof prio] ?? 1);
+      });
+
+    // 3. High priority open tasks (not due today, not overdue)
+    const highPriorityTasks = allTasks
+      .filter(t => t.status !== 'completed' && t.priority === 'high' && !overdueTasks.find(o => o.id === t.id) && !todayTasks.find(o => o.id === t.id))
+      .slice(0, 10);
+
+    // 4. Starred emails
+    const starredEmails = await db.getEmailStarsForUser(userId);
+
+    // 5. Pending contact approvals
+    const allContacts = await db.getAllContacts();
+    const pendingContacts = allContacts.filter(c => c.approvalStatus === 'pending').slice(0, 10);
+
+    // 6. Pending company approvals
+    const allCompanies = await db.getAllCompanies();
+    const pendingCompanies = allCompanies.filter(c => c.approvalStatus === 'pending').slice(0, 10);
+
+    // 7. Recent meetings (last 3 days)
+    const threeDaysAgo = new Date(startOfToday);
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    const recentMeetings = await db.getAllMeetings({ startDate: threeDaysAgo, endDate: endOfToday, limit: 10 });
+
+    // 8. Summary counts
+    const totalOpen = allTasks.filter(t => t.status !== 'completed').length;
+    const totalOverdue = overdueTasks.length;
+    const totalHighPriority = allTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length;
+    const completedToday = allTasks.filter(t => t.status === 'completed' && t.updatedAt && new Date(t.updatedAt) >= startOfToday).length;
+    const totalStarred = starredEmails.length;
+    const totalPendingApprovals = pendingContacts.length + pendingCompanies.length;
+
+    return {
+      summary: {
+        totalOpen,
+        totalOverdue,
+        totalHighPriority,
+        completedToday,
+        totalStarred,
+        totalPendingApprovals,
+      },
+      overdueTasks: overdueTasks.map(t => ({
+        id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate,
+        assignedName: t.assignedName, category: t.category, status: t.status,
+      })),
+      todayTasks: todayTasks.map(t => ({
+        id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate,
+        assignedName: t.assignedName, category: t.category, status: t.status,
+      })),
+      highPriorityTasks: highPriorityTasks.map(t => ({
+        id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate,
+        assignedName: t.assignedName, category: t.category, status: t.status,
+      })),
+      starredEmails: starredEmails.map(s => ({
+        threadId: s.threadId, starLevel: s.starLevel,
+      })),
+      pendingContacts: pendingContacts.map(c => ({
+        id: c.id, name: c.name, email: c.email, organization: c.organization,
+      })),
+      pendingCompanies: pendingCompanies.map(c => ({
+        id: c.id, name: c.name, sector: c.sector,
+      })),
+      recentMeetings: recentMeetings.map(m => ({
+        id: m.id, title: m.title, meetingDate: m.meetingDate,
+        primaryLead: m.primaryLead, executiveSummary: m.executiveSummary,
+      })),
+    };
+  }),
+});
+
+// ============================================================================
 // MAIN APP ROUTER
 // ============================================================================
 
@@ -2635,6 +2730,7 @@ export const appRouter = router({
   onboarding: onboardingRouter,
   profile: profileRouter,
   directory: directoryRouter,
+  triage: triageRouter,
 });
 
 export type AppRouter = typeof appRouter;

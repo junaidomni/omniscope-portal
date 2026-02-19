@@ -100,16 +100,17 @@ describe("V6: Customizable Dashboard", () => {
 
 describe("V6: App Routes for Reports", () => {
   it("App.tsx has routes for daily and weekly report pages", async () => {
-    const source = await import("fs").then(fs =>
-      fs.readFileSync("client/src/App.tsx", "utf-8")
-    );
+    const fs = await import("fs");
+    const appSource = fs.readFileSync("client/src/App.tsx", "utf-8");
     // Has route for daily report
-    expect(source).toMatch(/\/reports\/daily/);
+    expect(appSource).toMatch(/\/reports\/daily/);
     // Has route for weekly report
-    expect(source).toMatch(/\/reports\/weekly/);
-    // Imports the report components
-    expect(source).toMatch(/DailyReport/);
-    expect(source).toMatch(/WeeklyReport/);
+    expect(appSource).toMatch(/\/reports\/weekly/);
+    // Report components are imported either in App.tsx or in the CommandCenter domain wrapper
+    const commandCenterSource = fs.readFileSync("client/src/pages/domains/CommandCenter.tsx", "utf-8");
+    const combined = appSource + commandCenterSource;
+    expect(combined).toMatch(/DailyReport/);
+    expect(combined).toMatch(/WeeklyReport/);
   });
 });
 

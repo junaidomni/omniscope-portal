@@ -17,7 +17,12 @@ import {
   Briefcase,
   ChevronLeft,
   ChevronRight,
-  Mail
+  Mail,
+  Radio,
+  Target,
+  MessageSquare,
+  Zap,
+  UserCog
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -36,6 +41,70 @@ interface PortalLayoutProps {
 }
 
 const SIDEBAR_KEY = "omniscope-sidebar-collapsed";
+
+// Domain definitions — each domain groups related modules
+interface DomainItem {
+  id: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  path: string;
+  matchPaths: string[]; // paths that activate this domain
+}
+
+const domains: DomainItem[] = [
+  { 
+    id: "command", 
+    icon: LayoutDashboard, 
+    label: "Command Center", 
+    path: "/",
+    matchPaths: ["/", "/reports/daily", "/reports/weekly"]
+  },
+  { 
+    id: "intelligence", 
+    icon: Radio, 
+    label: "Intelligence", 
+    path: "/intelligence",
+    matchPaths: ["/intelligence", "/meetings", "/meeting/"]
+  },
+  { 
+    id: "communications", 
+    icon: Mail, 
+    label: "Communications", 
+    path: "/communications",
+    matchPaths: ["/communications", "/mail", "/calendar"]
+  },
+  { 
+    id: "operations", 
+    icon: Target, 
+    label: "Operations", 
+    path: "/operations",
+    matchPaths: ["/operations", "/tasks"]
+  },
+  { 
+    id: "relationships", 
+    icon: Users, 
+    label: "Relationships", 
+    path: "/relationships",
+    matchPaths: ["/relationships", "/contacts", "/contact/", "/companies", "/company/"]
+  },
+];
+
+const utilityItems: DomainItem[] = [
+  { 
+    id: "ask", 
+    icon: Sparkles, 
+    label: "Ask OmniScope", 
+    path: "/ask",
+    matchPaths: ["/ask"]
+  },
+];
+
+function isDomainActive(domain: DomainItem, location: string): boolean {
+  return domain.matchPaths.some(p => {
+    if (p === "/") return location === "/";
+    return location === p || location.startsWith(p);
+  });
+}
 
 export default function PortalLayout({ children }: PortalLayoutProps) {
   const { user, loading, isAuthenticated } = useAuth();
@@ -107,18 +176,6 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
     );
   }
 
-  const navItems = [
-    { path: "/", icon: LayoutDashboard, label: "Dashboard" },
-    { path: "/ask", icon: Sparkles, label: "Ask OmniScope" },
-    { path: "/meetings", icon: FileText, label: "Meetings" },
-    { path: "/calendar", icon: Calendar, label: "Calendar" },
-    { path: "/tasks", icon: CheckSquare, label: "To-Do" },
-    { path: "/contacts", icon: Users, label: "Relationship Hub" },
-    { path: "/companies", icon: Briefcase, label: "Companies" },
-    { path: "/mail", icon: Mail, label: "Mail" },
-    { path: "/hr", icon: Building2, label: "HR Hub" },
-  ];
-
   const isAdmin = user?.role === 'admin';
   const sidebarWidth = collapsed ? "w-[72px]" : "w-64";
   const mainMargin = collapsed ? "ml-[72px]" : "ml-64";
@@ -154,69 +211,114 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
             </button>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location === item.path;
+          {/* Primary Domains */}
+          <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+            {/* Section label */}
+            {!collapsed && (
+              <div className="px-3 pt-2 pb-1.5">
+                <span className="text-[10px] font-semibold tracking-widest text-zinc-600 uppercase">Workspace</span>
+              </div>
+            )}
+
+            {domains.map((domain) => {
+              const Icon = domain.icon;
+              const active = isDomainActive(domain, location);
               
               return (
-                <Link key={item.path} href={item.path}>
+                <Link key={domain.id} href={domain.path}>
                   <button
-                    className={`w-full flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2 py-3' : 'px-4 py-3'} rounded-lg transition-all ${
-                      isActive
-                        ? "bg-yellow-600 text-black font-medium"
-                        : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                    className={`w-full flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2 py-2.5' : 'px-3 py-2.5'} rounded-lg transition-all group relative ${
+                      active
+                        ? "bg-yellow-600/10 text-yellow-500 font-medium"
+                        : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
+                    }`}
+                    title={collapsed ? domain.label : undefined}
+                  >
+                    {/* Active indicator bar */}
+                    {active && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-yellow-500 rounded-r-full" />
+                    )}
+                    <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-yellow-500' : 'text-zinc-500 group-hover:text-zinc-300'}`} />
+                    {!collapsed && <span className="text-sm truncate">{domain.label}</span>}
+                  </button>
+                </Link>
+              );
+            })}
+
+            {/* Divider */}
+            <div className="!my-3 mx-3 border-t border-zinc-800/60" />
+
+            {/* Utility items */}
+            {!collapsed && (
+              <div className="px-3 pb-1.5">
+                <span className="text-[10px] font-semibold tracking-widest text-zinc-600 uppercase">Tools</span>
+              </div>
+            )}
+
+            {utilityItems.map((item) => {
+              const Icon = item.icon;
+              const active = isDomainActive(item, location);
+              
+              return (
+                <Link key={item.id} href={item.path}>
+                  <button
+                    className={`w-full flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2 py-2.5' : 'px-3 py-2.5'} rounded-lg transition-all group relative ${
+                      active
+                        ? "bg-yellow-600/10 text-yellow-500 font-medium"
+                        : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
                     }`}
                     title={collapsed ? item.label : undefined}
                   >
-                    <Icon className="h-5 w-5 shrink-0" />
-                    {!collapsed && <span className="truncate">{item.label}</span>}
+                    {active && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-yellow-500 rounded-r-full" />
+                    )}
+                    <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-yellow-500' : 'text-zinc-500 group-hover:text-zinc-300'}`} />
+                    {!collapsed && <span className="text-sm truncate">{item.label}</span>}
                   </button>
                 </Link>
               );
             })}
           </nav>
 
-          {/* Setup & Admin - Bottom of sidebar above user */}
-          <div className="px-2 pb-1 space-y-1">
-            <Link href="/setup">
-              <button
-                className={`w-full flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2 py-3' : 'px-4 py-3'} rounded-lg transition-all ${
-                  location === '/setup' || location.startsWith('/setup?')
-                    ? "bg-yellow-600 text-black font-medium"
-                    : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                }`}
-                title={collapsed ? "Setup" : undefined}
-              >
-                <Settings className="h-5 w-5 shrink-0" />
-                {!collapsed && <span>Setup</span>}
-              </button>
-            </Link>
+          {/* Footer: Settings + Admin */}
+          <div className="px-2 pb-1 space-y-0.5">
+            {/* Divider */}
+            <div className="mx-1 mb-1 border-t border-zinc-800/60" />
+
+            {/* Settings group */}
+            {[
+              { path: "/setup", icon: Settings, label: "Settings" },
+              { path: "/hr", icon: UserCog, label: "HR Hub" },
+              ...(isAdmin ? [{ path: "/admin", icon: Shield, label: "Admin" }] : []),
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = location === item.path || location.startsWith(item.path + '/') || location.startsWith(item.path + '?');
+              return (
+                <Link key={item.path} href={item.path}>
+                  <button
+                    className={`w-full flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2 py-2' : 'px-3 py-2'} rounded-lg transition-all group relative ${
+                      active
+                        ? "bg-yellow-600/10 text-yellow-500 font-medium"
+                        : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40"
+                    }`}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    {active && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-yellow-500 rounded-r-full" />
+                    )}
+                    <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-yellow-500' : ''}`} />
+                    {!collapsed && <span className="text-xs truncate">{item.label}</span>}
+                  </button>
+                </Link>
+              );
+            })}
           </div>
-          {isAdmin && (
-            <div className="px-2 pb-1">
-              <Link href="/admin">
-                <button
-                  className={`w-full flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2 py-3' : 'px-4 py-3'} rounded-lg transition-all ${
-                    location === '/admin'
-                      ? "bg-yellow-600 text-black font-medium"
-                      : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                  }`}
-                  title={collapsed ? "Admin Panel" : undefined}
-                >
-                  <Shield className="h-5 w-5 shrink-0" />
-                  {!collapsed && <span>Admin Panel</span>}
-                </button>
-              </Link>
-            </div>
-          )}
 
           {/* User Section */}
           <div className="p-3 border-t border-zinc-800">
             {collapsed ? (
               <div className="flex flex-col items-center gap-2">
-                <div className="h-9 w-9 rounded-full bg-yellow-600 flex items-center justify-center text-black font-bold text-sm" title={user?.name || "User"}>
+                <div className="h-8 w-8 rounded-full bg-yellow-600 flex items-center justify-center text-black font-bold text-xs" title={user?.name || "User"}>
                   {user?.name?.charAt(0).toUpperCase() || "U"}
                 </div>
                 <button
@@ -226,40 +328,34 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
                   disabled={logoutMutation.isPending}
                 >
                   {logoutMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <LogOut className="h-4 w-4" />
+                    <LogOut className="h-3.5 w-3.5" />
                   )}
                 </button>
               </div>
             ) : (
-              <>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="h-10 w-10 rounded-full bg-yellow-600 flex items-center justify-center text-black font-bold shrink-0">
-                    {user?.name?.charAt(0).toUpperCase() || "U"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{user?.name || "User"}</p>
-                    <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
-                  </div>
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-full bg-yellow-600 flex items-center justify-center text-black font-bold text-xs shrink-0">
+                  {user?.name?.charAt(0).toUpperCase() || "U"}
                 </div>
-                <Button
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-white truncate">{user?.name || "User"}</p>
+                  <p className="text-[10px] text-zinc-500 truncate">{user?.email}</p>
+                </div>
+                <button
                   onClick={handleLogout}
-                  variant="outline"
-                  size="sm"
-                  className="w-full border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  className="text-zinc-500 hover:text-white transition-colors p-1.5 rounded-md hover:bg-zinc-800"
+                  title="Sign Out"
                   disabled={logoutMutation.isPending}
                 >
                   {logoutMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <>
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Sign Out
-                    </>
+                    <LogOut className="h-3.5 w-3.5" />
                   )}
-                </Button>
-              </>
+                </button>
+              </div>
             )}
           </div>
         </div>
