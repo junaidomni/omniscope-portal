@@ -26,7 +26,8 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext, useCallback } from "react";
+import AskSpotlight from "./AskSpotlight";
 
 // Context so child pages can read sidebar state
 interface SidebarContextType {
@@ -89,15 +90,8 @@ const domains: DomainItem[] = [
   },
 ];
 
-const utilityItems: DomainItem[] = [
-  { 
-    id: "ask", 
-    icon: Sparkles, 
-    label: "Ask OmniScope", 
-    path: "/ask",
-    matchPaths: ["/ask"]
-  },
-];
+// Ask OmniScope is now a spotlight overlay, not a route-based nav item
+// But we keep it in the sidebar as a trigger button
 
 function isDomainActive(domain: DomainItem, location: string): boolean {
   return domain.matchPaths.some(p => {
@@ -118,6 +112,21 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
     setCollapsedState(v);
     try { localStorage.setItem(SIDEBAR_KEY, String(v)); } catch {};
   };
+
+  // Spotlight state (must be before early returns to keep hooks order stable)
+  const [spotlightOpen, setSpotlightOpen] = useState(false);
+
+  // ⌘K keyboard shortcut for spotlight
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSpotlightOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -248,36 +257,26 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
             {/* Divider */}
             <div className="!my-3 mx-3 border-t border-zinc-800/60" />
 
-            {/* Utility items */}
+            {/* Ask OmniScope — spotlight trigger */}
             {!collapsed && (
               <div className="px-3 pb-1.5">
                 <span className="text-[10px] font-semibold tracking-widest text-zinc-600 uppercase">Tools</span>
               </div>
             )}
 
-            {utilityItems.map((item) => {
-              const Icon = item.icon;
-              const active = isDomainActive(item, location);
-              
-              return (
-                <Link key={item.id} href={item.path}>
-                  <button
-                    className={`w-full flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2 py-2.5' : 'px-3 py-2.5'} rounded-lg transition-all group relative ${
-                      active
-                        ? "bg-yellow-600/10 text-yellow-500 font-medium"
-                        : "text-zinc-400 hover:text-white hover:bg-zinc-800/60"
-                    }`}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    {active && (
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-yellow-500 rounded-r-full" />
-                    )}
-                    <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-yellow-500' : 'text-zinc-500 group-hover:text-zinc-300'}`} />
-                    {!collapsed && <span className="text-sm truncate">{item.label}</span>}
-                  </button>
-                </Link>
-              );
-            })}
+            <button
+              onClick={() => setSpotlightOpen(true)}
+              className={`w-full flex items-center ${collapsed ? 'justify-center' : ''} gap-3 ${collapsed ? 'px-2 py-2.5' : 'px-3 py-2.5'} rounded-lg transition-all group relative text-zinc-400 hover:text-white hover:bg-zinc-800/60`}
+              title={collapsed ? "Ask OmniScope (⌘K)" : undefined}
+            >
+              <Sparkles className="h-[18px] w-[18px] shrink-0 text-zinc-500 group-hover:text-yellow-500 transition-colors" />
+              {!collapsed && (
+                <>
+                  <span className="text-sm truncate flex-1 text-left">Ask OmniScope</span>
+                  <kbd className="text-[9px] text-zinc-600 font-mono bg-zinc-800 border border-zinc-700/60 px-1 py-0.5 rounded">⌘K</kbd>
+                </>
+              )}
+            </button>
           </nav>
 
           {/* Footer: Settings + Admin */}
@@ -364,6 +363,9 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
         <main className={`flex-1 overflow-auto ${mainMargin} transition-all duration-300 ease-in-out`}>
           {children}
         </main>
+
+        {/* Ask OmniScope Spotlight Overlay */}
+        {spotlightOpen && <AskSpotlight onClose={() => setSpotlightOpen(false)} />}
       </div>
     </SidebarContext.Provider>
   );

@@ -1437,6 +1437,30 @@ const tasksRouter = router({
       }
       return { success: true, deleted: input.ids.length };
     }),
+
+  bulkUpdate: protectedProcedure
+    .input(z.object({
+      ids: z.array(z.number()).min(1),
+      updates: z.object({
+        category: z.string().optional(),
+        assignedName: z.string().optional(),
+        status: z.enum(["open", "in_progress", "completed"]).optional(),
+        priority: z.enum(["low", "medium", "high"]).optional(),
+        dueDate: z.string().optional(),
+      }),
+    }))
+    .mutation(async ({ input }) => {
+      const updates: any = {};
+      if (input.updates.category !== undefined) updates.category = input.updates.category || null;
+      if (input.updates.assignedName !== undefined) updates.assignedName = input.updates.assignedName || null;
+      if (input.updates.status !== undefined) updates.status = input.updates.status;
+      if (input.updates.priority !== undefined) updates.priority = input.updates.priority;
+      if (input.updates.dueDate !== undefined) updates.dueDate = input.updates.dueDate ? new Date(input.updates.dueDate) : null;
+      for (const id of input.ids) {
+        await db.updateTask(id, updates);
+      }
+      return { success: true, updated: input.ids.length };
+    }),
 });
 
 // ============================================================================
@@ -2646,15 +2670,39 @@ const triageRouter = router({
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const recentMeetings = await db.getAllMeetings({ startDate: sevenDaysAgo, endDate: endOfToday, limit: 6 });
 
-    // 8. Summary counts
+    // 8. Tomorrow's tasks
+    const startOfTomorrow = new Date(endOfToday);
+    const endOfTomorrow = new Date(startOfTomorrow);
+    endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
+    const tomorrowTasks = allTasks
+      .filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) >= startOfTomorrow && new Date(t.dueDate) < endOfTomorrow)
+      .sort((a, b) => {
+        const prio = { high: 0, medium: 1, low: 2 };
+        return (prio[a.priority as keyof typeof prio] ?? 1) - (prio[b.priority as keyof typeof prio] ?? 1);
+      });
+
+    // 9. This week's tasks (next 7 days, excluding today and tomorrow)
+    const endOfWeek = new Date(startOfToday);
+    endOfWeek.setDate(endOfWeek.getDate() + 7);
+    const weekTasks = allTasks
+      .filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) >= endOfTomorrow && new Date(t.dueDate) < endOfWeek)
+      .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+
+    // 10. Completed today
+    const completedTodayTasks = allTasks
+      .filter(t => t.status === 'completed' && t.updatedAt && new Date(t.updatedAt) >= startOfToday)
+      .sort((a, b) => new Date(b.updatedAt!).getTime() - new Date(a.updatedAt!).getTime())
+      .slice(0, 10);
+
+    // 11. Summary counts
     const totalOpen = allTasks.filter(t => t.status !== 'completed').length;
     const totalOverdue = overdueTasks.length;
     const totalHighPriority = allTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length;
-    const completedToday = allTasks.filter(t => t.status === 'completed' && t.updatedAt && new Date(t.updatedAt) >= startOfToday).length;
+    const completedToday = completedTodayTasks.length;
     const totalStarred = starredEmails.length;
     const totalPendingApprovals = pendingContacts.length + pendingCompanies.length;
 
-    // Time-based greeting
+    // Time-based greeting — note: server runs in UTC, frontend will override with local time
     const hour = now.getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
@@ -2693,6 +2741,18 @@ const triageRouter = router({
       recentMeetings: recentMeetings.map(m => ({
         id: m.id, title: m.meetingTitle, meetingDate: m.meetingDate,
         primaryLead: m.primaryLead, executiveSummary: m.executiveSummary,
+      })),
+      tomorrowTasks: tomorrowTasks.map(t => ({
+        id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate,
+        assignedName: t.assignedName, category: t.category, status: t.status,
+      })),
+      weekTasks: weekTasks.map(t => ({
+        id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate,
+        assignedName: t.assignedName, category: t.category, status: t.status,
+      })),
+      completedTodayTasks: completedTodayTasks.map(t => ({
+        id: t.id, title: t.title, priority: t.priority, completedAt: t.updatedAt,
+        assignedName: t.assignedName, category: t.category,
       })),
     };
   }),

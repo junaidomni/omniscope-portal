@@ -70,10 +70,14 @@ function CommandBar({
   setSelectMode,
   selectedCount,
   onSelectAll,
+  onDeselectAll,
   onBulkDelete,
+  onBulkMove,
   bulkDeleting,
+  bulkUpdating,
   filteredCount,
   onNewTask,
+  allCategories,
 }: {
   stats: { total: number; open: number; inProgress: number; completed: number; highPriority: number; overdue: number };
   focusView: string;
@@ -86,10 +90,14 @@ function CommandBar({
   setSelectMode: (v: boolean) => void;
   selectedCount: number;
   onSelectAll: () => void;
+  onDeselectAll: () => void;
   onBulkDelete: () => void;
+  onBulkMove: (updates: any) => void;
   bulkDeleting: boolean;
+  bulkUpdating: boolean;
   filteredCount: number;
   onNewTask: () => void;
+  allCategories: string[];
 }) {
   return (
     <div className="flex items-center gap-2 mb-4">
@@ -147,10 +155,78 @@ function CommandBar({
             exit={{ opacity: 0, scale: 0.95 }}
             className="flex items-center gap-1.5"
           >
+            <Checkbox
+              checked={selectedCount > 0 && selectedCount === filteredCount}
+              onCheckedChange={(checked) => checked ? onSelectAll() : onDeselectAll()}
+              className="border-zinc-600 data-[state=checked]:bg-yellow-600 data-[state=checked]:border-yellow-600"
+            />
             <span className="text-xs text-zinc-400">{selectedCount} selected</span>
-            <Button size="sm" variant="ghost" onClick={onSelectAll} className="text-zinc-400 text-xs h-7 px-2">
-              All ({filteredCount})
+            <Button size="sm" variant="ghost" onClick={selectedCount === filteredCount ? onDeselectAll : onSelectAll} className="text-zinc-400 text-xs h-7 px-2">
+              {selectedCount === filteredCount ? "None" : `All (${filteredCount})`}
             </Button>
+
+            {/* Bulk Move dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={selectedCount === 0 || bulkUpdating}
+                  className="text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10 text-xs h-7 px-2"
+                >
+                  <FolderOpen className="h-3 w-3 mr-1" />
+                  Move
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-zinc-900 border-zinc-800 max-h-80 overflow-y-auto" align="start">
+                {/* Status */}
+                <div className="px-2 py-1 text-[10px] text-zinc-500 uppercase tracking-wider">Status</div>
+                <DropdownMenuItem onClick={() => onBulkMove({ status: "open" })} className="text-xs text-zinc-300">
+                  <Circle className="h-3 w-3 mr-2 text-zinc-400" /> To Do
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onBulkMove({ status: "in_progress" })} className="text-xs text-zinc-300">
+                  <Timer className="h-3 w-3 mr-2 text-amber-400" /> In Progress
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onBulkMove({ status: "completed" })} className="text-xs text-zinc-300">
+                  <CheckCircle2 className="h-3 w-3 mr-2 text-emerald-400" /> Done
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-zinc-800" />
+                {/* Priority */}
+                <div className="px-2 py-1 text-[10px] text-zinc-500 uppercase tracking-wider">Priority</div>
+                <DropdownMenuItem onClick={() => onBulkMove({ priority: "high" })} className="text-xs text-zinc-300">
+                  <ArrowUp className="h-3 w-3 mr-2 text-red-400" /> High
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onBulkMove({ priority: "medium" })} className="text-xs text-zinc-300">
+                  <ArrowRight className="h-3 w-3 mr-2 text-amber-400" /> Medium
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onBulkMove({ priority: "low" })} className="text-xs text-zinc-300">
+                  <ArrowDown className="h-3 w-3 mr-2 text-blue-400" /> Low
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-zinc-800" />
+                {/* Assign */}
+                <div className="px-2 py-1 text-[10px] text-zinc-500 uppercase tracking-wider">Assign To</div>
+                {TEAM_MEMBERS.map(m => (
+                  <DropdownMenuItem key={m} onClick={() => onBulkMove({ assignedName: m })} className="text-xs text-zinc-300">
+                    <User className="h-3 w-3 mr-2 text-zinc-500" /> {m}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem onClick={() => onBulkMove({ assignedName: "" })} className="text-xs text-zinc-500 italic">
+                  <User className="h-3 w-3 mr-2 text-zinc-700" /> Unassign
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-zinc-800" />
+                {/* Category */}
+                <div className="px-2 py-1 text-[10px] text-zinc-500 uppercase tracking-wider">Category</div>
+                {allCategories.slice(0, 12).map(c => (
+                  <DropdownMenuItem key={c} onClick={() => onBulkMove({ category: c })} className="text-xs text-zinc-300">
+                    <FolderOpen className="h-3 w-3 mr-2 text-zinc-500" /> {c}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem onClick={() => onBulkMove({ category: "" })} className="text-xs text-zinc-500 italic">
+                  <FolderOpen className="h-3 w-3 mr-2 text-zinc-700" /> No Category
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button
               size="sm"
               variant="ghost"
@@ -1194,6 +1270,15 @@ export default function ToDo() {
     },
     onError: () => toast.error("Failed to delete tasks"),
   });
+  const bulkUpdateTask = trpc.tasks.bulkUpdate.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Updated ${data.updated} tasks`);
+      setSelectedIds(new Set());
+      setSelectMode(false);
+      utils.tasks.list.invalidate();
+    },
+    onError: () => toast.error("Failed to update tasks"),
+  });
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1387,14 +1472,22 @@ export default function ToDo() {
         setSelectMode={(v) => { setSelectMode(v); if (!v) setSelectedIds(new Set()); }}
         selectedCount={selectedIds.size}
         onSelectAll={() => setSelectedIds(new Set(filteredTasks.map(t => t.id)))}
+        onDeselectAll={() => setSelectedIds(new Set())}
         onBulkDelete={() => {
           if (selectedIds.size > 0 && confirm(`Delete ${selectedIds.size} task(s)?`)) {
             bulkDeleteTask.mutate({ ids: Array.from(selectedIds) });
           }
         }}
+        onBulkMove={(updates: any) => {
+          if (selectedIds.size > 0) {
+            bulkUpdateTask.mutate({ ids: Array.from(selectedIds), updates });
+          }
+        }}
         bulkDeleting={bulkDeleteTask.isPending}
+        bulkUpdating={bulkUpdateTask.isPending}
         filteredCount={filteredTasks.length}
         onNewTask={() => setShowNewTask(true)}
+        allCategories={allCategories}
       />
 
       {/* Filter Bar */}

@@ -1434,3 +1434,34 @@
 - [x] Remove all test/junk meetings (9 deleted, 14 real Fathom meetings remain)
 - [x] Clean up test/junk tasks from database (~80 junk tasks removed, 54 real tasks remain)
 - [x] Ensure only real data remains in the system
+
+## v40 — Triage Widgets, Task Bulk Actions, Ask OmniScope Overlay
+
+### To-Do Task Select### To-Do Bulk Actions
+- [x] Fix "select all" checkbox — already functional, verified
+- [x] Add individual task checkboxes for multi-select
+- [x] Bulk action toolbar: Move (change category/assignee/status/priority), Delete selected
+- [x] Confirmation dialog before bulk dele### Triage Timezone & Clock
+- [x] Fix greeting to use user's local timezone (getGreeting(localHour) from useLiveClock)
+- [x] Add live clock widget with timezone abbreviation
+- [x] Time-based greeting: morning/afternoon/evening based on local browser time
+
+### Triage Widgets — Expanded
+- [x] Completed tasks widget — collapsible section with count
+- [x] Tomorrow's tasks widget — collapsible preview with task cards
+- [x] This week's tasks widget — collapsible overview of remaining week
+- [x] "All tasks completed for today" celebration banner when all done
+- [x] Widgets persist with collapse/expand toggles
+
+### Today's Emails Widget
+- [x] New emails today widget in Triage (Recent Emails section)
+- [x] Quick preview of recent emails with sender/subject
+- [x] Click to navigate to full inbox
+- [x] Unread indicator dot on email cards
+
+### Ask OmniScope — Persistent Overlay
+- [x] Cmd+K (or click) triggers spotlight-style overlay from anywhere
+- [x] Overlay appears on top of current context without navigation
+- [x] Keep sidebar entry with ⌘K badge for discoverability
+- [x] Dismiss overlay (Esc or click backdrop) returns user to where they were
+- [x] Search meetings, contacts, tasks, companies from overlay with suggestions

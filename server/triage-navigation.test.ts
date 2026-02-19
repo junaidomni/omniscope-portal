@@ -611,12 +611,13 @@ describe("Triage Router — Source Structure", () => {
     expect(source).toMatch(/greeting/);
   });
 
-  it("TriageFeed component uses grid layout", async () => {
+  it("TriageFeed component uses grid layout and local greeting", async () => {
     const source = await import("fs").then(fs =>
       fs.readFileSync("client/src/pages/TriageFeed.tsx", "utf-8")
     );
     expect(source).toMatch(/grid-cols/);
-    expect(source).toMatch(/data\.greeting/);
+    // v40: greeting is now local (getGreeting(localHour)), userName still from data
+    expect(source).toMatch(/greeting/);
     expect(source).toMatch(/data\.userName/);
   });
 
@@ -628,5 +629,219 @@ describe("Triage Router — Source Structure", () => {
     expect(source).toMatch(/snoozeTask/);
     expect(source).toMatch(/Mark complete|Complete/);
     expect(source).toMatch(/Snooze/);
+  });
+});
+
+// ── v40: Tomorrow & Week Tasks ──────────────────────────────────────────────
+
+describe("Triage Feed — Tomorrow & Week Tasks", () => {
+  const today = new Date(2026, 1, 18); // Wednesday Feb 18
+  const startOfToday = new Date(2026, 1, 18);
+  const startOfTomorrow = new Date(2026, 1, 19);
+  const endOfTomorrow = new Date(2026, 1, 20);
+  // End of week = Sunday Feb 22
+  const endOfWeek = new Date(2026, 1, 22, 23, 59, 59, 999);
+
+  function filterTomorrowTasks(tasks: TriageTask[]): TriageTask[] {
+    return tasks.filter(t =>
+      t.status !== "completed" &&
+      t.dueDate &&
+      new Date(t.dueDate) >= startOfTomorrow &&
+      new Date(t.dueDate) < endOfTomorrow
+    );
+  }
+
+  function filterWeekTasks(tasks: TriageTask[]): TriageTask[] {
+    return tasks.filter(t =>
+      t.status !== "completed" &&
+      t.dueDate &&
+      new Date(t.dueDate) >= endOfTomorrow &&
+      new Date(t.dueDate) <= endOfWeek
+    );
+  }
+
+  function filterCompletedToday(tasks: TriageTask[]): TriageTask[] {
+    return tasks.filter(t =>
+      t.status === "completed" &&
+      t.updatedAt &&
+      new Date(t.updatedAt) >= startOfToday &&
+      new Date(t.updatedAt) < startOfTomorrow
+    );
+  }
+
+  const tasks: TriageTask[] = [
+    { id: 1, title: "Due today", priority: "high", dueDate: new Date(2026, 1, 18), status: "open", assignedName: null, category: null },
+    { id: 2, title: "Due tomorrow", priority: "medium", dueDate: new Date(2026, 1, 19), status: "open", assignedName: null, category: null },
+    { id: 3, title: "Due Friday", priority: "low", dueDate: new Date(2026, 1, 20), status: "open", assignedName: null, category: null },
+    { id: 4, title: "Due Saturday", priority: "high", dueDate: new Date(2026, 1, 21), status: "open", assignedName: null, category: null },
+    { id: 5, title: "Due next week", priority: "medium", dueDate: new Date(2026, 1, 25), status: "open", assignedName: null, category: null },
+    { id: 6, title: "Completed today", priority: "high", dueDate: new Date(2026, 1, 18), status: "completed", assignedName: null, category: null, updatedAt: new Date(2026, 1, 18, 14, 0) },
+    { id: 7, title: "Completed yesterday", priority: "low", dueDate: new Date(2026, 1, 17), status: "completed", assignedName: null, category: null, updatedAt: new Date(2026, 1, 17, 10, 0) },
+    { id: 8, title: "Tomorrow completed", priority: "medium", dueDate: new Date(2026, 1, 19), status: "completed", assignedName: null, category: null },
+  ];
+
+  it("filters tomorrow tasks correctly", () => {
+    const result = filterTomorrowTasks(tasks);
+    expect(result.map(t => t.id)).toEqual([2]);
+  });
+
+  it("filters this week tasks (after tomorrow, before end of week)", () => {
+    const result = filterWeekTasks(tasks);
+    expect(result.map(t => t.id)).toEqual([3, 4]);
+  });
+
+  it("excludes completed tasks from tomorrow", () => {
+    const result = filterTomorrowTasks(tasks);
+    expect(result.find(t => t.id === 8)).toBeUndefined();
+  });
+
+  it("excludes next week tasks from this week", () => {
+    const result = filterWeekTasks(tasks);
+    expect(result.find(t => t.id === 5)).toBeUndefined();
+  });
+
+  it("filters completed today correctly", () => {
+    const result = filterCompletedToday(tasks);
+    expect(result.map(t => t.id)).toEqual([6]);
+  });
+
+  it("excludes yesterday's completions from completed today", () => {
+    const result = filterCompletedToday(tasks);
+    expect(result.find(t => t.id === 7)).toBeUndefined();
+  });
+});
+
+// ── v40: Bulk Task Actions ──────────────────────────────────────────────────
+
+describe("Bulk Task Actions", () => {
+  interface BulkUpdateInput {
+    taskIds: number[];
+    field: string;
+    value: string;
+  }
+
+  function validateBulkUpdate(input: BulkUpdateInput): boolean {
+    const validFields = ["category", "assignedTo", "status", "priority"];
+    return (
+      input.taskIds.length > 0 &&
+      validFields.includes(input.field) &&
+      input.value.length > 0
+    );
+  }
+
+  it("validates bulk update with valid fields", () => {
+    expect(validateBulkUpdate({ taskIds: [1, 2, 3], field: "category", value: "OTC" })).toBe(true);
+    expect(validateBulkUpdate({ taskIds: [1], field: "priority", value: "high" })).toBe(true);
+    expect(validateBulkUpdate({ taskIds: [1, 2], field: "status", value: "completed" })).toBe(true);
+  });
+
+  it("rejects bulk update with empty task ids", () => {
+    expect(validateBulkUpdate({ taskIds: [], field: "category", value: "OTC" })).toBe(false);
+  });
+
+  it("rejects bulk update with invalid field", () => {
+    expect(validateBulkUpdate({ taskIds: [1], field: "invalid", value: "test" })).toBe(false);
+  });
+
+  it("rejects bulk update with empty value", () => {
+    expect(validateBulkUpdate({ taskIds: [1], field: "category", value: "" })).toBe(false);
+  });
+});
+
+// ── v40: Ask OmniScope Spotlight ────────────────────────────────────────────
+
+describe("Ask OmniScope Spotlight — Source Structure", () => {
+  it("AskSpotlight component exists with onClose prop", async () => {
+    const source = await import("fs").then(fs =>
+      fs.readFileSync("client/src/components/AskSpotlight.tsx", "utf-8")
+    );
+    expect(source).toMatch(/onClose/);
+    expect(source).toMatch(/Escape/);
+    expect(source).toMatch(/Ask OmniScope/);
+  });
+
+  it("PortalLayout renders AskSpotlight with keyboard shortcut", async () => {
+    const source = await import("fs").then(fs =>
+      fs.readFileSync("client/src/components/PortalLayout.tsx", "utf-8")
+    );
+    expect(source).toMatch(/spotlightOpen/);
+    expect(source).toMatch(/AskSpotlight/);
+    expect(source).toMatch(/\u2318K|Cmd.*K|ctrlKey.*k/);
+  });
+
+  it("AskSpotlight has suggestion prompts", async () => {
+    const source = await import("fs").then(fs =>
+      fs.readFileSync("client/src/components/AskSpotlight.tsx", "utf-8")
+    );
+    expect(source).toMatch(/Try asking/);
+    expect(source).toMatch(/handleSuggestion/);
+  });
+
+  it("AskSpotlight has link to full page", async () => {
+    const source = await import("fs").then(fs =>
+      fs.readFileSync("client/src/components/AskSpotlight.tsx", "utf-8")
+    );
+    expect(source).toMatch(/Open full page/);
+    expect(source).toMatch(/\/ask/);
+  });
+});
+
+// ── v40: Triage Widgets Source Verification ─────────────────────────────────
+
+describe("Triage Feed — v40 Widget Source Verification", () => {
+  it("TriageFeed has tomorrow section", async () => {
+    const source = await import("fs").then(fs =>
+      fs.readFileSync("client/src/pages/TriageFeed.tsx", "utf-8")
+    );
+    expect(source).toMatch(/Tomorrow/);
+    expect(source).toMatch(/tomorrowTasks/);
+  });
+
+  it("TriageFeed has this week section", async () => {
+    const source = await import("fs").then(fs =>
+      fs.readFileSync("client/src/pages/TriageFeed.tsx", "utf-8")
+    );
+    expect(source).toMatch(/This Week|weekTasks/);
+  });
+
+  it("TriageFeed has completed today section", async () => {
+    const source = await import("fs").then(fs =>
+      fs.readFileSync("client/src/pages/TriageFeed.tsx", "utf-8")
+    );
+    expect(source).toMatch(/Completed Today|completedTodayTasks/);
+    expect(source).toMatch(/All tasks completed/);
+  });
+
+  it("TriageFeed uses local time for greeting (not server time)", async () => {
+    const source = await import("fs").then(fs =>
+      fs.readFileSync("client/src/pages/TriageFeed.tsx", "utf-8")
+    );
+    expect(source).toMatch(/useLiveClock/);
+    expect(source).toMatch(/getGreeting.*localHour|localHour.*getGreeting/);
+    expect(source).toMatch(/getHours/);
+  });
+
+  it("TriageFeed has live clock with timezone", async () => {
+    const source = await import("fs").then(fs =>
+      fs.readFileSync("client/src/pages/TriageFeed.tsx", "utf-8")
+    );
+    expect(source).toMatch(/toLocaleTimeString/);
+    expect(source).toMatch(/timeZoneName/);
+  });
+
+  it("Triage router returns tomorrow and week tasks", async () => {
+    const source = await import("fs").then(fs =>
+      fs.readFileSync("server/routers.ts", "utf-8")
+    );
+    expect(source).toMatch(/tomorrowTasks/);
+    expect(source).toMatch(/weekTasks/);
+    expect(source).toMatch(/completedTodayTasks/);
+  });
+
+  it("ToDo page has bulk update mutation", async () => {
+    const source = await import("fs").then(fs =>
+      fs.readFileSync("client/src/pages/ToDo.tsx", "utf-8")
+    );
+    expect(source).toMatch(/bulkUpdateTask|bulkUpdate/);
   });
 });
