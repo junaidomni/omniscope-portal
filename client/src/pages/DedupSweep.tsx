@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { Search, GitMerge, XCircle, AlertTriangle, CheckCircle2, User, Loader2 } from "lucide-react";
+import { Link } from "wouter";
+import { Search, GitMerge, XCircle, AlertTriangle, CheckCircle2, User, Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 type DedupCluster = {
@@ -102,7 +103,11 @@ export default function DedupSweep() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-5xl mx-auto px-6 py-8">
-        {/* Header */}
+        {/* Back + Header */}
+        <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors mb-4">
+          <ArrowLeft className="w-4 h-4" />
+          Back to Triage
+        </Link>
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
             <Search className="w-5 h-5 text-blue-400" />

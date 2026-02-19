@@ -5,7 +5,7 @@ import {
   UserPlus, Building2, Brain, Check, X, Search,
   ChevronDown, ChevronUp, GitMerge, Loader2,
   AlertTriangle, Sparkles, Link2, Briefcase,
-  Filter, CheckSquare, Square, Minus
+  Filter, CheckSquare, Square, Minus, Shield, ShieldX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,163 @@ type SortField = "name" | "source" | "date";
 type SortDir = "asc" | "desc";
 type ReviewTab = "contacts" | "companies" | "suggestions";
 
+// ─── Inline Merge Panel ──────────────────────────────────────────────────
+function InlineMergePanel({
+  item,
+  type,
+  onMerge,
+  onCancel,
+}: {
+  item: any;
+  type: "contact" | "company";
+  onMerge: (pendingId: number, mergeIntoId: number) => void;
+  onCancel: () => void;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Auto-detect duplicates
+  const { data: contactDuplicates } = trpc.triage.findDuplicatesFor.useQuery(
+    { contactId: item.id },
+    { enabled: type === "contact" }
+  );
+  const { data: companyDuplicates } = trpc.triage.findCompanyDuplicatesFor.useQuery(
+    { companyId: item.id },
+    { enabled: type === "company" }
+  );
+  const duplicates = type === "contact" ? contactDuplicates : companyDuplicates;
+  const hasDuplicates = duplicates && duplicates.length > 0;
+
+  // Manual search
+  const { data: allContacts } = trpc.contacts.list.useQuery(undefined, { enabled: type === "contact" });
+  const { data: allCompanies } = trpc.companies.list.useQuery(undefined, { enabled: type === "company" });
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    if (type === "contact") {
+      if (!allContacts) return [];
+      return (allContacts as any[])
+        .filter((c: any) => c.approvalStatus === "approved" && c.id !== item.id)
+        .filter((c: any) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.email && c.email.toLowerCase().includes(q)) ||
+          (c.organization && c.organization.toLowerCase().includes(q))
+        )
+        .slice(0, 6);
+    } else {
+      if (!allCompanies) return [];
+      return (allCompanies as any[])
+        .filter((c: any) => c.approvalStatus === "approved" && c.id !== item.id)
+        .filter((c: any) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.domain && c.domain.toLowerCase().includes(q))
+        )
+        .slice(0, 6);
+    }
+  }, [allContacts, allCompanies, searchQuery, item.id, type]);
+
+  const confidenceColor = (conf: number) => {
+    if (conf >= 80) return "text-red-400 bg-red-950/40 border-red-900/40";
+    if (conf >= 60) return "text-yellow-400 bg-yellow-950/40 border-yellow-900/40";
+    return "text-zinc-400 bg-zinc-800/40 border-zinc-700/40";
+  };
+
+  return (
+    <div className="col-span-full bg-zinc-900/80 border-t border-b border-yellow-900/30 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-200">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <GitMerge className="h-3.5 w-3.5 text-yellow-500" />
+          <span className="text-xs font-medium text-yellow-400">
+            Merge "{item.name}" into an existing {type}
+          </span>
+        </div>
+        <button onClick={onCancel} className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+          Cancel
+        </button>
+      </div>
+
+      {/* Auto-detected duplicates */}
+      {hasDuplicates && (
+        <div className="mb-3">
+          <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Possible Matches</p>
+          <div className="space-y-1">
+            {duplicates!.map((d: any, idx: number) => {
+              const target = d.contact || d.company;
+              return (
+                <div
+                  key={target?.id || idx}
+                  className="flex items-center justify-between gap-2 bg-zinc-800/60 border border-zinc-700/30 rounded-lg px-3 py-2 hover:border-yellow-800/40 transition-colors cursor-pointer group"
+                  onClick={() => onMerge(item.id, target?.id)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-zinc-200 truncate">{target?.name}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-zinc-500">
+                      {type === "contact" && target?.organization && <span>{target.organization}</span>}
+                      {type === "contact" && target?.email && <span className="truncate">{target.email}</span>}
+                      {type === "company" && target?.domain && <span>{target.domain}</span>}
+                      {d.reason && <span className="italic">{d.reason}</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${confidenceColor(d.confidence)}`}>
+                      {d.confidence}%
+                    </span>
+                    <span className="text-xs text-yellow-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                      Merge →
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Manual search */}
+      <div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+          <input
+            type="text"
+            placeholder={`Search approved ${type === "contact" ? "contacts" : "companies"} to merge into...`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-zinc-800/60 border border-zinc-700/40 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-yellow-800/60"
+            autoFocus
+          />
+        </div>
+        {searchQuery.trim() && searchResults.length > 0 && (
+          <div className="space-y-1 mt-2 max-h-36 overflow-y-auto">
+            {searchResults.map((c: any) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between gap-2 bg-zinc-800/60 border border-zinc-700/30 rounded-lg px-3 py-2 hover:border-yellow-800/40 transition-colors cursor-pointer group"
+                onClick={() => onMerge(item.id, c.id)}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-zinc-200 truncate">{c.name}</p>
+                  <div className="flex items-center gap-2 text-[10px] text-zinc-500">
+                    {c.organization && <span>{c.organization}</span>}
+                    {c.email && <span className="truncate">{c.email}</span>}
+                    {c.domain && <span>{c.domain}</span>}
+                  </div>
+                </div>
+                <span className="text-xs text-yellow-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                  Merge into this
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        {searchQuery.trim() && searchResults.length === 0 && (
+          <p className="text-xs text-zinc-600 text-center py-2 mt-1">No matching {type === "contact" ? "contacts" : "companies"} found</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────
 export default function PendingReview() {
   const [activeTab, setActiveTab] = useState<ReviewTab>("contacts");
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,7 +180,8 @@ export default function PendingReview() {
   const [selectedContacts, setSelectedContacts] = useState<Set<number>>(new Set());
   const [selectedCompanies, setSelectedCompanies] = useState<Set<number>>(new Set());
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(new Set());
-  const [undoStack, setUndoStack] = useState<Array<{ type: string; ids: number[]; action: string; timer: NodeJS.Timeout }>>([]);
+  const [mergeContactId, setMergeContactId] = useState<number | null>(null);
+  const [mergeCompanyId, setMergeCompanyId] = useState<number | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -100,6 +258,26 @@ export default function PendingReview() {
     },
   });
 
+  // Merge mutations
+  const mergeContactMutation = trpc.triage.mergeAndApprove.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Merged into ${data.mergedInto}`);
+      setMergeContactId(null);
+      utils.contacts.list.invalidate();
+      utils.triage.feed.invalidate();
+    },
+    onError: () => toast.error("Could not merge contact"),
+  });
+  const mergeCompanyMutation = trpc.triage.mergeCompany.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Merged into ${data.mergedInto}`);
+      setMergeCompanyId(null);
+      utils.companies.list.invalidate();
+      utils.triage.feed.invalidate();
+    },
+    onError: () => toast.error("Could not merge company"),
+  });
+
   // Undo helpers
   function showUndoToast(type: string, ids: number[], action: string, undoFn: () => void) {
     const toastId = toast(`${action} ${ids.length} ${type}`, {
@@ -118,8 +296,7 @@ export default function PendingReview() {
   function handleApproveContact(id: number) {
     approveContactMutation.mutate({ contactId: id });
     showUndoToast("contact", [id], "Approved", () => {
-      // Revert to pending
-      rejectContactMutation.mutate({ contactId: id }); // Not ideal but reverses
+      rejectContactMutation.mutate({ contactId: id });
     });
   }
 
@@ -175,7 +352,6 @@ export default function PendingReview() {
         const cmp = (a.source || "").localeCompare(b.source || "");
         return sortDir === "asc" ? cmp : -cmp;
       }
-      // date
       const dateA = new Date(a.createdAt || 0).getTime();
       const dateB = new Date(b.createdAt || 0).getTime();
       return sortDir === "asc" ? dateA - dateB : dateB - dateA;
@@ -389,7 +565,7 @@ export default function PendingReview() {
       {activeTab === "contacts" && !isLoading && (
         <div className="border border-zinc-800/40 rounded-xl overflow-hidden">
           {/* Table header */}
-          <div className="grid grid-cols-[40px_1fr_1fr_120px_100px_100px] gap-2 px-4 py-2.5 bg-zinc-900/60 border-b border-zinc-800/40 text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
+          <div className="grid grid-cols-[40px_1fr_1fr_120px_100px_120px] gap-2 px-4 py-2.5 bg-zinc-900/60 border-b border-zinc-800/40 text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
             <div className="flex items-center">
               <SelectAllCheckbox type="contacts" count={pendingContacts.length} selected={selectedContacts.size} />
             </div>
@@ -414,65 +590,88 @@ export default function PendingReview() {
             </div>
           ) : (
             pendingContacts.map((c: any) => (
-              <div
-                key={c.id}
-                className={`grid grid-cols-[40px_1fr_1fr_120px_100px_100px] gap-2 px-4 py-3 border-b border-zinc-800/20 hover:bg-zinc-900/30 transition-colors items-center ${
-                  selectedContacts.has(c.id) ? "bg-yellow-950/10" : ""
-                }`}
-              >
-                <div>
-                  <button
-                    onClick={() => {
-                      const next = new Set(selectedContacts);
-                      next.has(c.id) ? next.delete(c.id) : next.add(c.id);
-                      setSelectedContacts(next);
+              <div key={c.id}>
+                <div
+                  className={`grid grid-cols-[40px_1fr_1fr_120px_100px_120px] gap-2 px-4 py-3 border-b border-zinc-800/20 hover:bg-zinc-900/30 transition-colors items-center ${
+                    selectedContacts.has(c.id) ? "bg-yellow-950/10" : ""
+                  }`}
+                >
+                  <div>
+                    <button
+                      onClick={() => {
+                        const next = new Set(selectedContacts);
+                        next.has(c.id) ? next.delete(c.id) : next.add(c.id);
+                        setSelectedContacts(next);
+                      }}
+                      className="p-0.5"
+                    >
+                      {selectedContacts.has(c.id)
+                        ? <CheckSquare className="h-4 w-4 text-yellow-500" />
+                        : <Square className="h-4 w-4 text-zinc-600" />
+                      }
+                    </button>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm text-zinc-200 truncate font-medium">{c.name}</p>
+                    {c.email && <p className="text-[11px] text-zinc-500 truncate">{c.email}</p>}
+                  </div>
+                  <div className="min-w-0">
+                    {c.organization && (
+                      <span className="text-[11px] text-zinc-400 flex items-center gap-1">
+                        <Building2 className="h-3 w-3 text-zinc-600" /> {c.organization}
+                      </span>
+                    )}
+                    {c.title && <span className="text-[11px] text-zinc-500">{c.title}</span>}
+                  </div>
+                  <div>
+                    <Badge variant="outline" className="text-[10px] border-zinc-700/50 text-zinc-400">
+                      {c.source || "unknown"}
+                    </Badge>
+                  </div>
+                  <div className="text-[11px] text-zinc-500">
+                    {c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => handleApproveContact(c.id)}
+                      disabled={approveContactMutation.isPending}
+                      className="p-1.5 rounded-md hover:bg-emerald-950/50 text-zinc-500 hover:text-emerald-400 transition-colors"
+                      title="Approve"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setMergeContactId(mergeContactId === c.id ? null : c.id)}
+                      className={`p-1.5 rounded-md transition-colors ${
+                        mergeContactId === c.id
+                          ? "bg-yellow-950/50 text-yellow-400"
+                          : "text-zinc-500 hover:bg-yellow-950/30 hover:text-yellow-400"
+                      }`}
+                      title="Merge with existing contact"
+                    >
+                      <GitMerge className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleRejectContact(c.id)}
+                      disabled={rejectContactMutation.isPending}
+                      className="p-1.5 rounded-md hover:bg-red-950/50 text-zinc-500 hover:text-red-400 transition-colors"
+                      title="Reject"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+                {/* Inline merge panel */}
+                {mergeContactId === c.id && (
+                  <InlineMergePanel
+                    item={c}
+                    type="contact"
+                    onMerge={(pendingId, mergeIntoId) => {
+                      mergeContactMutation.mutate({ pendingId, mergeIntoId });
                     }}
-                    className="p-0.5"
-                  >
-                    {selectedContacts.has(c.id)
-                      ? <CheckSquare className="h-4 w-4 text-yellow-500" />
-                      : <Square className="h-4 w-4 text-zinc-600" />
-                    }
-                  </button>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm text-zinc-200 truncate font-medium">{c.name}</p>
-                  {c.email && <p className="text-[11px] text-zinc-500 truncate">{c.email}</p>}
-                </div>
-                <div className="min-w-0">
-                  {c.organization && (
-                    <span className="text-[11px] text-zinc-400 flex items-center gap-1">
-                      <Building2 className="h-3 w-3 text-zinc-600" /> {c.organization}
-                    </span>
-                  )}
-                  {c.title && <span className="text-[11px] text-zinc-500">{c.title}</span>}
-                </div>
-                <div>
-                  <Badge variant="outline" className="text-[10px] border-zinc-700/50 text-zinc-400">
-                    {c.source || "unknown"}
-                  </Badge>
-                </div>
-                <div className="text-[11px] text-zinc-500">
-                  {c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
-                </div>
-                <div className="flex items-center justify-end gap-1">
-                  <button
-                    onClick={() => handleApproveContact(c.id)}
-                    disabled={approveContactMutation.isPending}
-                    className="p-1.5 rounded-md hover:bg-emerald-950/50 text-zinc-500 hover:text-emerald-400 transition-colors"
-                    title="Approve"
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleRejectContact(c.id)}
-                    disabled={rejectContactMutation.isPending}
-                    className="p-1.5 rounded-md hover:bg-red-950/50 text-zinc-500 hover:text-red-400 transition-colors"
-                    title="Reject"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                    onCancel={() => setMergeContactId(null)}
+                  />
+                )}
               </div>
             ))
           )}
@@ -482,7 +681,7 @@ export default function PendingReview() {
       {/* ── COMPANIES TAB ── */}
       {activeTab === "companies" && !isLoading && (
         <div className="border border-zinc-800/40 rounded-xl overflow-hidden">
-          <div className="grid grid-cols-[40px_1fr_1fr_120px_100px] gap-2 px-4 py-2.5 bg-zinc-900/60 border-b border-zinc-800/40 text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
+          <div className="grid grid-cols-[40px_1fr_1fr_120px_120px] gap-2 px-4 py-2.5 bg-zinc-900/60 border-b border-zinc-800/40 text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
             <div className="flex items-center">
               <SelectAllCheckbox type="companies" count={pendingCompanies.length} selected={selectedCompanies.size} />
             </div>
@@ -499,60 +698,83 @@ export default function PendingReview() {
             </div>
           ) : (
             pendingCompanies.map((c: any) => (
-              <div
-                key={c.id}
-                className={`grid grid-cols-[40px_1fr_1fr_120px_100px] gap-2 px-4 py-3 border-b border-zinc-800/20 hover:bg-zinc-900/30 transition-colors items-center ${
-                  selectedCompanies.has(c.id) ? "bg-yellow-950/10" : ""
-                }`}
-              >
-                <div>
-                  <button
-                    onClick={() => {
-                      const next = new Set(selectedCompanies);
-                      next.has(c.id) ? next.delete(c.id) : next.add(c.id);
-                      setSelectedCompanies(next);
+              <div key={c.id}>
+                <div
+                  className={`grid grid-cols-[40px_1fr_1fr_120px_120px] gap-2 px-4 py-3 border-b border-zinc-800/20 hover:bg-zinc-900/30 transition-colors items-center ${
+                    selectedCompanies.has(c.id) ? "bg-yellow-950/10" : ""
+                  }`}
+                >
+                  <div>
+                    <button
+                      onClick={() => {
+                        const next = new Set(selectedCompanies);
+                        next.has(c.id) ? next.delete(c.id) : next.add(c.id);
+                        setSelectedCompanies(next);
+                      }}
+                      className="p-0.5"
+                    >
+                      {selectedCompanies.has(c.id)
+                        ? <CheckSquare className="h-4 w-4 text-yellow-500" />
+                        : <Square className="h-4 w-4 text-zinc-600" />
+                      }
+                    </button>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm text-zinc-200 truncate font-medium">{c.name}</p>
+                  </div>
+                  <div className="min-w-0">
+                    {c.sector ? (
+                      <Badge variant="outline" className="text-[10px] border-zinc-700/50 text-zinc-400">{c.sector}</Badge>
+                    ) : (
+                      <span className="text-[11px] text-zinc-600">—</span>
+                    )}
+                  </div>
+                  <div>
+                    <Badge variant="outline" className="text-[10px] border-zinc-700/50 text-zinc-400">
+                      {c.source || "meeting"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => handleApproveCompany(c.id)}
+                      disabled={approveCompanyMutation.isPending}
+                      className="p-1.5 rounded-md hover:bg-emerald-950/50 text-zinc-500 hover:text-emerald-400 transition-colors"
+                      title="Approve"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setMergeCompanyId(mergeCompanyId === c.id ? null : c.id)}
+                      className={`p-1.5 rounded-md transition-colors ${
+                        mergeCompanyId === c.id
+                          ? "bg-yellow-950/50 text-yellow-400"
+                          : "text-zinc-500 hover:bg-yellow-950/30 hover:text-yellow-400"
+                      }`}
+                      title="Merge with existing company"
+                    >
+                      <GitMerge className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleRejectCompany(c.id)}
+                      disabled={rejectCompanyMutation.isPending}
+                      className="p-1.5 rounded-md hover:bg-red-950/50 text-zinc-500 hover:text-red-400 transition-colors"
+                      title="Reject"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+                {/* Inline merge panel */}
+                {mergeCompanyId === c.id && (
+                  <InlineMergePanel
+                    item={c}
+                    type="company"
+                    onMerge={(pendingId, mergeIntoId) => {
+                      mergeCompanyMutation.mutate({ pendingId, mergeIntoId });
                     }}
-                    className="p-0.5"
-                  >
-                    {selectedCompanies.has(c.id)
-                      ? <CheckSquare className="h-4 w-4 text-yellow-500" />
-                      : <Square className="h-4 w-4 text-zinc-600" />
-                    }
-                  </button>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm text-zinc-200 truncate font-medium">{c.name}</p>
-                </div>
-                <div className="min-w-0">
-                  {c.sector ? (
-                    <Badge variant="outline" className="text-[10px] border-zinc-700/50 text-zinc-400">{c.sector}</Badge>
-                  ) : (
-                    <span className="text-[11px] text-zinc-600">—</span>
-                  )}
-                </div>
-                <div>
-                  <Badge variant="outline" className="text-[10px] border-zinc-700/50 text-zinc-400">
-                    {c.source || "meeting"}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-end gap-1">
-                  <button
-                    onClick={() => handleApproveCompany(c.id)}
-                    disabled={approveCompanyMutation.isPending}
-                    className="p-1.5 rounded-md hover:bg-emerald-950/50 text-zinc-500 hover:text-emerald-400 transition-colors"
-                    title="Approve"
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleRejectCompany(c.id)}
-                    disabled={rejectCompanyMutation.isPending}
-                    className="p-1.5 rounded-md hover:bg-red-950/50 text-zinc-500 hover:text-red-400 transition-colors"
-                    title="Reject"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                    onCancel={() => setMergeCompanyId(null)}
+                  />
+                )}
               </div>
             ))
           )}

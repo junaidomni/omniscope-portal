@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, like, lte, or, sql, inArray, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink, emailThreadSummaries, InsertEmailThreadSummary, emailMessages, pendingSuggestions, InsertPendingSuggestion, activityLog, InsertActivityLog } from "../drizzle/schema";
+import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink, emailThreadSummaries, InsertEmailThreadSummary, emailMessages, pendingSuggestions, InsertPendingSuggestion, activityLog, InsertActivityLog, contactAliases, InsertContactAlias, companyAliases, InsertCompanyAlias } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -200,9 +200,20 @@ export async function searchContacts(searchTerm: string) {
   ).orderBy(asc(contacts.name));
 }
 
-export async function getOrCreateContact(name: string, org?: string, email?: string) {
+export async function getOrCreateContact(name: string, org?: string, email?: string, userId?: number) {
   // First try exact match
   let contact = await getContactByName(name);
+  
+  // If no exact match, try alias lookup (learned from previous merges)
+  if (!contact && userId) {
+    const aliasContactId = await findContactByAlias(userId, name, email);
+    if (aliasContactId) {
+      contact = await getContactById(aliasContactId);
+      if (contact) {
+        console.log(`[Alias] Auto-linked "${name}" to existing contact "${contact.name}" via learned alias`);
+      }
+    }
+  }
   
   // If no exact match, try fuzzy matching
   if (!contact) {
@@ -1884,4 +1895,74 @@ export async function getActivityLog(opts: {
     items,
     total: countResult[0]?.count || 0,
   };
+}
+
+
+// ============================================================================
+// CONTACT ALIASES — Smart duplicate learning
+// ============================================================================
+
+export async function saveContactAlias(userId: number, contactId: number, aliasName: string, aliasEmail?: string, source: string = "merge") {
+  const db = await getDb();
+  if (!db) return null;
+  // Check if alias already exists
+  const existing = await db.select().from(contactAliases).where(
+    and(eq(contactAliases.userId, userId), eq(contactAliases.contactId, contactId), eq(contactAliases.aliasName, aliasName))
+  ).limit(1);
+  if (existing.length > 0) return existing[0];
+  const [result] = await db.insert(contactAliases).values({ userId, contactId, aliasName, aliasEmail, source });
+  return { id: result.insertId, userId, contactId, aliasName, aliasEmail, source };
+}
+
+export async function findContactByAlias(userId: number, name: string, email?: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const normalizedName = name.trim().toLowerCase();
+  // Check by name alias
+  const byName = await db.select().from(contactAliases)
+    .where(and(eq(contactAliases.userId, userId), sql`LOWER(${contactAliases.aliasName}) = ${normalizedName}`))
+    .limit(1);
+  if (byName.length > 0) return byName[0].contactId;
+  // Check by email alias
+  if (email) {
+    const byEmail = await db.select().from(contactAliases)
+      .where(and(eq(contactAliases.userId, userId), eq(contactAliases.aliasEmail, email.toLowerCase())))
+      .limit(1);
+    if (byEmail.length > 0) return byEmail[0].contactId;
+  }
+  return null;
+}
+
+export async function getAliasesForContact(userId: number, contactId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(contactAliases).where(
+    and(eq(contactAliases.userId, userId), eq(contactAliases.contactId, contactId))
+  );
+}
+
+// ============================================================================
+// COMPANY ALIASES — Smart duplicate learning
+// ============================================================================
+
+export async function saveCompanyAlias(userId: number, companyId: number, aliasName: string, source: string = "merge") {
+  const db = await getDb();
+  if (!db) return null;
+  const existing = await db.select().from(companyAliases).where(
+    and(eq(companyAliases.userId, userId), eq(companyAliases.companyId, companyId), eq(companyAliases.aliasName, aliasName))
+  ).limit(1);
+  if (existing.length > 0) return existing[0];
+  const [result] = await db.insert(companyAliases).values({ userId, companyId, aliasName, source });
+  return { id: result.insertId, userId, companyId, aliasName, source };
+}
+
+export async function findCompanyByAlias(userId: number, name: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const normalizedName = name.trim().toLowerCase();
+  const byName = await db.select().from(companyAliases)
+    .where(and(eq(companyAliases.userId, userId), sql`LOWER(${companyAliases.aliasName}) = ${normalizedName}`))
+    .limit(1);
+  if (byName.length > 0) return byName[0].companyId;
+  return null;
 }

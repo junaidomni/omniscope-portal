@@ -910,3 +910,66 @@ export const activityLogRelations = relations(activityLog, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+
+/**
+ * Contact aliases — learned name mappings for duplicate prevention.
+ * When a user merges "Kyle" with an existing contact, the alias is saved
+ * so future meeting syncs auto-link "Kyle" to the correct contact.
+ */
+export const contactAliases = mysqlTable("contact_aliases", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // owner of this alias
+  contactId: int("contactId").notNull(), // the canonical contact
+  aliasName: varchar("aliasName", { length: 500 }).notNull(), // the alternate name
+  aliasEmail: varchar("aliasEmail", { length: 500 }), // optional alternate email
+  source: varchar("aliasSource", { length: 100 }).default("merge").notNull(), // how it was learned: merge, manual
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  userContactIdx: index("alias_user_contact_idx").on(table.userId, table.contactId),
+  aliasNameIdx: index("alias_name_idx").on(table.userId, table.aliasName),
+  aliasEmailIdx: index("alias_email_idx").on(table.userId, table.aliasEmail),
+}));
+
+export type ContactAlias = typeof contactAliases.$inferSelect;
+export type InsertContactAlias = typeof contactAliases.$inferInsert;
+
+export const contactAliasRelations = relations(contactAliases, ({ one }) => ({
+  user: one(users, {
+    fields: [contactAliases.userId],
+    references: [users.id],
+  }),
+  contact: one(contacts, {
+    fields: [contactAliases.contactId],
+    references: [contacts.id],
+  }),
+}));
+
+/**
+ * Company aliases — learned name mappings for company duplicate prevention.
+ */
+export const companyAliases = mysqlTable("company_aliases", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  companyId: int("companyId").notNull(),
+  aliasName: varchar("companyAliasName", { length: 500 }).notNull(),
+  source: varchar("companyAliasSource", { length: 100 }).default("merge").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  userCompanyIdx: index("calias_user_company_idx").on(table.userId, table.companyId),
+  aliasNameIdx: index("calias_name_idx").on(table.userId, table.aliasName),
+}));
+
+export type CompanyAlias = typeof companyAliases.$inferSelect;
+export type InsertCompanyAlias = typeof companyAliases.$inferInsert;
+
+export const companyAliasRelations = relations(companyAliases, ({ one }) => ({
+  user: one(users, {
+    fields: [companyAliases.userId],
+    references: [users.id],
+  }),
+  company: one(companies, {
+    fields: [companyAliases.companyId],
+    references: [companies.id],
+  }),
+}));

@@ -404,6 +404,13 @@ const contactsRouter = router({
       if (!keep.linkedin && merge.linkedin) updates.linkedin = merge.linkedin;
       if (Object.keys(updates).length > 0) await db.updateContact(input.keepId, updates);
       await db.deleteContact(input.mergeId);
+      // Save alias so the system learns this name maps to the kept contact
+      if (merge.name && merge.name.toLowerCase() !== keep.name?.toLowerCase()) {
+        await db.saveContactAlias(ctx.user.id, input.keepId, merge.name, merge.email || undefined, "merge");
+      }
+      if (merge.email && merge.email !== keep.email) {
+        await db.saveContactAlias(ctx.user.id, input.keepId, merge.name || merge.email, merge.email, "merge");
+      }
       await db.logActivity({ userId: ctx.user.id, action: "merge_contacts", entityType: "contact", entityId: String(input.keepId), entityName: keep.name, details: `Merged "${merge.name}" into "${keep.name}"`, metadata: JSON.stringify({ keepId: input.keepId, mergeId: input.mergeId, mergeName: merge.name, fieldsTransferred: Object.keys(updates) }) });
       return { success: true };
     }),
@@ -3106,7 +3113,7 @@ const triageRouter = router({
   // Merge a pending contact into an existing approved contact
   mergeAndApprove: protectedProcedure
     .input(z.object({ pendingId: z.number(), mergeIntoId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const pending = await db.getContactById(input.pendingId);
       const target = await db.getContactById(input.mergeIntoId);
       if (!pending || !target) throw new TRPCError({ code: 'NOT_FOUND' });
@@ -3129,8 +3136,17 @@ const triageRouter = router({
       if (!target.linkedin && pending.linkedin) updates.linkedin = pending.linkedin;
       if (Object.keys(updates).length > 0) await db.updateContact(input.mergeIntoId, updates);
 
+      // Save alias so the system learns this name maps to the kept contact
+      if (pending.name && pending.name.toLowerCase() !== target.name?.toLowerCase()) {
+        await db.saveContactAlias(ctx.user.id, input.mergeIntoId, pending.name, pending.email || undefined, "merge");
+      }
+      if (pending.email && pending.email !== target.email) {
+        await db.saveContactAlias(ctx.user.id, input.mergeIntoId, pending.name || pending.email, pending.email, "merge");
+      }
+
       // Delete the pending contact
       await db.deleteContact(input.pendingId);
+      await db.logActivity({ userId: ctx.user.id, action: "merge_contacts", entityType: "contact", entityId: String(input.mergeIntoId), entityName: target.name, details: `Merged pending "${pending.name}" into "${target.name}"` });
       return { success: true, mergedInto: target.name };
     }),
 
@@ -3164,6 +3180,93 @@ const triageRouter = router({
     .mutation(async ({ input }) => {
       await db.updateCompany(input.companyId, { approvalStatus: 'rejected' });
       return { success: true };
+    }),
+
+  // Merge a pending company into an existing approved company
+  mergeCompany: protectedProcedure
+    .input(z.object({ pendingId: z.number(), mergeIntoId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const pending = await db.getCompanyById(input.pendingId);
+      const target = await db.getCompanyById(input.mergeIntoId);
+      if (!pending || !target) throw new TRPCError({ code: 'NOT_FOUND' });
+
+      // Fill in missing fields from pending company
+      const updates: any = {};
+      if (!target.domain && pending.domain) updates.domain = pending.domain;
+      if (!target.industry && pending.industry) updates.industry = pending.industry;
+      if (!target.notes && pending.notes) updates.notes = pending.notes;
+      if (!target.location && pending.location) updates.location = pending.location;
+      if (!target.bankingPartner && pending.bankingPartner) updates.bankingPartner = pending.bankingPartner;
+      if (!target.custodian && pending.custodian) updates.custodian = pending.custodian;
+      if (Object.keys(updates).length > 0) await db.updateCompany(input.mergeIntoId, updates);
+
+      // Transfer any contacts linked to the pending company
+      const allContacts = await db.getAllContacts();
+      for (const c of allContacts) {
+        if ((c as any).companyId === input.pendingId) {
+          await db.updateContact(c.id, { companyId: input.mergeIntoId } as any);
+        }
+      }
+
+      // Save alias so the system learns this company name
+      if (pending.name && pending.name.toLowerCase() !== target.name?.toLowerCase()) {
+        await db.saveCompanyAlias(ctx.user.id, input.mergeIntoId, pending.name, "merge");
+      }
+
+      await db.deleteCompany(input.pendingId);
+      await db.logActivity({ userId: ctx.user.id, action: "merge_companies", entityType: "company", entityId: String(input.mergeIntoId), entityName: target.name, details: `Merged pending "${pending.name}" into "${target.name}"` });
+      return { success: true, mergedInto: target.name };
+    }),
+
+  // Find potential duplicate companies for a pending company
+  findCompanyDuplicatesFor: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .query(async ({ input }) => {
+      const company = await db.getCompanyById(input.companyId);
+      if (!company) return [];
+      const allCompanies = await db.getAllCompanies();
+      const approved = allCompanies.filter((c: any) => c.approvalStatus === 'approved' && c.id !== input.companyId);
+      const matches: { company: any; confidence: number; reason: string }[] = [];
+      const pendingName = (company.name || '').toLowerCase().trim();
+      const pendingDomain = (company.domain || '').toLowerCase().trim();
+
+      for (const c of approved) {
+        const cName = (c.name || '').toLowerCase().trim();
+        const cDomain = (c.domain || '').toLowerCase().trim();
+        let confidence = 0;
+        let reason = '';
+
+        // Exact name match
+        if (cName === pendingName) {
+          confidence = 95;
+          reason = 'Exact name match';
+        }
+        // Domain match
+        else if (pendingDomain && cDomain && pendingDomain === cDomain) {
+          confidence = 90;
+          reason = 'Same domain';
+        }
+        // Name contains
+        else if (cName.includes(pendingName) || pendingName.includes(cName)) {
+          confidence = 70;
+          reason = 'Name overlap';
+        }
+        // Fuzzy: check if words overlap significantly
+        else {
+          const pendingWords = pendingName.split(/\s+/).filter(w => w.length > 2);
+          const cWords = cName.split(/\s+/).filter(w => w.length > 2);
+          const overlap = pendingWords.filter(w => cWords.includes(w)).length;
+          if (overlap >= 2 || (overlap >= 1 && Math.min(pendingWords.length, cWords.length) <= 2)) {
+            confidence = 55;
+            reason = 'Similar words';
+          }
+        }
+
+        if (confidence >= 50) {
+          matches.push({ company: c, confidence, reason });
+        }
+      }
+      return matches.sort((a, b) => b.confidence - a.confidence).slice(0, 5);
     }),
 
   bulkApproveCompanies: protectedProcedure
@@ -3336,6 +3439,21 @@ const activityLogRouter = router({
         entityType: input?.entityType,
         startDate: input?.startDate ? new Date(input.startDate) : undefined,
         endDate: input?.endDate ? new Date(input.endDate) : undefined,
+      });
+    }),
+
+  exportAll: protectedProcedure
+    .input(z.object({
+      action: z.string().optional(),
+      entityType: z.string().optional(),
+    }).optional())
+    .query(async ({ input }) => {
+      // Fetch ALL entries (no limit) for CSV export
+      return await db.getActivityLog({
+        limit: 10000,
+        offset: 0,
+        action: input?.action,
+        entityType: input?.entityType,
       });
     }),
 

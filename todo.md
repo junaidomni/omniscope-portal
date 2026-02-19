@@ -1791,3 +1791,32 @@
 - [x] Quick merge action for confirmed duplicates
 - [x] Dismiss action for false positives
 - [x] Show total duplicates found and resolved count
+
+## v53 — Universal Merge Options, Smart Learning, Activity Export
+
+### Merge Options on All Approval Points
+- [x] Add merge option alongside approve/reject on pending contacts in Triage feed
+- [x] Add merge option alongside approve/reject on pending companies in Triage feed
+- [x] Add merge option in Pending Review tab (batch review table) — inline merge panels with auto-detect + manual search
+- [x] Add merge option in ApprovalModal for both contacts and companies
+- [x] Consistent UI: every approve/reject point shows Approve / Reject / Merge buttons
+- [x] Merge searches existing approved contacts/companies for match
+
+### Smart Duplicate Learning
+- [x] Create contactAliases and companyAliases tables to store known name mappings
+- [x] When user merges a pending contact with existing, save the name mapping as an alias
+- [x] On future meeting sync, check aliases before creating new pending contacts
+- [x] Auto-link to existing contact when alias match is found (skip creating duplicate)
+- [x] Learning improves over time as more merges happen
+
+### Back Buttons
+- [x] Add back button to Activity Log page
+- [x] Add back button to Dedup Sweep page
+
+### Comprehensive Activity Logging + CSV Export
+- [x] Log every CRM action (approve, reject, merge, bulk ops, dedup)
+- [x] Add CSV export button to Activity Log page with backend exportAll endpoint
+- [x] Export filtered results based on current filters (action type, entity type)
+- [x] Include all fields: date, time, action, entity type, entity name, details
+- [x] Proper CSV escaping for commas and quotes in field values
+- [x] Auto-generated filename with current date

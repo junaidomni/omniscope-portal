@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { Shield, Filter, ChevronLeft, ChevronRight, User, Building2, Lightbulb, GitMerge, CheckCircle2, XCircle, Users } from "lucide-react";
+import { Link } from "wouter";
+import { ArrowLeft } from "lucide-react";
+import { Shield, Filter, ChevronLeft, ChevronRight, User, Building2, Lightbulb, GitMerge, CheckCircle2, XCircle, Users, Download } from "lucide-react";
 
 const ACTION_LABELS: Record<string, { label: string; color: string; icon: any }> = {
   approve_contact: { label: "Approved Contact", color: "text-emerald-400", icon: CheckCircle2 },
@@ -43,10 +45,52 @@ export default function ActivityLog() {
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / limit);
 
+  const [isExporting, setIsExporting] = useState(false);
+  const exportQuery = trpc.activityLog.exportAll.useQuery(
+    { action: actionFilter, entityType: entityTypeFilter },
+    { enabled: isExporting }
+  );
+
+  // Handle export when data arrives
+  const handleExport = () => {
+    if (isExporting && exportQuery.data) {
+      const allLogs = exportQuery.data.logs || [];
+      const headers = ["Date", "Time", "Action", "Entity Type", "Entity Name", "Details"];
+      const rows = allLogs.map((log: any) => {
+        const d = new Date(log.createdAt);
+        const actionLabel = ACTION_LABELS[log.action]?.label || log.action;
+        return [
+          d.toLocaleDateString("en-US"),
+          d.toLocaleTimeString("en-US"),
+          actionLabel,
+          log.entityType || "",
+          `"${(log.entityName || "").replace(/"/g, '""')}"`,
+          `"${(log.details || "").replace(/"/g, '""')}"`,
+        ].join(",");
+      });
+      const csv = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `omniscope-activity-log-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setIsExporting(false);
+    }
+  };
+  if (isExporting && exportQuery.data) {
+    handleExport();
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-6xl mx-auto px-6 py-8">
-        {/* Header */}
+        {/* Back + Header */}
+        <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors mb-4">
+          <ArrowLeft className="w-4 h-4" />
+          Back to Triage
+        </Link>
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
             <Shield className="w-5 h-5 text-amber-500" />
@@ -55,8 +99,16 @@ export default function ActivityLog() {
             <h1 className="text-2xl font-semibold tracking-tight">Activity Log</h1>
             <p className="text-sm text-muted-foreground">Compliance audit trail for all CRM actions</p>
           </div>
-          <div className="ml-auto text-sm text-muted-foreground">
-            {total} total entries
+          <div className="ml-auto flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">{total} total entries</span>
+            <button
+              onClick={() => setIsExporting(true)}
+              disabled={!total || isExporting}
+              className="inline-flex items-center gap-1.5 text-sm text-amber-500 hover:text-amber-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors border border-amber-500/20 rounded-lg px-3 py-1.5 hover:bg-amber-500/5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {isExporting ? "Exporting..." : "Export CSV"}
+            </button>
           </div>
         </div>
 

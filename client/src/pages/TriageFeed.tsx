@@ -373,32 +373,56 @@ function ApprovalModal({
   const [showMerge, setShowMerge] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Only fetch duplicates for contacts
-  const { data: duplicates, isLoading: dupsLoading } = trpc.triage.findDuplicatesFor.useQuery(
+  // Fetch duplicates for contacts
+  const { data: contactDuplicates } = trpc.triage.findDuplicatesFor.useQuery(
     { contactId: item.id },
     { enabled: type === "contact" }
   );
 
-  // Also fetch all approved contacts for manual search
+  // Fetch duplicates for companies
+  const { data: companyDuplicates } = trpc.triage.findCompanyDuplicatesFor.useQuery(
+    { companyId: item.id },
+    { enabled: type === "company" }
+  );
+
+  const duplicates = type === "contact" ? contactDuplicates : companyDuplicates;
+
+  // Fetch all approved items for manual search
   const { data: allContacts } = trpc.contacts.list.useQuery(undefined, {
     enabled: type === "contact" && showMerge,
+  });
+  const { data: allCompanies } = trpc.companies.list.useQuery(undefined, {
+    enabled: type === "company" && showMerge,
   });
 
   const hasDuplicates = duplicates && duplicates.length > 0;
 
-  // Filter contacts for manual search
+  // Filter items for manual search
   const searchResults = useMemo(() => {
-    if (!allContacts || !searchQuery.trim()) return [];
+    if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
-    return (allContacts as any[])
-      .filter((c: any) => c.approvalStatus === "approved" && c.id !== item.id)
-      .filter((c: any) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.email && c.email.toLowerCase().includes(q)) ||
-        (c.organization && c.organization.toLowerCase().includes(q))
-      )
-      .slice(0, 8);
-  }, [allContacts, searchQuery, item.id]);
+    if (type === "contact") {
+      if (!allContacts) return [];
+      return (allContacts as any[])
+        .filter((c: any) => c.approvalStatus === "approved" && c.id !== item.id)
+        .filter((c: any) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.email && c.email.toLowerCase().includes(q)) ||
+          (c.organization && c.organization.toLowerCase().includes(q))
+        )
+        .slice(0, 8);
+    } else {
+      if (!allCompanies) return [];
+      return (allCompanies as any[])
+        .filter((c: any) => c.approvalStatus === "approved" && c.id !== item.id)
+        .filter((c: any) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.domain && c.domain.toLowerCase().includes(q)) ||
+          (c.industry && c.industry.toLowerCase().includes(q))
+        )
+        .slice(0, 8);
+    }
+  }, [allContacts, allCompanies, searchQuery, item.id, type]);
 
   const confidenceColor = (conf: number) => {
     if (conf >= 80) return "text-red-400 bg-red-950/40 border-red-900/40";
@@ -453,24 +477,27 @@ function ApprovalModal({
         </div>
 
         {/* Duplicate Suggestions (auto-detected) */}
-        {type === "contact" && !showMerge && hasDuplicates && (
+        {!showMerge && hasDuplicates && (
           <div className="mx-5 mb-3 border border-yellow-900/30 bg-yellow-950/20 rounded-xl p-3">
             <div className="flex items-center gap-2 mb-2">
               <GitMerge className="h-3.5 w-3.5 text-yellow-500" />
               <span className="text-xs font-medium text-yellow-400">Possible Duplicates Detected</span>
             </div>
             <div className="space-y-1.5">
-              {duplicates!.map((d: any) => (
+              {duplicates!.map((d: any, idx: number) => (
                 <div
-                  key={d.contact.id}
+                  key={(d.contact || d.company)?.id || idx}
                   className="flex items-center justify-between gap-2 bg-zinc-900/60 border border-zinc-800/40 rounded-lg px-3 py-2 hover:border-yellow-800/40 transition-colors cursor-pointer group"
-                  onClick={() => onMerge?.(item.id, d.contact.id)}
+                  onClick={() => onMerge?.(item.id, (d.contact || d.company)?.id)}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-zinc-200 truncate">{d.contact.name}</p>
+                    <p className="text-sm text-zinc-200 truncate">{(d.contact || d.company)?.name}</p>
                     <div className="flex items-center gap-2 text-[10px] text-zinc-500">
-                      {d.contact.organization && <span>{d.contact.organization}</span>}
-                      {d.contact.email && <span className="truncate">{d.contact.email}</span>}
+                      {type === "contact" && d.contact?.organization && <span>{d.contact.organization}</span>}
+                      {type === "contact" && d.contact?.email && <span className="truncate">{d.contact.email}</span>}
+                      {type === "company" && d.company?.domain && <span>{d.company.domain}</span>}
+                      {type === "company" && d.company?.industry && <span>{d.company.industry}</span>}
+                      {d.reason && <span className="italic">{d.reason}</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -478,7 +505,7 @@ function ApprovalModal({
                       {d.confidence}%
                     </span>
                     <span className="text-xs text-yellow-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                      Same person
+                      {type === "contact" ? "Same person" : "Same company"}
                     </span>
                   </div>
                 </div>
@@ -488,13 +515,13 @@ function ApprovalModal({
         )}
 
         {/* Manual Merge Search */}
-        {type === "contact" && showMerge && (
+        {showMerge && (
           <div className="mx-5 mb-3">
             <div className="relative mb-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
               <input
                 type="text"
-                placeholder="Search existing contacts to merge with..."
+                placeholder={`Search existing ${type === 'contact' ? 'contacts' : 'companies'} to merge with...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-zinc-800/60 border border-zinc-700/40 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-yellow-800/60"
@@ -543,7 +570,7 @@ function ApprovalModal({
               <Shield className="h-3.5 w-3.5" />
               Approve
             </button>
-            {type === "contact" && onMerge && (
+            {onMerge && (
               <button
                 onClick={() => setShowMerge(!showMerge)}
                 className={`flex items-center justify-center gap-2 font-medium text-sm py-2.5 px-4 rounded-lg transition-colors ${
@@ -567,7 +594,7 @@ function ApprovalModal({
           </div>
 
           {/* Duplicate hint when not in merge mode */}
-          {type === "contact" && !showMerge && hasDuplicates && (
+          {!showMerge && hasDuplicates && (
             <p className="text-[10px] text-zinc-600 text-center mt-2">
               Click a suggestion above or use Merge to search manually
             </p>
@@ -1318,6 +1345,15 @@ export default function TriageFeed() {
     onError: () => toast.error("Could not merge contact"),
   });
 
+  const mergeCompanyMutation = trpc.triage.mergeCompany.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Merged into ${data.mergedInto}`);
+      setSelectedApproval(null);
+      utils.triage.feed.invalidate();
+    },
+    onError: () => toast.error("Could not merge company"),
+  });
+
   const approveSuggestionMutation = trpc.contacts.approveSuggestion.useMutation({
     onSuccess: (_data, variables) => {
       utils.triage.feed.invalidate();
@@ -1423,9 +1459,13 @@ export default function TriageFeed() {
               ? rejectContactMutation.mutate({ contactId: id })
               : rejectCompanyMutation.mutate({ companyId: id })
           }
-          onMerge={selectedApproval.type === "contact" ? (pendingId, mergeIntoId) => {
-            mergeAndApproveMutation.mutate({ pendingId, mergeIntoId });
-          } : undefined}
+          onMerge={(pendingId, mergeIntoId) => {
+            if (selectedApproval.type === "contact") {
+              mergeAndApproveMutation.mutate({ pendingId, mergeIntoId });
+            } else {
+              mergeCompanyMutation.mutate({ pendingId, mergeIntoId });
+            }
+          }}
           isActing={false}
         />
       )}
