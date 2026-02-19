@@ -390,8 +390,8 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
           {children}
         </main>
 
-        {/* Floating Omni Avatar — bottom-right */}
-        {omniMode !== "hidden" && !omniChatOpen && (
+        {/* Floating Omni Avatar — bottom-right (hidden on Triage page where greeting bar has one) */}
+        {omniMode !== "hidden" && !omniChatOpen && location !== "/" && (
           <div className="fixed bottom-6 right-6 z-[80]">
             <OmniAvatar
               mode={omniMode}

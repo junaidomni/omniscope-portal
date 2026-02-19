@@ -39,6 +39,7 @@ import {
   EyeOff,
   ChevronDown,
   MailOpen,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -607,34 +608,45 @@ function Section({
   );
 }
 
-// ─── Stat card (compact) ──────────────────────────────────────────────────
+// ─── Filter type for stat card drill-down ───────────────────────────────
+type TriageFilter = "open" | "overdue" | "high" | "done" | "starred" | "pending" | null;
+
+// ─── Stat card (compact, clickable for filtering) ────────────────────────
 function StatCard({
   icon,
   label,
   value,
   color,
-  linkTo,
+  active,
+  onClick,
   highlight,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
   color: string;
-  linkTo?: string;
+  active?: boolean;
+  onClick?: () => void;
   highlight?: boolean;
 }) {
-  const inner = (
-    <div className={`border rounded-xl px-3 py-2.5 flex items-center gap-2.5 hover:border-zinc-700/50 transition-colors cursor-pointer ${
-      highlight ? "bg-yellow-950/15 border-yellow-800/30" : "bg-zinc-900/40 border-zinc-800/40"
-    }`}>
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full border rounded-xl px-3 py-2.5 flex items-center gap-2.5 transition-all duration-200 cursor-pointer text-left ${
+        active
+          ? "bg-yellow-600/15 border-yellow-500/40 ring-1 ring-yellow-500/20"
+          : highlight
+            ? "bg-yellow-950/15 border-yellow-800/30 hover:border-yellow-700/40"
+            : "bg-zinc-900/40 border-zinc-800/40 hover:border-zinc-700/50"
+      }`}
+    >
       <div className={`p-1.5 rounded-lg ${color}`}>{icon}</div>
       <div>
-        <div className="text-base font-bold font-mono text-white">{value}</div>
-        <div className="text-[9px] text-zinc-500 uppercase tracking-wider leading-tight">{label}</div>
+        <div className={`text-base font-bold font-mono ${active ? "text-yellow-400" : "text-white"}`}>{value}</div>
+        <div className={`text-[9px] uppercase tracking-wider leading-tight ${active ? "text-yellow-500/70" : "text-zinc-500"}`}>{label}</div>
       </div>
-    </div>
+    </button>
   );
-  return linkTo ? <Link href={linkTo}>{inner}</Link> : inner;
 }
 
 // ─── Inline Strategic Insights (for greeting bar) ────────────────────────
@@ -756,17 +768,25 @@ function UnreadEmailsSection() {
   );
 }
 
-// ─── Greeting Bar (redesigned v45) ──────────────────────────────────────────
+// ─── Greeting Bar (redesigned v46 — stat cards inside) ───────────────────────
 function GreetingBar({
   greeting, userName, statusLine, situationalSummary, timeIcon,
   timeString, dateString, tzAbbr, quote, showQuote, setShowQuote,
+  summary, activeFilter, onFilterChange,
 }: {
   greeting: string; userName: string; statusLine: string; situationalSummary: string;
   timeIcon: React.ReactNode; timeString: string; dateString: string; tzAbbr: string;
   quote: { text: string; author: string }; showQuote: boolean; setShowQuote: (v: boolean) => void;
+  summary: { totalOpen: number; totalOverdue: number; totalHighPriority: number; completedToday: number; totalStarred: number; totalPendingApprovals: number };
+  activeFilter: TriageFilter;
+  onFilterChange: (f: TriageFilter) => void;
 }) {
   const { omniMode, openChat } = useOmni();
   const [omniHover, setOmniHover] = useState(false);
+
+  const toggleFilter = (f: TriageFilter) => {
+    onFilterChange(activeFilter === f ? null : f);
+  };
 
   return (
     <div className="bg-gradient-to-br from-zinc-900/80 via-zinc-900/60 to-zinc-900/40 border border-zinc-800/40 rounded-2xl p-5 lg:p-6">
@@ -860,6 +880,33 @@ function GreetingBar({
           </div>
         </div>
       </div>
+
+      {/* ── Stat Cards (inside greeting box) ─────────────────────────── */}
+      <div className="mt-4 pt-4 border-t border-zinc-800/30">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-1.5">
+            <Filter className="h-3 w-3 text-zinc-600" />
+            <span className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium">Quick Stats</span>
+          </div>
+          {activeFilter && (
+            <button
+              onClick={() => onFilterChange(null)}
+              className="flex items-center gap-1 text-[10px] text-yellow-500 hover:text-yellow-400 transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Clear filter
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <StatCard icon={<ListTodo className="h-3.5 w-3.5 text-zinc-300" />} label="Open Tasks" value={summary.totalOpen} color="bg-zinc-800/60" active={activeFilter === "open"} onClick={() => toggleFilter("open")} />
+          <StatCard icon={<AlertTriangle className="h-3.5 w-3.5 text-red-400" />} label="Overdue" value={summary.totalOverdue} color="bg-red-950/40" active={activeFilter === "overdue"} onClick={() => toggleFilter("overdue")} highlight={summary.totalOverdue > 0} />
+          <StatCard icon={<Flame className="h-3.5 w-3.5 text-yellow-400" />} label="High Priority" value={summary.totalHighPriority} color="bg-yellow-950/40" active={activeFilter === "high"} onClick={() => toggleFilter("high")} />
+          <StatCard icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />} label="Done Today" value={summary.completedToday} color="bg-emerald-950/40" active={activeFilter === "done"} onClick={() => toggleFilter("done")} />
+          <StatCard icon={<Star className="h-3.5 w-3.5 text-yellow-400" />} label="Starred Mail" value={summary.totalStarred} color="bg-yellow-950/40" active={activeFilter === "starred"} onClick={() => toggleFilter("starred")} />
+          <StatCard icon={<Users className="h-3.5 w-3.5 text-blue-400" />} label="Pending" value={summary.totalPendingApprovals} color="bg-blue-950/40" active={activeFilter === "pending"} onClick={() => toggleFilter("pending")} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -871,6 +918,7 @@ export default function TriageFeed() {
   const [actingIds, setActingIds] = useState<Set<number>>(new Set());
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [selectedApproval, setSelectedApproval] = useState<{ item: any; type: "contact" | "company" } | null>(null);
+  const [activeFilter, setActiveFilter] = useState<TriageFilter>(null);
   const [showQuote, setShowQuote] = useState(() => {
     const stored = localStorage.getItem("omniscope-show-quote");
     return stored !== null ? stored === "true" : true;
@@ -1050,293 +1098,495 @@ export default function TriageFeed() {
         quote={quote}
         showQuote={showQuote}
         setShowQuote={setShowQuote}
+        summary={summary}
+        activeFilter={activeFilter}
+        onFilterChange={setActiveFilter}
       />
 
-      {/* ── Quick stats row ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        <StatCard icon={<ListTodo className="h-3.5 w-3.5 text-zinc-300" />} label="Open Tasks" value={summary.totalOpen} color="bg-zinc-800/60" linkTo="/operations" />
-        <StatCard icon={<AlertTriangle className="h-3.5 w-3.5 text-red-400" />} label="Overdue" value={summary.totalOverdue} color="bg-red-950/40" linkTo="/operations" highlight={summary.totalOverdue > 0} />
-        <StatCard icon={<Flame className="h-3.5 w-3.5 text-yellow-400" />} label="High Priority" value={summary.totalHighPriority} color="bg-yellow-950/40" linkTo="/operations" />
-        <StatCard icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />} label="Done Today" value={summary.completedToday} color="bg-emerald-950/40" />
-        <StatCard icon={<Star className="h-3.5 w-3.5 text-yellow-400" />} label="Starred Mail" value={summary.totalStarred} color="bg-yellow-950/40" linkTo="/communications" />
-        <StatCard icon={<Users className="h-3.5 w-3.5 text-blue-400" />} label="Pending" value={summary.totalPendingApprovals} color="bg-blue-950/40" linkTo="/relationships" />
-      </div>
-
-      {/* ── All today's tasks done celebration ────────────────────────── */}
-      {allTodayDone && (
-        <div className="flex items-center gap-3 bg-emerald-950/15 border border-emerald-800/25 rounded-xl p-4">
-          <div className="p-2 rounded-full bg-emerald-950/40">
-            <Trophy className="h-5 w-5 text-emerald-400" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold text-emerald-400">All tasks completed for today</h3>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              {data.completedTodayTasks?.length || 0} completed.
-              {hasTomorrowTasks ? ` ${data.tomorrowTasks?.length} coming tomorrow.` : ""}
-            </p>
-          </div>
-          <Link href="/operations">
-            <span className="text-xs text-emerald-500 hover:text-emerald-400 flex items-center gap-1 cursor-pointer">
-              View all <ArrowRight className="h-3 w-3" />
-            </span>
-          </Link>
+      {/* ── Active filter indicator ─────────────────────────────────────── */}
+      {activeFilter && (
+        <div className="flex items-center gap-2 bg-yellow-950/15 border border-yellow-800/25 rounded-xl px-4 py-2.5">
+          <Filter className="h-3.5 w-3.5 text-yellow-500" />
+          <span className="text-sm text-yellow-400 font-medium">
+            {activeFilter === "open" && "Showing all open tasks"}
+            {activeFilter === "overdue" && "Showing overdue tasks"}
+            {activeFilter === "high" && "Showing high priority tasks"}
+            {activeFilter === "done" && "Showing tasks completed today"}
+            {activeFilter === "starred" && "Showing starred emails"}
+            {activeFilter === "pending" && "Showing pending approvals"}
+          </span>
+          <button
+            onClick={() => setActiveFilter(null)}
+            className="ml-auto p-1 rounded hover:bg-yellow-900/30 text-yellow-500 hover:text-yellow-400 transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
-      {/* ── All clear state ───────────────────────────────────────────── */}
-      {nothingToTriage && !allTodayDone && (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="p-3 rounded-full bg-emerald-950/30 border border-emerald-800/30 mb-3">
-            <Sparkles className="h-6 w-6 text-emerald-500" />
+      {/* ── FILTERED VIEW: When a stat card is active ─────────────── */}
+      {activeFilter === "open" && (
+        <Section
+          icon={<ListTodo className="h-4 w-4 text-zinc-300" />}
+          title="All Open Tasks"
+          count={summary.totalOpen}
+          accentColor="bg-zinc-800/60"
+          linkTo="/operations"
+          linkLabel="Manage in Operations"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+            {[...data.overdueTasks, ...data.todayTasks, ...data.highPriorityTasks, ...(data.tomorrowTasks || []), ...(data.weekTasks || [])]
+              .filter((t, i, arr) => arr.findIndex(x => x.id === t.id) === i)
+              .map((t) => (
+                <TaskCard
+                  key={t.id}
+                  task={t}
+                  showOverdue={data.overdueTasks.some(o => o.id === t.id)}
+                  onClick={() => setSelectedTask(t)}
+                  onQuickComplete={(id) => completeMutation.mutate({ taskId: id })}
+                  isActing={actingIds.has(t.id)}
+                />
+              ))}
           </div>
-          <h3 className="text-base font-semibold text-white mb-1">All Clear</h3>
-          <p className="text-sm text-zinc-500 max-w-sm">
-            Nothing requires your immediate attention.
-          </p>
-        </div>
+        </Section>
       )}
 
-      {/* ── Overdue tasks ────────────────────────────────────────────── */}
-      {hasOverdue && (
+      {activeFilter === "overdue" && (
         <Section
           icon={<AlertTriangle className="h-4 w-4 text-red-400" />}
-          title="Overdue"
+          title="Overdue Tasks"
           count={data.overdueTasks.length}
           accentColor="bg-red-950/40"
           linkTo="/operations"
           className="bg-red-950/5 border border-red-900/15 rounded-xl p-4"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-            {data.overdueTasks.map((t) => (
-              <TaskCard
-                key={t.id}
-                task={t}
-                showOverdue
-                onClick={() => setSelectedTask(t)}
-                onQuickComplete={(id) => completeMutation.mutate({ taskId: id })}
-                isActing={actingIds.has(t.id)}
-              />
-            ))}
-          </div>
+          {data.overdueTasks.length === 0 ? (
+            <p className="text-sm text-zinc-500 py-4 text-center">No overdue tasks. You're on track.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+              {data.overdueTasks.map((t) => (
+                <TaskCard
+                  key={t.id}
+                  task={t}
+                  showOverdue
+                  onClick={() => setSelectedTask(t)}
+                  onQuickComplete={(id) => completeMutation.mutate({ taskId: id })}
+                  isActing={actingIds.has(t.id)}
+                />
+              ))}
+            </div>
+          )}
         </Section>
       )}
 
-      {/* ── Due today ────────────────────────────────────────────────── */}
-      {hasTodayTasks && (
+      {activeFilter === "high" && (
         <Section
-          icon={<Clock className="h-4 w-4 text-yellow-500" />}
-          title="Due Today"
-          count={data.todayTasks.length}
-          accentColor="bg-yellow-950/40"
+          icon={<Flame className="h-4 w-4 text-orange-400" />}
+          title="High Priority Tasks"
+          count={summary.totalHighPriority}
+          accentColor="bg-orange-950/40"
           linkTo="/operations"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-            {data.todayTasks.map((t) => (
-              <TaskCard
-                key={t.id}
-                task={t}
-                onClick={() => setSelectedTask(t)}
-                onQuickComplete={(id) => completeMutation.mutate({ taskId: id })}
-                isActing={actingIds.has(t.id)}
-              />
-            ))}
-          </div>
+          {data.highPriorityTasks.length === 0 ? (
+            <p className="text-sm text-zinc-500 py-4 text-center">No high priority tasks.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+              {[...data.overdueTasks.filter(t => t.priority === 'high'), ...data.todayTasks.filter(t => t.priority === 'high'), ...data.highPriorityTasks]
+                .filter((t, i, arr) => arr.findIndex(x => x.id === t.id) === i)
+                .map((t) => (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    showOverdue={data.overdueTasks.some(o => o.id === t.id)}
+                    onClick={() => setSelectedTask(t)}
+                    onQuickComplete={(id) => completeMutation.mutate({ taskId: id })}
+                    isActing={actingIds.has(t.id)}
+                  />
+                ))}
+            </div>
+          )}
         </Section>
       )}
 
-      {/* ── Two-column: High Priority + Approvals/Starred ────────────── */}
-      {(hasHighPriority || hasStarredEmails || hasPendingContacts || hasPendingCompanies) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {hasHighPriority && (
-            <Section
-              icon={<Flame className="h-4 w-4 text-orange-400" />}
-              title="High Priority"
-              count={data.highPriorityTasks.length}
-              accentColor="bg-orange-950/40"
-              linkTo="/operations"
-            >
-              <div className="space-y-1.5">
-                {data.highPriorityTasks.slice(0, 6).map((t) => {
-                  const cleanTitle = t.title.replace(/\s*\(Assigned to:.*?\)\s*$/, "");
-                  return (
-                    <div
-                      key={t.id}
-                      onClick={() => setSelectedTask(t)}
-                      className="group flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2 hover:border-zinc-700/50 transition-colors cursor-pointer"
-                    >
-                      <PriorityBadge priority={t.priority} />
-                      <span className="text-sm text-zinc-200 truncate flex-1 group-hover:text-white transition-colors">
-                        {cleanTitle}
-                      </span>
-                      {t.assignedName && (
-                        <span className="text-[10px] text-zinc-500 shrink-0 hidden sm:inline">{t.assignedName}</span>
-                      )}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); completeMutation.mutate({ taskId: t.id }); }}
-                        disabled={actingIds.has(t.id)}
-                        className="p-1 rounded hover:bg-emerald-950/50 text-zinc-600 hover:text-emerald-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
-                        title="Complete"
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </Section>
-          )}
-
-          <div className="space-y-4">
-            {hasStarredEmails && (
-              <Section
-                icon={<Star className="h-4 w-4 text-yellow-500" />}
-                title="Starred Emails"
-                count={data.starredEmails.length}
-                accentColor="bg-yellow-950/40"
-                linkTo="/communications"
-              >
-                <div className="space-y-1.5">
-                  {data.starredEmails.map((s) => {
-                    const starLabels: Record<number, string> = { 1: "Reply Today", 2: "Delegate", 3: "Critical" };
-                    const starColors: Record<number, string> = { 1: "text-yellow-500", 2: "text-orange-400", 3: "text-red-400" };
-                    return (
-                      <Link key={s.threadId} href="/communications">
-                        <div className="flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2 hover:border-zinc-700/50 transition-colors cursor-pointer">
-                          <Mail className="h-3.5 w-3.5 text-zinc-500" />
-                          <span className="text-sm text-zinc-300 truncate flex-1 font-mono">
-                            {s.threadId.slice(0, 16)}...
-                          </span>
-                          <span className={`text-xs ${starColors[s.starLevel] || "text-zinc-400"}`}>
-                            {"★".repeat(s.starLevel)} {starLabels[s.starLevel] || ""}
-                          </span>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </Section>
-            )}
-
-            {(hasPendingContacts || hasPendingCompanies) && (
-              <Section
-                icon={<UserPlus className="h-4 w-4 text-blue-400" />}
-                title="Pending Approvals"
-                count={data.pendingContacts.length + data.pendingCompanies.length}
-                accentColor="bg-blue-950/40"
-                linkTo="/relationships"
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {data.pendingContacts.map((c) => (
-                    <div
-                      key={`c-${c.id}`}
-                      onClick={() => setSelectedApproval({ item: c, type: "contact" })}
-                      className="flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2 hover:border-zinc-700/50 transition-colors cursor-pointer"
-                    >
-                      <UserPlus className="h-3.5 w-3.5 text-blue-400/60" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-zinc-200 truncate">{c.name}</p>
-                        {c.organization && <p className="text-[10px] text-zinc-500 truncate">{c.organization}</p>}
-                      </div>
-                      <ChevronRight className="h-3 w-3 text-zinc-700" />
-                    </div>
-                  ))}
-                  {data.pendingCompanies.map((c) => (
-                    <div
-                      key={`co-${c.id}`}
-                      onClick={() => setSelectedApproval({ item: c, type: "company" })}
-                      className="flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2 hover:border-zinc-700/50 transition-colors cursor-pointer"
-                    >
-                      <Building2 className="h-3.5 w-3.5 text-purple-400/60" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-zinc-200 truncate">{c.name}</p>
-                        {c.sector && <p className="text-[10px] text-zinc-500 truncate">{c.sector}</p>}
-                      </div>
-                      <ChevronRight className="h-3 w-3 text-zinc-700" />
-                    </div>
-                  ))}
-                </div>
-              </Section>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Unread Emails ────────────────────────────────────────────── */}
-      <UnreadEmailsSection />
-
-      {/* ── Completed today ──────────────────────────────────────────── */}
-      {hasCompletedToday && (
+      {activeFilter === "done" && (
         <Section
           icon={<Trophy className="h-4 w-4 text-emerald-400" />}
           title="Completed Today"
-          count={data.completedTodayTasks?.length}
+          count={data.completedTodayTasks?.length || 0}
           accentColor="bg-emerald-950/40"
-          collapsible
-          defaultOpen={false}
         >
-          <div className="space-y-1.5">
-            {data.completedTodayTasks?.map((t) => (
-              <CompletedRow key={t.id} task={t} />
-            ))}
-          </div>
+          {!data.completedTodayTasks?.length ? (
+            <p className="text-sm text-zinc-500 py-4 text-center">No tasks completed today yet.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {data.completedTodayTasks.map((t) => (
+                <CompletedRow key={t.id} task={t} />
+              ))}
+            </div>
+          )}
         </Section>
       )}
 
-      {/* ── Tomorrow's tasks + This week ─────────────────────────────── */}
-      {(hasTomorrowTasks || hasWeekTasks) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {hasTomorrowTasks && (
-            <Section
-              icon={<Sunrise className="h-4 w-4 text-amber-400" />}
-              title="Tomorrow"
-              count={data.tomorrowTasks?.length}
-              accentColor="bg-amber-950/40"
-              linkTo="/operations"
-              collapsible
-            >
-              <div className="space-y-1.5">
-                {data.tomorrowTasks?.map((t) => (
-                  <CompactTaskRow key={t.id} task={t} onClick={() => setSelectedTask({ ...t, notes: "" })} />
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {hasWeekTasks && (
-            <Section
-              icon={<CalendarDays className="h-4 w-4 text-blue-400" />}
-              title="This Week"
-              count={data.weekTasks?.length}
-              accentColor="bg-blue-950/40"
-              linkTo="/operations"
-              collapsible
-            >
-              <div className="space-y-1.5">
-                {data.weekTasks?.map((t) => (
-                  <CompactTaskRow key={t.id} task={t} showDate onClick={() => setSelectedTask({ ...t, notes: "" })} />
-                ))}
-              </div>
-            </Section>
-          )}
-        </div>
-      )}
-
-      {/* ── Recent meetings ──────────────────────────────────────────── */}
-      {hasRecentMeetings && (
+      {activeFilter === "starred" && (
         <Section
-          icon={<Calendar className="h-4 w-4 text-emerald-400" />}
-          title="Recent Intelligence"
-          count={data.recentMeetings.length}
-          accentColor="bg-emerald-950/40"
-          linkTo="/intelligence"
-          linkLabel="All meetings"
+          icon={<Star className="h-4 w-4 text-yellow-500" />}
+          title="Starred Emails"
+          count={data.starredEmails.length}
+          accentColor="bg-yellow-950/40"
+          linkTo="/communications"
+          linkLabel="Open inbox"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-            {data.recentMeetings.map((m) => (
-              <MeetingCard key={m.id} meeting={m} />
-            ))}
-          </div>
+          {data.starredEmails.length === 0 ? (
+            <p className="text-sm text-zinc-500 py-4 text-center">No starred emails.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {data.starredEmails.map((s) => {
+                const starLabels: Record<number, string> = { 1: "Reply Today", 2: "Delegate", 3: "Critical" };
+                const starColors: Record<number, string> = { 1: "text-yellow-500", 2: "text-orange-400", 3: "text-red-400" };
+                return (
+                  <Link key={s.threadId} href="/communications">
+                    <div className="flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2 hover:border-zinc-700/50 transition-colors cursor-pointer">
+                      <Mail className="h-3.5 w-3.5 text-zinc-500" />
+                      <span className="text-sm text-zinc-300 truncate flex-1 font-mono">
+                        {s.threadId.slice(0, 16)}...
+                      </span>
+                      <span className={`text-xs ${starColors[s.starLevel] || "text-zinc-400"}`}>
+                        {"★".repeat(s.starLevel)} {starLabels[s.starLevel] || ""}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </Section>
+      )}
+
+      {activeFilter === "pending" && (
+        <Section
+          icon={<UserPlus className="h-4 w-4 text-blue-400" />}
+          title="Pending Approvals"
+          count={data.pendingContacts.length + data.pendingCompanies.length}
+          accentColor="bg-blue-950/40"
+          linkTo="/relationships"
+        >
+          {data.pendingContacts.length === 0 && data.pendingCompanies.length === 0 ? (
+            <p className="text-sm text-zinc-500 py-4 text-center">No pending approvals.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {data.pendingContacts.map((c) => (
+                <div
+                  key={`c-${c.id}`}
+                  onClick={() => setSelectedApproval({ item: c, type: "contact" })}
+                  className="flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2 hover:border-zinc-700/50 transition-colors cursor-pointer"
+                >
+                  <UserPlus className="h-3.5 w-3.5 text-blue-400/60" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-zinc-200 truncate">{c.name}</p>
+                    {c.organization && <p className="text-[10px] text-zinc-500 truncate">{c.organization}</p>}
+                  </div>
+                  <ChevronRight className="h-3 w-3 text-zinc-700" />
+                </div>
+              ))}
+              {data.pendingCompanies.map((c) => (
+                <div
+                  key={`co-${c.id}`}
+                  onClick={() => setSelectedApproval({ item: c, type: "company" })}
+                  className="flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2 hover:border-zinc-700/50 transition-colors cursor-pointer"
+                >
+                  <Building2 className="h-3.5 w-3.5 text-purple-400/60" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-zinc-200 truncate">{c.name}</p>
+                    {c.sector && <p className="text-[10px] text-zinc-500 truncate">{c.sector}</p>}
+                  </div>
+                  <ChevronRight className="h-3 w-3 text-zinc-700" />
+                </div>
+              ))}
+            </div>
+          )}
+        </Section>
+      )}
+
+      {/* ── DEFAULT VIEW: No filter active ─────────────────────────── */}
+      {!activeFilter && (
+        <>
+          {/* Celebration */}
+          {allTodayDone && (
+            <div className="flex items-center gap-3 bg-emerald-950/15 border border-emerald-800/25 rounded-xl p-4">
+              <div className="p-2 rounded-full bg-emerald-950/40">
+                <Trophy className="h-5 w-5 text-emerald-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-emerald-400">All tasks completed for today</h3>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {data.completedTodayTasks?.length || 0} completed.
+                  {hasTomorrowTasks ? ` ${data.tomorrowTasks?.length} coming tomorrow.` : ""}
+                </p>
+              </div>
+              <Link href="/operations">
+                <span className="text-xs text-emerald-500 hover:text-emerald-400 flex items-center gap-1 cursor-pointer">
+                  View all <ArrowRight className="h-3 w-3" />
+                </span>
+              </Link>
+            </div>
+          )}
+
+          {/* All clear */}
+          {nothingToTriage && !allTodayDone && (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="p-3 rounded-full bg-emerald-950/30 border border-emerald-800/30 mb-3">
+                <Sparkles className="h-6 w-6 text-emerald-500" />
+              </div>
+              <h3 className="text-base font-semibold text-white mb-1">All Clear</h3>
+              <p className="text-sm text-zinc-500 max-w-sm">
+                Nothing requires your immediate attention.
+              </p>
+            </div>
+          )}
+
+          {/* Overdue */}
+          {hasOverdue && (
+            <Section
+              icon={<AlertTriangle className="h-4 w-4 text-red-400" />}
+              title="Overdue"
+              count={data.overdueTasks.length}
+              accentColor="bg-red-950/40"
+              linkTo="/operations"
+              className="bg-red-950/5 border border-red-900/15 rounded-xl p-4"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                {data.overdueTasks.map((t) => (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    showOverdue
+                    onClick={() => setSelectedTask(t)}
+                    onQuickComplete={(id) => completeMutation.mutate({ taskId: id })}
+                    isActing={actingIds.has(t.id)}
+                  />
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* Due today */}
+          {hasTodayTasks && (
+            <Section
+              icon={<Clock className="h-4 w-4 text-yellow-500" />}
+              title="Due Today"
+              count={data.todayTasks.length}
+              accentColor="bg-yellow-950/40"
+              linkTo="/operations"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                {data.todayTasks.map((t) => (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    onClick={() => setSelectedTask(t)}
+                    onQuickComplete={(id) => completeMutation.mutate({ taskId: id })}
+                    isActing={actingIds.has(t.id)}
+                  />
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* Two-column: High Priority + Approvals/Starred */}
+          {(hasHighPriority || hasStarredEmails || hasPendingContacts || hasPendingCompanies) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {hasHighPriority && (
+                <Section
+                  icon={<Flame className="h-4 w-4 text-orange-400" />}
+                  title="High Priority"
+                  count={data.highPriorityTasks.length}
+                  accentColor="bg-orange-950/40"
+                  linkTo="/operations"
+                >
+                  <div className="space-y-1.5">
+                    {data.highPriorityTasks.slice(0, 6).map((t) => {
+                      const cleanTitle = t.title.replace(/\s*\(Assigned to:.*?\)\s*$/, "");
+                      return (
+                        <div
+                          key={t.id}
+                          onClick={() => setSelectedTask(t)}
+                          className="group flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2 hover:border-zinc-700/50 transition-colors cursor-pointer"
+                        >
+                          <PriorityBadge priority={t.priority} />
+                          <span className="text-sm text-zinc-200 truncate flex-1 group-hover:text-white transition-colors">
+                            {cleanTitle}
+                          </span>
+                          {t.assignedName && (
+                            <span className="text-[10px] text-zinc-500 shrink-0 hidden sm:inline">{t.assignedName}</span>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); completeMutation.mutate({ taskId: t.id }); }}
+                            disabled={actingIds.has(t.id)}
+                            className="p-1 rounded hover:bg-emerald-950/50 text-zinc-600 hover:text-emerald-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                            title="Complete"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Section>
+              )}
+
+              <div className="space-y-4">
+                {hasStarredEmails && (
+                  <Section
+                    icon={<Star className="h-4 w-4 text-yellow-500" />}
+                    title="Starred Emails"
+                    count={data.starredEmails.length}
+                    accentColor="bg-yellow-950/40"
+                    linkTo="/communications"
+                  >
+                    <div className="space-y-1.5">
+                      {data.starredEmails.map((s) => {
+                        const starLabels: Record<number, string> = { 1: "Reply Today", 2: "Delegate", 3: "Critical" };
+                        const starColors: Record<number, string> = { 1: "text-yellow-500", 2: "text-orange-400", 3: "text-red-400" };
+                        return (
+                          <Link key={s.threadId} href="/communications">
+                            <div className="flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2 hover:border-zinc-700/50 transition-colors cursor-pointer">
+                              <Mail className="h-3.5 w-3.5 text-zinc-500" />
+                              <span className="text-sm text-zinc-300 truncate flex-1 font-mono">
+                                {s.threadId.slice(0, 16)}...
+                              </span>
+                              <span className={`text-xs ${starColors[s.starLevel] || "text-zinc-400"}`}>
+                                {"★".repeat(s.starLevel)} {starLabels[s.starLevel] || ""}
+                              </span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </Section>
+                )}
+
+                {(hasPendingContacts || hasPendingCompanies) && (
+                  <Section
+                    icon={<UserPlus className="h-4 w-4 text-blue-400" />}
+                    title="Pending Approvals"
+                    count={data.pendingContacts.length + data.pendingCompanies.length}
+                    accentColor="bg-blue-950/40"
+                    linkTo="/relationships"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {data.pendingContacts.map((c) => (
+                        <div
+                          key={`c-${c.id}`}
+                          onClick={() => setSelectedApproval({ item: c, type: "contact" })}
+                          className="flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2 hover:border-zinc-700/50 transition-colors cursor-pointer"
+                        >
+                          <UserPlus className="h-3.5 w-3.5 text-blue-400/60" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-zinc-200 truncate">{c.name}</p>
+                            {c.organization && <p className="text-[10px] text-zinc-500 truncate">{c.organization}</p>}
+                          </div>
+                          <ChevronRight className="h-3 w-3 text-zinc-700" />
+                        </div>
+                      ))}
+                      {data.pendingCompanies.map((c) => (
+                        <div
+                          key={`co-${c.id}`}
+                          onClick={() => setSelectedApproval({ item: c, type: "company" })}
+                          className="flex items-center gap-3 bg-zinc-900/50 border border-zinc-800/40 rounded-lg px-3 py-2 hover:border-zinc-700/50 transition-colors cursor-pointer"
+                        >
+                          <Building2 className="h-3.5 w-3.5 text-purple-400/60" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-zinc-200 truncate">{c.name}</p>
+                            {c.sector && <p className="text-[10px] text-zinc-500 truncate">{c.sector}</p>}
+                          </div>
+                          <ChevronRight className="h-3 w-3 text-zinc-700" />
+                        </div>
+                      ))}
+                    </div>
+                  </Section>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Unread Emails */}
+          <UnreadEmailsSection />
+
+          {/* Completed today */}
+          {hasCompletedToday && (
+            <Section
+              icon={<Trophy className="h-4 w-4 text-emerald-400" />}
+              title="Completed Today"
+              count={data.completedTodayTasks?.length}
+              accentColor="bg-emerald-950/40"
+              collapsible
+              defaultOpen={false}
+            >
+              <div className="space-y-1.5">
+                {data.completedTodayTasks?.map((t) => (
+                  <CompletedRow key={t.id} task={t} />
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* Tomorrow + This week */}
+          {(hasTomorrowTasks || hasWeekTasks) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {hasTomorrowTasks && (
+                <Section
+                  icon={<Sunrise className="h-4 w-4 text-amber-400" />}
+                  title="Tomorrow"
+                  count={data.tomorrowTasks?.length}
+                  accentColor="bg-amber-950/40"
+                  linkTo="/operations"
+                  collapsible
+                >
+                  <div className="space-y-1.5">
+                    {data.tomorrowTasks?.map((t) => (
+                      <CompactTaskRow key={t.id} task={t} onClick={() => setSelectedTask({ ...t, notes: "" })} />
+                    ))}
+                  </div>
+                </Section>
+              )}
+
+              {hasWeekTasks && (
+                <Section
+                  icon={<CalendarDays className="h-4 w-4 text-blue-400" />}
+                  title="This Week"
+                  count={data.weekTasks?.length}
+                  accentColor="bg-blue-950/40"
+                  linkTo="/operations"
+                  collapsible
+                >
+                  <div className="space-y-1.5">
+                    {data.weekTasks?.map((t) => (
+                      <CompactTaskRow key={t.id} task={t} showDate onClick={() => setSelectedTask({ ...t, notes: "" })} />
+                    ))}
+                  </div>
+                </Section>
+              )}
+            </div>
+          )}
+
+          {/* Recent meetings */}
+          {hasRecentMeetings && (
+            <Section
+              icon={<Calendar className="h-4 w-4 text-emerald-400" />}
+              title="Recent Intelligence"
+              count={data.recentMeetings.length}
+              accentColor="bg-emerald-950/40"
+              linkTo="/intelligence"
+              linkLabel="All meetings"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                {data.recentMeetings.map((m) => (
+                  <MeetingCard key={m.id} meeting={m} />
+                ))}
+              </div>
+            </Section>
+          )}
+        </>
       )}
     </div>
   );

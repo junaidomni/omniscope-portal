@@ -1622,3 +1622,27 @@
 - [x] More expressive eye shapes — wider for surprise, squinted for thinking, arched for happy
 - [x] Smooth transitions between emotion states (transition-all duration-300)
 - [x] Research NIO NOMI interaction patterns — applied sphere body, pill eyes, gesture arms
+
+## v46 — Triage Welcome Box Consolidation + Stat Card Drill-Down
+
+### Fix Duplicate Omni on Triage
+- [x] Hide the floating bottom-right Omni avatar when on the Triage page
+- [x] The greeting bar Omni character is the primary interaction point on Triage
+- [x] Floating avatar should still appear on all other pages
+
+### Move Stat Cards into Welcome Box
+- [x] Move the 6 stat cards (Open Tasks, Overdue, High Priority, Done Today, Starred Mail, Pending) inside the welcome/greeting box
+- [x] Place them under the Strategic Insights section within the same card
+- [x] Maintain the 6-column grid layout
+
+### Stat Card Drill-Down
+- [x] Make each stat card clickable
+- [x] Clicking a stat card filters the content below to show only those items
+- [x] Open Tasks → shows all open tasks
+- [x] Overdue → shows overdue tasks
+- [x] High Priority → shows high priority tasks
+- [x] Done Today → shows completed tasks for today
+- [x] Starred Mail → shows starred emails
+- [x] Pending → shows pending approvals
+- [x] Active filter state highlighted with gold accent
+- [x] Click again to clear filter and return to default view
