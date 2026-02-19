@@ -2676,24 +2676,46 @@ const triageRouter = router({
 
     // 4. Starred emails — enrich with thread metadata from Gmail
     const rawStarredEmails = await db.getEmailStarsForUser(userId);
-    // Try to get thread details for each starred email
+    // Enrich each starred email by fetching its thread metadata individually
     let starredEmails: { threadId: string; starLevel: number; subject?: string; fromName?: string; fromEmail?: string }[] = [];
     try {
-      const gmailThreads = await gmailService.listGmailThreads(userId, { folder: 'starred', maxResults: 50 });
+      // First try bulk approach: fetch recent inbox threads to build a lookup map
+      const recentThreads = await gmailService.listGmailThreads(userId, { folder: 'all', maxResults: 100 });
       const threadMap = new Map<string, { subject: string; fromName: string; fromEmail: string }>();
-      for (const t of gmailThreads.threads || []) {
+      for (const t of recentThreads.threads || []) {
         threadMap.set(t.threadId, { subject: t.subject, fromName: t.fromName, fromEmail: t.fromEmail });
       }
-      starredEmails = rawStarredEmails.map(s => {
-        const meta = threadMap.get(s.threadId);
-        return {
-          threadId: s.threadId,
-          starLevel: s.starLevel,
-          subject: meta?.subject,
-          fromName: meta?.fromName,
-          fromEmail: meta?.fromEmail,
-        };
-      });
+
+      // For any starred emails not found in the bulk fetch, look them up individually
+      starredEmails = await Promise.all(rawStarredEmails.map(async (s) => {
+        const bulkMeta = threadMap.get(s.threadId);
+        if (bulkMeta) {
+          return {
+            threadId: s.threadId,
+            starLevel: s.starLevel,
+            subject: bulkMeta.subject,
+            fromName: bulkMeta.fromName,
+            fromEmail: bulkMeta.fromEmail,
+          };
+        }
+        // Individual lookup for threads not in recent batch
+        try {
+          const threadDetail = await gmailService.getGmailThread(userId, s.threadId);
+          if (threadDetail.messages && threadDetail.messages.length > 0) {
+            const lastMsg = threadDetail.messages[threadDetail.messages.length - 1];
+            return {
+              threadId: s.threadId,
+              starLevel: s.starLevel,
+              subject: lastMsg.subject || undefined,
+              fromName: lastMsg.fromName || undefined,
+              fromEmail: lastMsg.fromEmail || undefined,
+            };
+          }
+        } catch {
+          // Individual thread fetch failed — skip enrichment
+        }
+        return { threadId: s.threadId, starLevel: s.starLevel };
+      }));
     } catch {
       // Gmail not connected or error — fall back to raw data
       starredEmails = rawStarredEmails.map(s => ({ threadId: s.threadId, starLevel: s.starLevel }));

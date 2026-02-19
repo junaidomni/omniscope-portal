@@ -1668,3 +1668,17 @@
 - [x] Review overall Triage page for Apple/Tesla-level feel
 - [x] Micro-interactions, transitions, spacing refinements
 - [x] Run full test suite and verify all features
+
+## v48 — Collapsible Greeting Box + Email Display Fix
+
+### Collapsible Greeting Box
+- [x] Add chevron toggle to minimize greeting box
+- [x] Minimized view: greeting line + Omni character + stat cards only
+- [x] Expanded view: full greeting with quote, insights, etc.
+- [x] Persist collapse state in localStorage
+- [x] Smooth transition animation
+
+### Fix Starred Email Display
+- [x] Investigate why email name/subject not showing on Triage
+- [x] Ensure Gmail thread metadata is properly enriched and passed to frontend
+- [x] Verify frontend renders subject/fromName when available

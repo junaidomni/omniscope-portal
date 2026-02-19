@@ -38,8 +38,11 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
+  ChevronUp,
   MailOpen,
   Filter,
+  Minimize2,
+  Maximize2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -796,7 +799,7 @@ function UnreadEmailsSection() {
   );
 }
 
-// ─── Greeting Bar (redesigned v46 — stat cards inside) ───────────────────────
+// ─── Greeting Bar (v48 — collapsible with chevron toggle) ───────────────────
 function GreetingBar({
   greeting, userName, statusLine, situationalSummary, timeIcon,
   timeString, dateString, tzAbbr, quote, showQuote, setShowQuote,
@@ -811,35 +814,97 @@ function GreetingBar({
 }) {
   const { omniMode, openChat } = useOmni();
   const [omniHover, setOmniHover] = useState(false);
+  const [expanded, setExpanded] = useState(() => {
+    const stored = localStorage.getItem('omniscope-greeting-expanded');
+    return stored === null ? true : stored === 'true';
+  });
+
+  const toggleExpanded = () => {
+    const next = !expanded;
+    setExpanded(next);
+    localStorage.setItem('omniscope-greeting-expanded', String(next));
+  };
 
   const toggleFilter = (f: TriageFilter) => {
     onFilterChange(activeFilter === f ? null : f);
   };
 
   return (
-    <div className="bg-gradient-to-br from-zinc-900/80 via-zinc-900/60 to-zinc-900/40 border border-zinc-800/40 rounded-2xl p-5 lg:p-6 backdrop-blur-sm shadow-[0_1px_3px_0_rgba(0,0,0,0.3),0_1px_2px_-1px_rgba(0,0,0,0.3)] animate-fade-in-up">
-      <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6">
-        {/* Left: Greeting + Summary + Quote + Insights */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-3 mb-2">
-            <div className="hidden sm:flex p-2.5 rounded-xl bg-zinc-800/60 border border-zinc-700/30 shrink-0">
+    <div className="bg-gradient-to-br from-zinc-900/80 via-zinc-900/60 to-zinc-900/40 border border-zinc-800/40 rounded-2xl backdrop-blur-sm shadow-[0_1px_3px_0_rgba(0,0,0,0.3),0_1px_2px_-1px_rgba(0,0,0,0.3)] animate-fade-in-up transition-all duration-300">
+
+      {/* ── ALWAYS VISIBLE: Greeting + Omni + Clock + Collapse Toggle ── */}
+      <div className="p-5 lg:p-6 pb-0 lg:pb-0">
+        <div className="flex items-center gap-4">
+          {/* Left: Greeting line */}
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="hidden sm:flex p-2 rounded-xl bg-zinc-800/60 border border-zinc-700/30 shrink-0">
               {timeIcon}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-4">
-                <h1 className="text-2xl lg:text-3xl font-semibold text-white tracking-tight">
-                  {greeting}, <span className="text-yellow-500">{userName}</span>
-                </h1>
-                {/* Mobile clock */}
-                <div className="text-right hidden sm:block lg:hidden shrink-0">
-                  <div className="text-lg font-mono text-white tracking-wider tabular-nums">{timeString}</div>
-                  <p className="text-[10px] text-zinc-500">{dateString}</p>
-                </div>
+              <h1 className="text-2xl lg:text-3xl font-semibold text-white tracking-tight">
+                {greeting}, <span className="text-yellow-500">{userName}</span>
+              </h1>
+              {!expanded && (
+                <p className="text-xs text-zinc-500 mt-0.5 font-mono truncate">{situationalSummary}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Center: Omni (always visible, smaller when collapsed) */}
+          {omniMode !== "hidden" && (
+            <div className="hidden lg:flex flex-col items-center shrink-0">
+              <div
+                className="cursor-pointer transition-all duration-300 hover:scale-105"
+                onMouseEnter={() => setOmniHover(true)}
+                onMouseLeave={() => setOmniHover(false)}
+                onClick={openChat}
+                title="Ask Omni"
+              >
+                <OmniAvatar
+                  mode={omniMode}
+                  state={omniHover ? "wave" : "idle"}
+                  size={expanded ? 90 : 50}
+                  badge={false}
+                />
               </div>
-              <p className="text-sm text-zinc-400 mt-1 font-medium">{statusLine}</p>
-              <div className="flex items-center gap-2 mt-1.5 text-xs text-zinc-500 font-mono">
-                <span>{situationalSummary}</span>
-              </div>
+              {expanded && <p className="text-[10px] text-zinc-600 mt-1 text-center">Click to ask Omni</p>}
+            </div>
+          )}
+
+          {/* Right: Clock + Collapse toggle */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="hidden lg:block text-right">
+              <div className={`font-mono text-white tracking-wider tabular-nums transition-all duration-200 ${expanded ? 'text-xl' : 'text-base'}`}>{timeString}</div>
+              <p className="text-[10px] text-zinc-500 mt-0.5">{dateString}</p>
+              {expanded && <p className="text-[9px] text-zinc-600">{tzAbbr}</p>}
+            </div>
+            {/* Mobile clock */}
+            <div className="text-right hidden sm:block lg:hidden shrink-0">
+              <div className="text-lg font-mono text-white tracking-wider tabular-nums">{timeString}</div>
+              <p className="text-[10px] text-zinc-500">{dateString}</p>
+            </div>
+            {/* Collapse/Expand toggle */}
+            <button
+              onClick={toggleExpanded}
+              className="p-1.5 rounded-lg bg-zinc-800/50 border border-zinc-700/30 hover:bg-zinc-700/50 hover:border-zinc-600/40 transition-all duration-200 text-zinc-500 hover:text-zinc-300"
+              title={expanded ? 'Minimize' : 'Expand'}
+            >
+              {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── EXPANDED ONLY: Status, Quote, Insights ── */}
+      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+        expanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+      }`}>
+        <div className="px-5 lg:px-6 pt-1">
+          {/* Status line + summary */}
+          <div className="pl-0 sm:pl-[52px]">
+            <p className="text-sm text-zinc-400 font-medium">{statusLine}</p>
+            <div className="flex items-center gap-2 mt-1 text-xs text-zinc-500 font-mono">
+              <span>{situationalSummary}</span>
             </div>
           </div>
 
@@ -867,87 +932,89 @@ function GreetingBar({
             </button>
           )}
 
-        </div>
-
-        {/* Center-Right: Omni Character (large, interactive) */}
-        {omniMode !== "hidden" && (
-          <div className="hidden lg:flex flex-col items-center justify-center shrink-0 w-[160px] pt-2">
-            <div
-              className="cursor-pointer transition-transform duration-300 hover:scale-105"
-              onMouseEnter={() => setOmniHover(true)}
-              onMouseLeave={() => setOmniHover(false)}
-              onClick={openChat}
-              title="Ask Omni"
-            >
-              <OmniAvatar
-                mode={omniMode}
-                state={omniHover ? "wave" : "idle"}
-                size={110}
-                badge={false}
-              />
-            </div>
-            <p className="text-[10px] text-zinc-600 mt-2 text-center">Click to ask Omni</p>
-          </div>
-        )}
-
-        {/* Right: Clock */}
-        <div className="hidden lg:flex flex-col items-end shrink-0">
-          <div className="text-right">
-            <div className="text-xl font-mono text-white tracking-wider tabular-nums">{timeString}</div>
-            <p className="text-[10px] text-zinc-500 mt-0.5">{dateString}</p>
-            <p className="text-[9px] text-zinc-600">{tzAbbr}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Insights + Stats side-by-side ─────────────────────────── */}
-      <div className="mt-4 pt-4 border-t border-zinc-800/30">
-        <div className="flex flex-col lg:flex-row lg:gap-6">
-          {/* Left: Strategic Insights */}
-          <div className="flex-1 min-w-0 mb-4 lg:mb-0">
-            <div className="flex items-center gap-1.5 mb-2">
-              <Brain className="h-3 w-3 text-yellow-500/60" />
-              <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Strategic Insights</span>
-              <span className="text-[9px] text-yellow-600/40 ml-2">AI</span>
-            </div>
-            <InlineInsights />
-          </div>
-
-          {/* Vertical divider (desktop only) */}
-          <div className="hidden lg:block w-px bg-zinc-800/40 self-stretch" />
-
-          {/* Right: Quick Stats */}
-          <div className="lg:w-[420px] xl:w-[480px] shrink-0">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <Filter className="h-3 w-3 text-zinc-600" />
-                <span className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium">Quick Stats</span>
+          {/* Insights + Stats side-by-side */}
+          <div className="mt-4 pt-4 border-t border-zinc-800/30">
+            <div className="flex flex-col lg:flex-row lg:gap-6">
+              {/* Left: Strategic Insights */}
+              <div className="flex-1 min-w-0 mb-4 lg:mb-0">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Brain className="h-3 w-3 text-yellow-500/60" />
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">Strategic Insights</span>
+                  <span className="text-[9px] text-yellow-600/40 ml-2">AI</span>
+                </div>
+                <InlineInsights />
               </div>
-              {activeFilter && (
-                <button
-                  onClick={() => onFilterChange(null)}
-                  className="flex items-center gap-1 text-[10px] text-yellow-500 hover:text-yellow-400 transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                  Clear filter
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <StatCard icon={<ListTodo className="h-3.5 w-3.5 text-zinc-300" />} label="Open Tasks" value={summary.totalOpen} color="bg-zinc-800/60" active={activeFilter === "open"} onClick={() => toggleFilter("open")} />
-              <StatCard icon={<AlertTriangle className="h-3.5 w-3.5 text-red-400" />} label="Overdue" value={summary.totalOverdue} color="bg-red-950/40" active={activeFilter === "overdue"} onClick={() => toggleFilter("overdue")} highlight={summary.totalOverdue > 0} />
-              <StatCard icon={<Flame className="h-3.5 w-3.5 text-yellow-400" />} label="High Priority" value={summary.totalHighPriority} color="bg-yellow-950/40" active={activeFilter === "high"} onClick={() => toggleFilter("high")} />
-              <StatCard icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />} label="Done Today" value={summary.completedToday} color="bg-emerald-950/40" active={activeFilter === "done"} onClick={() => toggleFilter("done")} />
-              <StatCard icon={<Star className="h-3.5 w-3.5 text-yellow-400" />} label="Starred Mail" value={summary.totalStarred} color="bg-yellow-950/40" active={activeFilter === "starred"} onClick={() => toggleFilter("starred")} />
-              <StatCard icon={<Users className="h-3.5 w-3.5 text-blue-400" />} label="Pending" value={summary.totalPendingApprovals} color="bg-blue-950/40" active={activeFilter === "pending"} onClick={() => toggleFilter("pending")} />
+
+              {/* Vertical divider (desktop only) */}
+              <div className="hidden lg:block w-px bg-zinc-800/40 self-stretch" />
+
+              {/* Right: Quick Stats */}
+              <div className="lg:w-[420px] xl:w-[480px] shrink-0">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Filter className="h-3 w-3 text-zinc-600" />
+                    <span className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium">Quick Stats</span>
+                  </div>
+                  {activeFilter && (
+                    <button
+                      onClick={() => onFilterChange(null)}
+                      className="flex items-center gap-1 text-[10px] text-yellow-500 hover:text-yellow-400 transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                      Clear filter
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <StatCard icon={<ListTodo className="h-3.5 w-3.5 text-zinc-300" />} label="Open Tasks" value={summary.totalOpen} color="bg-zinc-800/60" active={activeFilter === "open"} onClick={() => toggleFilter("open")} />
+                  <StatCard icon={<AlertTriangle className="h-3.5 w-3.5 text-red-400" />} label="Overdue" value={summary.totalOverdue} color="bg-red-950/40" active={activeFilter === "overdue"} onClick={() => toggleFilter("overdue")} highlight={summary.totalOverdue > 0} />
+                  <StatCard icon={<Flame className="h-3.5 w-3.5 text-yellow-400" />} label="High Priority" value={summary.totalHighPriority} color="bg-yellow-950/40" active={activeFilter === "high"} onClick={() => toggleFilter("high")} />
+                  <StatCard icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />} label="Done Today" value={summary.completedToday} color="bg-emerald-950/40" active={activeFilter === "done"} onClick={() => toggleFilter("done")} />
+                  <StatCard icon={<Star className="h-3.5 w-3.5 text-yellow-400" />} label="Starred Mail" value={summary.totalStarred} color="bg-yellow-950/40" active={activeFilter === "starred"} onClick={() => toggleFilter("starred")} />
+                  <StatCard icon={<Users className="h-3.5 w-3.5 text-blue-400" />} label="Pending" value={summary.totalPendingApprovals} color="bg-blue-950/40" active={activeFilter === "pending"} onClick={() => toggleFilter("pending")} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── COLLAPSED ONLY: Compact stat cards row ── */}
+      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+        !expanded ? 'max-h-[200px] opacity-100' : 'max-h-0 opacity-0'
+      }`}>
+        <div className="px-5 lg:px-6 pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+              <Filter className="h-3 w-3 text-zinc-600" />
+              <span className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium">Quick Stats</span>
+            </div>
+            {activeFilter && (
+              <button
+                onClick={() => onFilterChange(null)}
+                className="flex items-center gap-1 text-[10px] text-yellow-500 hover:text-yellow-400 transition-colors"
+              >
+                <X className="h-3 w-3" />
+                Clear filter
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-6 gap-1.5">
+            <StatCard icon={<ListTodo className="h-3.5 w-3.5 text-zinc-300" />} label="Open" value={summary.totalOpen} color="bg-zinc-800/60" active={activeFilter === "open"} onClick={() => toggleFilter("open")} />
+            <StatCard icon={<AlertTriangle className="h-3.5 w-3.5 text-red-400" />} label="Overdue" value={summary.totalOverdue} color="bg-red-950/40" active={activeFilter === "overdue"} onClick={() => toggleFilter("overdue")} highlight={summary.totalOverdue > 0} />
+            <StatCard icon={<Flame className="h-3.5 w-3.5 text-yellow-400" />} label="High" value={summary.totalHighPriority} color="bg-yellow-950/40" active={activeFilter === "high"} onClick={() => toggleFilter("high")} />
+            <StatCard icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />} label="Done" value={summary.completedToday} color="bg-emerald-950/40" active={activeFilter === "done"} onClick={() => toggleFilter("done")} />
+            <StatCard icon={<Star className="h-3.5 w-3.5 text-yellow-400" />} label="Starred" value={summary.totalStarred} color="bg-yellow-950/40" active={activeFilter === "starred"} onClick={() => toggleFilter("starred")} />
+            <StatCard icon={<Users className="h-3.5 w-3.5 text-blue-400" />} label="Pending" value={summary.totalPendingApprovals} color="bg-blue-950/40" active={activeFilter === "pending"} onClick={() => toggleFilter("pending")} />
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom padding */}
+      <div className="h-5 lg:h-6" />
     </div>
   );
 }
-
 // ─── Main Triage Feed ──────────────────────────────────────────────────────
 export default function TriageFeed() {
   const utils = trpc.useUtils();
