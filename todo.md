@@ -2195,3 +2195,24 @@
 - [x] Webhooks & API tab with endpoint configuration and copy-to-clipboard
 - [x] Omni Assistant tab with mode selector and sidebar toggle
 - [x] Stats strip (Total, Active, Connected)
+## v69 — HR Hub Redesign, Admin Panel, Profile Photos, Payoneer
+
+### HR Hub Redesign (Tesla/Apple)
+- [x] Redesign HR Hub with premium Tesla/Apple aesthetic
+- [x] Employee management with profile cards and detail views
+- [x] Payroll tracking with payment history and status (PayrollHub redesigned)
+- [x] Expense tracking section (log expenses, categories, receipts) — layout ready
+- [x] Invoice tracking section (incoming/outgoing invoices) — layout ready
+- [x] Future-proof layout for accounting hub integration
+- [x] Payoneer payment integration indicator
+
+### Admin Panel Redesign
+- [x] Redesign Admin with Tesla/Apple aesthetic (section tabs, stat strip, premium design)
+- [x] User management with invite bar, user table, role management
+- [x] Fathom Import section with import and webhook registration
+- [x] Admin Tools section with links to Activity Log, Dedup Sweep, Integration Hub, Feature Controls
+
+### Profile & Misc
+- [x] Enable profile photo upload in Settings Profile tab (hover overlay, S3 upload)
+- [x] Add Payoneer to integrations seed data (Finance category)
+- [x] Profile photo display in sidebar and profile section

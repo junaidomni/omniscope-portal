@@ -18,6 +18,8 @@ import { getSigningAdapter, getAllAdapters, getAdapterInfo } from "./signingAdap
 import type { ProviderConfig } from "./signingAdapters";
 import { invokeLLM } from "./_core/llm";
 import * as googleDrive from "./googleDrive";
+import { users } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
 
 // ============================================================================
 // MEETINGS ROUTER
@@ -2712,8 +2714,23 @@ const profileRouter = router({
       website: profile?.website || "omniscopex.ae",
       tagline: profile?.tagline || "",
       signatureEnabled: profile?.signatureEnabled ?? true,
+      profilePhotoUrl: ctx.user.profilePhotoUrl || null,
     };
   }),
+
+  uploadPhoto: protectedProcedure
+    .input(z.object({ base64: z.string(), fileName: z.string(), mimeType: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const buffer = Buffer.from(input.base64, "base64");
+      const ext = input.fileName.split(".").pop() || "jpg";
+      const key = `user-photos/${ctx.user.id}/profile-${Date.now()}.${ext}`;
+      const { url } = await storagePut(key, buffer, input.mimeType);
+      const database = await db.getDb();
+      if (database) {
+        await database.update(users).set({ profilePhotoUrl: url }).where(eq(users.id, ctx.user.id));
+      }
+      return { url };
+    }),
 
   update: protectedProcedure
     .input(

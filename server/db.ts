@@ -2646,6 +2646,7 @@ export async function seedBuiltInIntegrations() {
     { slug: "notion", name: "Notion", description: "Sync pages, databases, and knowledge base content", category: "productivity" as const, type: "api_key" as const, iconColor: "#000000", iconLetter: "N", isBuiltIn: true, sortOrder: 30 },
     { slug: "hubspot", name: "HubSpot", description: "CRM sync — contacts, deals, and pipeline management", category: "productivity" as const, type: "oauth" as const, iconColor: "#FF7A59", iconLetter: "H", isBuiltIn: true, sortOrder: 31 },
     { slug: "salesforce", name: "Salesforce", description: "Enterprise CRM integration for contacts, opportunities, and accounts", category: "productivity" as const, type: "oauth" as const, iconColor: "#00A1E0", iconLetter: "SF", isBuiltIn: true, sortOrder: 32 },
+    { slug: "payoneer", name: "Payoneer", description: "Global payment platform for payroll disbursements, contractor payments, and cross-border transfers", category: "finance" as const, type: "api_key" as const, iconColor: "#FF4800", iconLetter: "P", isBuiltIn: true, sortOrder: 23 },
   ];
   for (const int of builtIns) {
     const existing = await getIntegrationBySlug(int.slug);

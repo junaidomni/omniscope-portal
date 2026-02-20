@@ -108,6 +108,35 @@ export default function Setup() {
 
 function ProfileTab() {
   const { user } = useAuth();
+  const [uploading, setUploading] = useState(false);
+  const uploadPhotoMutation = trpc.profile.uploadPhoto.useMutation({
+    onSuccess: () => {
+      toast.success("Profile photo updated");
+      window.location.reload();
+    },
+    onError: (err: any) => toast.error(err.message || "Failed to upload photo"),
+  });
+
+  const handlePhotoUpload = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/jpeg,image/png,image/webp";
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) { toast.error("File too large (max 5MB)"); return; }
+      setUploading(true);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        uploadPhotoMutation.mutate({ base64, fileName: file.name, mimeType: file.type }, {
+          onSettled: () => setUploading(false),
+        });
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -115,8 +144,28 @@ function ProfileTab() {
         <div className="h-24 bg-gradient-to-r from-yellow-600/10 via-zinc-900 to-zinc-900" />
         <CardContent className="relative px-6 pb-6">
           <div className="flex items-end gap-5 -mt-10">
-            <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-yellow-600 to-yellow-700 flex items-center justify-center text-black font-bold text-3xl border-4 border-zinc-900 shadow-xl">
-              {user?.name?.charAt(0).toUpperCase() || "U"}
+            <div className="relative group">
+              {(user as any)?.profilePhotoUrl ? (
+                <img src={(user as any).profilePhotoUrl} alt={user?.name || ""} className="h-20 w-20 rounded-2xl object-cover border-4 border-zinc-900 shadow-xl" />
+              ) : (
+                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-yellow-600 to-yellow-700 flex items-center justify-center text-black font-bold text-3xl border-4 border-zinc-900 shadow-xl">
+                  {user?.name?.charAt(0).toUpperCase() || "U"}
+                </div>
+              )}
+              <button
+                onClick={handlePhotoUpload}
+                disabled={uploading}
+                className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer border-4 border-transparent"
+              >
+                {uploading ? (
+                  <Loader2 className="h-5 w-5 text-white animate-spin" />
+                ) : (
+                  <div className="text-center">
+                    <Edit3 className="h-4 w-4 text-white mx-auto" />
+                    <span className="text-[9px] text-white/80 mt-0.5 block">Change</span>
+                  </div>
+                )}
+              </button>
             </div>
             <div className="pb-1">
               <h3 className="text-xl font-bold text-white">{user?.name || "User"}</h3>
