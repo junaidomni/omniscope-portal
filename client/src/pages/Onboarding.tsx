@@ -159,9 +159,7 @@ export default function Onboarding() {
   );
 }
 
-// ============================================================================
 // STEP 1: WELCOME
-// ============================================================================
 
 function WelcomeStep({ userName, onNext }: { userName: string; onNext: () => void }) {
   return (
@@ -221,9 +219,7 @@ function WelcomeStep({ userName, onNext }: { userName: string; onNext: () => voi
   );
 }
 
-// ============================================================================
 // STEP 2: GOOGLE ACCOUNT
-// ============================================================================
 
 function GoogleStep({
   connected, hasGmailScopes, email, onConnect, isPending, onNext, onBack
@@ -327,9 +323,7 @@ function GoogleStep({
   );
 }
 
-// ============================================================================
 // STEP 3: TOOLS (Fathom + Plaud)
-// ============================================================================
 
 function ToolsStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   return (
@@ -435,9 +429,7 @@ function ToolsStep({ onNext, onBack }: { onNext: () => void; onBack: () => void 
   );
 }
 
-// ============================================================================
 // STEP 4: COMPLETE
-// ============================================================================
 
 function CompleteStep({
   onComplete, isPending, googleConnected, onBack

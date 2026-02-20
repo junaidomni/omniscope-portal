@@ -372,9 +372,7 @@ export default function EmployeeProfile() {
   );
 }
 
-// ============================================================================
 // DOCUMENTS SECTION
-// ============================================================================
 
 function DocumentsSection({ employeeId, documents, onRefetch }: { employeeId: number; documents: any[]; onRefetch: () => void }) {
   const [showUpload, setShowUpload] = useState(false);
@@ -499,9 +497,7 @@ function DocumentsSection({ employeeId, documents, onRefetch }: { employeeId: nu
   );
 }
 
-// ============================================================================
 // PAYROLL SECTION
-// ============================================================================
 
 function PayrollSection({ employeeId, payroll, employee }: { employeeId: number; payroll: any[]; employee: any }) {
   const [showAdd, setShowAdd] = useState(false);

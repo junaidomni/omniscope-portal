@@ -153,8 +153,6 @@ calendarRouter.post("/calendar/events", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Invalid date format" });
     }
 
-    console.log(`[Calendar] Creating event: "${summary}" with ${attendees?.length || 0} attendees`);
-
     // Create event via Google Calendar API
     const googleResult = await createGoogleCalendarEvent(userId, {
       summary: summary.trim(),
@@ -169,12 +167,7 @@ calendarRouter.post("/calendar/events", async (req: Request, res: Response) => {
 
     const googleEventId = googleResult.googleEventId || `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    if (googleResult.success) {
-      console.log(`[Calendar] Google Calendar event created: ${googleEventId}`);
-      if (attendees?.length > 0) {
-        console.log(`[Calendar] Email invitations sent to: ${attendees.join(", ")}`);
-      }
-    } else {
+    if (!googleResult.success) {
       console.warn(`[Calendar] Google sync failed: ${googleResult.error}. Storing locally.`);
     }
 
@@ -232,7 +225,6 @@ calendarRouter.delete("/calendar/events/:eventId", async (req: Request, res: Res
 
     // Delete from Google Calendar if it's a real Google event
     if (!eventId.startsWith("local-")) {
-      console.log(`[Calendar] Deleting Google Calendar event: ${eventId}`);
       await deleteGoogleCalendarEvent(userId, eventId);
     }
 

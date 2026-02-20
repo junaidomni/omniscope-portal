@@ -16,9 +16,7 @@
 
 import { ENV } from "./_core/env";
 
-// ============================================================================
 // COMMON INTERFACE
-// ============================================================================
 
 export interface SigningRecipient {
   name: string;
@@ -83,9 +81,7 @@ export interface ProviderConfig {
   extra?: Record<string, string>;
 }
 
-// ============================================================================
 // HELPER: Generic HTTP client for provider APIs
-// ============================================================================
 
 async function providerFetch(url: string, options: {
   method: string;
@@ -113,9 +109,7 @@ async function providerFetch(url: string, options: {
   return response.text();
 }
 
-// ============================================================================
 // FIRMA.DEV ADAPTER — $0.029/envelope
-// ============================================================================
 
 const firmaAdapter: SigningProviderAdapter = {
   name: "firma",
@@ -210,9 +204,7 @@ function mapFirmaStatus(status: string): EnvelopeResponse["status"] {
   return map[status?.toLowerCase()] || "sent";
 }
 
-// ============================================================================
 // SIGNATUREAPI ADAPTER — $0.25/envelope
-// ============================================================================
 
 const signatureApiAdapter: SigningProviderAdapter = {
   name: "signatureapi",
@@ -292,9 +284,7 @@ const signatureApiAdapter: SigningProviderAdapter = {
   },
 };
 
-// ============================================================================
 // DOCUSEAL ADAPTER — Open source / cloud
-// ============================================================================
 
 const docuSealAdapter: SigningProviderAdapter = {
   name: "docuseal",
@@ -376,9 +366,7 @@ const docuSealAdapter: SigningProviderAdapter = {
   },
 };
 
-// ============================================================================
 // PANDADOCS ADAPTER — $49/user/month
-// ============================================================================
 
 const pandaDocsAdapter: SigningProviderAdapter = {
   name: "pandadocs",
@@ -476,9 +464,7 @@ const pandaDocsAdapter: SigningProviderAdapter = {
   },
 };
 
-// ============================================================================
 // DOCUSIGN ADAPTER — Enterprise
-// ============================================================================
 
 const docuSignAdapter: SigningProviderAdapter = {
   name: "docusign",
@@ -562,9 +548,7 @@ const docuSignAdapter: SigningProviderAdapter = {
   },
 };
 
-// ============================================================================
 // BOLDSIGN ADAPTER — $0.10/envelope
-// ============================================================================
 
 const boldSignAdapter: SigningProviderAdapter = {
   name: "boldsign",
@@ -643,9 +627,7 @@ const boldSignAdapter: SigningProviderAdapter = {
   },
 };
 
-// ============================================================================
 // ESIGNLY ADAPTER — Flat rate
-// ============================================================================
 
 const eSignlyAdapter: SigningProviderAdapter = {
   name: "esignly",
@@ -727,9 +709,7 @@ const eSignlyAdapter: SigningProviderAdapter = {
   },
 };
 
-// ============================================================================
 // GENERIC STATUS MAPPER
-// ============================================================================
 
 function mapGenericStatus(status: string): EnvelopeResponse["status"] {
   if (!status) return "sent";
@@ -744,9 +724,7 @@ function mapGenericStatus(status: string): EnvelopeResponse["status"] {
   return "sent";
 }
 
-// ============================================================================
 // ADAPTER REGISTRY
-// ============================================================================
 
 const adapters: Record<string, SigningProviderAdapter> = {
   firma: firmaAdapter,

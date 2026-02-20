@@ -14,9 +14,7 @@ import {
 import { Link } from "wouter";
 import { toast } from "sonner";
 
-// ============================================================================
 // PRIORITY BADGE
-// ============================================================================
 
 function PriorityBadge({ priority }: { priority: string }) {
   const config: Record<string, { icon: any; color: string; bg: string }> = {
@@ -34,9 +32,7 @@ function PriorityBadge({ priority }: { priority: string }) {
   );
 }
 
-// ============================================================================
 // STAT BOX
-// ============================================================================
 
 function StatBox({ label, value, accent }: { label: string; value: number; accent?: "red" | "yellow" | "green" }) {
   return (
@@ -51,9 +47,7 @@ function StatBox({ label, value, accent }: { label: string; value: number; accen
   );
 }
 
-// ============================================================================
 // TASK ROW FOR REPORTS
-// ============================================================================
 
 function TaskReportRow({ task }: { task: any }) {
   return (
@@ -89,9 +83,7 @@ function TaskReportRow({ task }: { task: any }) {
   );
 }
 
-// ============================================================================
 // EMAIL REPORT BUTTON
-// ============================================================================
 
 function EmailReportButton({ reportContent }: { reportContent: string }) {
   const [showEmailDialog, setShowEmailDialog] = useState(false);
@@ -168,9 +160,7 @@ function EmailReportButton({ reportContent }: { reportContent: string }) {
   );
 }
 
-// ============================================================================
 // WEEKLY REPORT PAGE
-// ============================================================================
 
 export default function WeeklyReport() {
   const { data: summary, isLoading } = trpc.analytics.weeklySummary.useQuery({});

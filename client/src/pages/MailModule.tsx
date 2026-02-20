@@ -15,9 +15,7 @@ import {
 } from "lucide-react";
 import { PersonAutocomplete, type PersonResult } from "@/components/PersonAutocomplete";
 
-// ============================================================================
 // TYPES — aligned with server/gmailService.ts
-// ============================================================================
 
 type Folder = "inbox" | "sent" | "drafts" | "starred" | "all";
 type OmniCategory = "action" | "capital" | "team" | "recurring" | "signal" | "low_priority";
@@ -64,9 +62,7 @@ interface CategorizedThread extends ServerThread {
   category: OmniCategory;
 }
 
-// ============================================================================
 // STAR PRIORITY CONFIG
-// ============================================================================
 
 const STAR_CONFIG: Record<number, { label: string; color: string; bgColor: string; description: string }> = {
   1: { label: "Reply Today", color: "text-yellow-500", bgColor: "bg-yellow-500", description: "Needs a reply today" },
@@ -74,9 +70,7 @@ const STAR_CONFIG: Record<number, { label: string; color: string; bgColor: strin
   3: { label: "Critical", color: "text-red-500", bgColor: "bg-red-500", description: "Urgent / time-sensitive" },
 };
 
-// ============================================================================
 // CATEGORY ENGINE — OmniScope Mail Intelligence
-// ============================================================================
 
 const TEAM_DOMAINS = ["omniscopex.ae", "kinetixgroup", "kairoai.io"];
 
@@ -145,9 +139,7 @@ export function categorizeThread(thread: ServerThread): OmniCategory {
   return "action";
 }
 
-// ============================================================================
 // CATEGORY CONFIGURATION
-// ============================================================================
 
 const CATEGORY_CONFIG: Record<
   OmniCategory,
@@ -161,9 +153,7 @@ const CATEGORY_CONFIG: Record<
   low_priority: { label: "Low Priority", icon: ArrowDown, description: "Marketing, promotions, cold outreach", color: "text-zinc-600" },
 };
 
-// ============================================================================
 // HELPERS
-// ============================================================================
 
 function formatDate(epochMs: number): string {
   const d = new Date(epochMs);
@@ -202,9 +192,7 @@ function avatarColor(key: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-// ============================================================================
 // CONNECT GMAIL PROMPT
-// ============================================================================
 
 function ConnectGmailPrompt({ needsReauth }: { needsReauth?: boolean }) {
   const authUrlMutation = trpc.mail.getAuthUrl.useMutation();
@@ -248,9 +236,7 @@ function ConnectGmailPrompt({ needsReauth }: { needsReauth?: boolean }) {
   );
 }
 
-// ============================================================================
 // COMPOSE MODAL
-// ============================================================================
 
 function ComposeModal({
   open, onClose, replyTo, replyAll, forwardMsg,
@@ -483,9 +469,7 @@ function ComposeModal({
   );
 }
 
-// ============================================================================
 // STAR PRIORITY SELECTOR
-// ============================================================================
 
 function StarPrioritySelector({
   threadId,
@@ -595,9 +579,7 @@ function StarPrioritySelector({
   );
 }
 
-// ============================================================================
 // CONVERT TO TASK MODAL
-// ============================================================================
 
 interface TaskItem {
   id: string;
@@ -825,9 +807,7 @@ function ConvertToTaskModal({
   );
 }
 
-// ============================================================================
 // LINK TO COMPANY MODAL
-// ============================================================================
 
 function LinkToCompanyModal({
   open,
@@ -936,9 +916,7 @@ function LinkToCompanyModal({
   );
 }
 
-// ============================================================================
 // THREAD ROW
-// ============================================================================
 
 function ThreadRow({
   thread, isSelected, onClick, starLevel, bulkMode, bulkSelected, onBulkToggle,
@@ -1021,9 +999,7 @@ function ThreadRow({
   );
 }
 
-// ============================================================================
 // EMPTY STATE
-// ============================================================================
 
 function EmptyInbox({ folder, category }: { folder: Folder; category: OmniCategory | "all" }) {
   const config = category !== "all" ? CATEGORY_CONFIG[category as OmniCategory] : null;
@@ -1046,9 +1022,7 @@ function EmptyInbox({ folder, category }: { folder: Folder; category: OmniCatego
   );
 }
 
-// ============================================================================
 // THREAD VIEW (Reading Pane)
-// ============================================================================
 
 function ThreadView({
   threadId, onBack, onReply, onReplyAll, onForward,
@@ -1619,9 +1593,7 @@ function ThreadView({
   );
 }
 
-// ============================================================================
 // MAIN MAIL MODULE
-// ============================================================================
 
 export default function MailModule() {
   const { user } = useAuth();

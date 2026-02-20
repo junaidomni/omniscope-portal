@@ -25,9 +25,7 @@ import { toast } from "sonner";
 import { ContactAutocomplete } from "@/components/ContactAutocomplete";
 import { motion, AnimatePresence } from "framer-motion";
 
-// ============================================================================
 // CONSTANTS
-// ============================================================================
 
 const TEAM_MEMBERS = ["Junaid", "Kyle", "Jake", "Sania"];
 
@@ -54,9 +52,7 @@ const KANBAN_COLUMNS = [
   { id: "completed", label: "Done", color: "text-emerald-400", dotColor: "bg-emerald-500", headerBg: "bg-emerald-900/10" },
 ];
 
-// ============================================================================
 // COMMAND BAR — single compact row replacing the old stats + progress
-// ============================================================================
 
 function CommandBar({
   stats,
@@ -303,9 +299,7 @@ function CommandBar({
   );
 }
 
-// ============================================================================
 // SMART FILTER BAR — single compact row for all filters
-// ============================================================================
 
 function FilterBar({
   filterPerson,
@@ -466,9 +460,7 @@ function FilterBar({
   );
 }
 
-// ============================================================================
 // INLINE QUICK-ADD — appears at top of list when activated
-// ============================================================================
 
 function InlineQuickAdd({
   onClose,
@@ -604,9 +596,7 @@ function InlineQuickAdd({
   );
 }
 
-// ============================================================================
 // COMPACT TASK ROW — single-line, everything visible at a glance
-// ============================================================================
 
 function CompactTaskRow({
   task,
@@ -727,9 +717,7 @@ function CompactTaskRow({
   );
 }
 
-// ============================================================================
 // COMPACT KANBAN CARD
-// ============================================================================
 
 function CompactKanbanCard({
   task,
@@ -786,9 +774,7 @@ function CompactKanbanCard({
   );
 }
 
-// ============================================================================
 // COMPACT KANBAN COLUMN
-// ============================================================================
 
 function CompactKanbanColumn({
   column,
@@ -855,9 +841,7 @@ function CompactKanbanColumn({
   );
 }
 
-// ============================================================================
 // TASK DETAIL SHEET — slide-out panel with all properties
-// ============================================================================
 
 function TaskDetailSheet({
   task,
@@ -1123,9 +1107,7 @@ function PropRow({ label, icon, children }: { label: string; icon: React.ReactNo
   );
 }
 
-// ============================================================================
 // NEW TASK DIALOG (full form for complex task creation)
-// ============================================================================
 
 function NewTaskDialog({ categories, open, onOpenChange }: { categories: string[]; open: boolean; onOpenChange: (v: boolean) => void }) {
   const [title, setTitle] = useState("");
@@ -1226,9 +1208,7 @@ function NewTaskDialog({ categories, open, onOpenChange }: { categories: string[
   );
 }
 
-// ============================================================================
 // MAIN TODO PAGE
-// ============================================================================
 
 export default function ToDo() {
   const { data: allTasks, isLoading } = trpc.tasks.list.useQuery();

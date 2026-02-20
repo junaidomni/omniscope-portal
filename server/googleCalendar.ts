@@ -9,9 +9,7 @@ import { getDb } from "./db";
 import { googleTokens, calendarEvents } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 
-// ============================================================================
 // OAUTH2 CLIENT
-// ============================================================================
 
 function getOAuth2Client(redirectUri?: string) {
   return new google.auth.OAuth2(
@@ -187,9 +185,7 @@ export async function getGmailClient(userId: number) {
   return google.gmail({ version: "v1", auth: oauth2Client });
 }
 
-// ============================================================================
 // CALENDAR OPERATIONS
-// ============================================================================
 
 /**
  * Check if a user has connected their Google account

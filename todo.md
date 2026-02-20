@@ -2268,3 +2268,39 @@
 - [x] Make each theme visually distinct with unique background, card, text, and border colors
 - [x] Ensure all components respect theme CSS variables (not hardcoded dark colors)
 - [x] Fix sidebar colors to update with theme selection (sidebar stays dark regardless of theme)
+
+## v73 — Production-Grade Refactor & Cleanup
+
+### Code Cleanup
+- [x] Remove all unused imports, variables, functions, components, and files
+- [x] Eliminate redundant or duplicate logic across the codebase
+- [x] Remove leftover debug logs, console.logs, commented-out code
+- [x] Ensure consistent naming conventions and code style
+
+### Architecture & Organization
+- [x] Reorganize file/folder structure to follow best practices
+- [x] Ensure clear separation of concerns (API, UI, utilities, config, types)
+- [x] Consolidate scattered configuration into centralized config files
+- [x] Clean up routing and data flow
+
+### Dependency Management
+- [x] Audit and remove unused dependencies
+- [x] Clean up package.json
+
+### Server-Side Refactor
+- [x] Consolidate router files — remove duplicates, organize by domain
+- [x] Clean db.ts helpers — remove unused queries
+- [x] Remove dead API endpoints
+- [x] Consolidate duplicate LLM prompt logic
+
+### Client-Side Refactor
+- [x] Remove unused page components
+- [x] Consolidate duplicate UI patterns into shared components
+- [x] Clean up unused hooks and contexts
+- [x] Optimize component imports
+
+### Final Verification
+- [x] All tests pass after refactor (991 passing, 0 failed)
+- [x] Dev server runs without errors
+- [x] Browser smoke test — all pages functional
+- [x] No functionality changes — only structural improvements

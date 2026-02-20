@@ -595,7 +595,7 @@ describe("Triage Feed — Inline Actions", () => {
 describe("Triage Router — Source Structure", () => {
   it("triage router has feed, completeTask, and snoozeTask procedures", async () => {
     const source = await import("fs").then(fs =>
-      fs.readFileSync("server/routers.ts", "utf-8")
+      fs.readFileSync("server/routers/triage.ts", "utf-8")
     );
     expect(source).toMatch(/triageRouter.*=.*router/);
     expect(source).toMatch(/feed:.*protectedProcedure/);
@@ -605,7 +605,7 @@ describe("Triage Router — Source Structure", () => {
 
   it("triage feed returns userName and greeting", async () => {
     const source = await import("fs").then(fs =>
-      fs.readFileSync("server/routers.ts", "utf-8")
+      fs.readFileSync("server/routers/triage.ts", "utf-8")
     );
     expect(source).toMatch(/userName.*split.*\[0\]/);
     expect(source).toMatch(/greeting/);
@@ -750,14 +750,14 @@ describe("Bulk Task Actions", () => {
 
 // ── v40: Ask OmniScope Spotlight ────────────────────────────────────────────
 
-describe("Ask OmniScope Spotlight — Source Structure", () => {
-  it("AskSpotlight component exists with onClose prop", async () => {
+describe("Ask OmniScope Chat Panel — Source Structure", () => {
+  it("OmniChatPanel component exists with onClose prop", async () => {
     const source = await import("fs").then(fs =>
-      fs.readFileSync("client/src/components/AskSpotlight.tsx", "utf-8")
+      fs.readFileSync("client/src/components/OmniChatPanel.tsx", "utf-8")
     );
     expect(source).toMatch(/onClose/);
     expect(source).toMatch(/Escape/);
-    expect(source).toMatch(/Ask OmniScope/);
+    expect(source).toMatch(/OmniScope/);
   });
 
   it("PortalLayout renders OmniChatPanel with keyboard shortcut", async () => {
@@ -769,20 +769,19 @@ describe("Ask OmniScope Spotlight — Source Structure", () => {
     expect(source).toMatch(/\u2318K|Cmd.*K|ctrlKey.*k/);
   });
 
-  it("AskSpotlight has suggestion prompts", async () => {
+  it("OmniChatPanel has suggestion prompts", async () => {
     const source = await import("fs").then(fs =>
-      fs.readFileSync("client/src/components/AskSpotlight.tsx", "utf-8")
+      fs.readFileSync("client/src/components/OmniChatPanel.tsx", "utf-8")
     );
-    expect(source).toMatch(/Try asking/);
-    expect(source).toMatch(/handleSuggestion/);
+    expect(source).toMatch(/suggestion|Suggestion/);
   });
 
-  it("AskSpotlight has link to full page", async () => {
+  it("OmniChatPanel has chat functionality", async () => {
     const source = await import("fs").then(fs =>
-      fs.readFileSync("client/src/components/AskSpotlight.tsx", "utf-8")
+      fs.readFileSync("client/src/components/OmniChatPanel.tsx", "utf-8")
     );
-    expect(source).toMatch(/Open full page/);
-    expect(source).toMatch(/\/ask/);
+    expect(source).toMatch(/OmniScope/);
+    expect(source).toMatch(/handleSend|sendMessage|onSubmit/);
   });
 });
 
@@ -831,7 +830,7 @@ describe("Triage Feed — v40 Widget Source Verification", () => {
 
   it("Triage router returns tomorrow and week tasks", async () => {
     const source = await import("fs").then(fs =>
-      fs.readFileSync("server/routers.ts", "utf-8")
+      fs.readFileSync("server/routers/triage.ts", "utf-8")
     );
     expect(source).toMatch(/tomorrowTasks/);
     expect(source).toMatch(/weekTasks/);
@@ -1131,7 +1130,7 @@ describe("Triage Feed — v41 Source Structure", () => {
 
   it("Triage router has deleteTask, updateTask, and approval procedures", async () => {
     const source = await import("fs").then(fs =>
-      fs.readFileSync("server/routers.ts", "utf-8")
+      fs.readFileSync("server/routers/triage.ts", "utf-8")
     );
     expect(source).toMatch(/deleteTask:.*protectedProcedure/);
     expect(source).toMatch(/updateTask:.*protectedProcedure/);
@@ -1143,7 +1142,7 @@ describe("Triage Feed — v41 Source Structure", () => {
 
   it("Triage router has strategicInsights procedure with LLM", async () => {
     const source = await import("fs").then(fs =>
-      fs.readFileSync("server/routers.ts", "utf-8")
+      fs.readFileSync("server/routers/triage.ts", "utf-8")
     );
     expect(source).toMatch(/strategicInsights:.*protectedProcedure/);
     expect(source).toMatch(/invokeLLM/);
@@ -1266,10 +1265,10 @@ describe("v44 — Layout Optimization", () => {
     const source = await import("fs").then(fs =>
       fs.readFileSync("client/src/pages/TriageFeed.tsx", "utf-8")
     );
-    // Mobile fallback for insights
-    expect(source).toMatch(/lg:hidden/);
-    // Desktop-only right column
-    expect(source).toMatch(/hidden lg:flex/);
+    // Desktop-only right column (hidden on mobile, flex on lg)
+    expect(source).toMatch(/hidden lg:/);
+    // Responsive flex layout
+    expect(source).toMatch(/flex-col lg:flex-row/);
   });
 });
 

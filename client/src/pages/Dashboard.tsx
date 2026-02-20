@@ -15,9 +15,7 @@ import {
 import { Link, useLocation } from "wouter";
 import { toast } from "sonner";
 
-// ============================================================================
 // TIMEZONE CLOCKS — Premium minimal design
-// ============================================================================
 
 const TIMEZONES = [
   { label: "EST", zone: "America/New_York", city: "New York" },
@@ -78,9 +76,7 @@ function LocalClock() {
   );
 }
 
-// ============================================================================
 // LAYOUT SYSTEM - Widget ordering with drag-and-drop
-// ============================================================================
 
 const DEFAULT_WIDGET_ORDER = [
   "daily-report",
@@ -134,9 +130,7 @@ function useDashboardLayout() {
   return { widgetOrder, saveOrder, resetOrder };
 }
 
-// ============================================================================
 // METRIC CARD — Premium glassmorphism
-// ============================================================================
 
 function MetricCard({ title, value, sub, icon, accent, href }: {
   title: string; value: number; sub: string; icon: React.ReactNode; accent?: string; href?: string;
@@ -165,9 +159,7 @@ function MetricCard({ title, value, sub, icon, accent, href }: {
   );
 }
 
-// ============================================================================
 // DRAGGABLE WIDGET WRAPPER — Premium
-// ============================================================================
 
 function DraggableWidget({
   widgetId,
@@ -226,9 +218,7 @@ function DraggableWidget({
   );
 }
 
-// ============================================================================
 // SECTION WRAPPER — Premium
-// ============================================================================
 
 function WidgetSection({
   icon,
@@ -269,9 +259,7 @@ function WidgetSection({
   );
 }
 
-// ============================================================================
 // DAILY REPORT WIDGET — Premium
-// ============================================================================
 
 function DailyReportWidget() {
   const now = new Date();
@@ -314,9 +302,7 @@ function DailyReportWidget() {
   );
 }
 
-// ============================================================================
 // WEEKLY REPORT WIDGET — Premium
-// ============================================================================
 
 function WeeklyReportWidget() {
   const { data: summary } = trpc.analytics.weeklySummary.useQuery({});
@@ -357,9 +343,7 @@ function WeeklyReportWidget() {
   );
 }
 
-// ============================================================================
 // UPCOMING SCHEDULE WIDGET — Premium
-// ============================================================================
 
 interface CalendarEvent {
   id: string;
@@ -436,9 +420,7 @@ function UpcomingScheduleWidget({ events, loading }: { events: CalendarEvent[]; 
   );
 }
 
-// ============================================================================
 // RECENT INTELLIGENCE WIDGET — Premium
-// ============================================================================
 
 function RecentIntelligenceWidget({ meetings, parseMeetingParticipants }: { meetings: any[]; parseMeetingParticipants: (m: any) => string[] }) {
   return (
@@ -488,9 +470,7 @@ function RecentIntelligenceWidget({ meetings, parseMeetingParticipants }: { meet
   );
 }
 
-// ============================================================================
 // ACTIVE VERTICALS WIDGET — Premium
-// ============================================================================
 
 function ActiveVerticalsWidget({ metrics }: { metrics: any }) {
   return (
@@ -541,9 +521,7 @@ function ActiveVerticalsWidget({ metrics }: { metrics: any }) {
   );
 }
 
-// ============================================================================
 // PRIORITY TASKS WIDGET — Premium
-// ============================================================================
 
 function PriorityTasksWidget({ tasks }: { tasks: any[] }) {
   return (
@@ -588,9 +566,7 @@ function PriorityTasksWidget({ tasks }: { tasks: any[] }) {
   );
 }
 
-// ============================================================================
 // QUICK ACTIONS WIDGET — Premium
-// ============================================================================
 
 function QuickActionsWidget() {
   const actions = [
@@ -626,9 +602,7 @@ function QuickActionsWidget() {
   );
 }
 
-// ============================================================================
 // DASHBOARD — Main Component
-// ============================================================================
 
 export default function Dashboard() {
   const { data: metrics, isLoading: metricsLoading } = trpc.analytics.dashboard.useQuery();

@@ -15,9 +15,7 @@ import {
 import { Link } from "wouter";
 import { toast } from "sonner";
 
-// ============================================================================
 // MEETINGS PAGE - Main Container with Tabs
-// ============================================================================
 
 export default function Meetings() {
   const [activeTab, setActiveTab] = useState(() => {
@@ -128,9 +126,7 @@ export default function Meetings() {
   );
 }
 
-// ============================================================================
 // RECENT MEETINGS - Compact list, newest first, grouped by week
-// ============================================================================
 
 function RecentMeetings() {
   const { data: meetings, isLoading } = trpc.meetings.list.useQuery({ limit: 100, offset: 0 });
@@ -306,9 +302,7 @@ function MeetingRow({ meeting, onDelete }: { meeting: any; onDelete: () => void 
   );
 }
 
-// ============================================================================
 // MEETINGS CALENDAR
-// ============================================================================
 
 function MeetingsCalendar() {
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -446,9 +440,7 @@ function MeetingsCalendar() {
   );
 }
 
-// ============================================================================
 // PEOPLE DIRECTORY
-// ============================================================================
 
 function PeopleDirectory() {
   const { data: contacts, isLoading: contactsLoading, refetch: refetchContacts } = trpc.contacts.list.useQuery();

@@ -106,9 +106,7 @@ export default function Setup() {
   );
 }
 
-// ============================================================================
 // PROFILE TAB
-// ============================================================================
 
 function ProfileTab() {
   const { user } = useAuth();
@@ -210,9 +208,7 @@ function ProfileTab() {
   );
 }
 
-// ============================================================================
 // INTEGRATIONS HUB TAB — The main event
-// ============================================================================
 
 const CATEGORY_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   communication: { label: "Communication", icon: <MessageSquare className="h-4 w-4" />, color: "blue" },
@@ -781,9 +777,7 @@ function IntegrationsHubTab() {
   );
 }
 
-// ============================================================================
 // FEATURE CONTROLS TAB
-// ============================================================================
 
 const FEATURE_CATEGORY_META: Record<string, { label: string; icon: React.ReactNode; description: string }> = {
   core: { label: "Core Platform", icon: <Shield className="h-4 w-4" />, description: "Essential features that power the platform" },
@@ -906,9 +900,7 @@ function FeatureControlsTab() {
   );
 }
 
-// ============================================================================
 // WEBHOOKS TAB
-// ============================================================================
 
 function WebhooksTab() {
   const [redirectUri, setRedirectUri] = useState<string | null>(null);
@@ -1056,9 +1048,7 @@ function WebhooksTab() {
 }
 
 
-// ============================================================================
 // OMNI ASSISTANT TAB
-// ============================================================================
 
 const OMNI_MODE_KEY = "omniscope-omni-mode";
 const OMNI_SIDEBAR_KEY = "omniscope-omni-sidebar-visible";
@@ -1248,9 +1238,7 @@ function OmniTab() {
 }
 
 
-// ============================================================================
 // APPEARANCE TAB — Design Templates, Logo, Accent Color, Sidebar Style
-// ============================================================================
 
 const DESIGN_TEMPLATES = [
   {

@@ -8,9 +8,7 @@ import { getDb } from "./db";
 import { googleTokens } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
-// ============================================================================
 // OAUTH2 CLIENT FACTORY
-// ============================================================================
 
 function getOAuth2Client() {
   return new google.auth.OAuth2(
@@ -63,9 +61,7 @@ async function getAuthClient(userId: number) {
   return oauth2Client;
 }
 
-// ============================================================================
 // DRIVE CLIENT
-// ============================================================================
 
 export async function getDriveClient(userId: number): Promise<drive_v3.Drive | null> {
   const auth = await getAuthClient(userId);
@@ -73,9 +69,7 @@ export async function getDriveClient(userId: number): Promise<drive_v3.Drive | n
   return google.drive({ version: "v3", auth });
 }
 
-// ============================================================================
 // DOCS CLIENT
-// ============================================================================
 
 export async function getDocsClient(userId: number): Promise<docs_v1.Docs | null> {
   const auth = await getAuthClient(userId);
@@ -83,9 +77,7 @@ export async function getDocsClient(userId: number): Promise<docs_v1.Docs | null
   return google.docs({ version: "v1", auth });
 }
 
-// ============================================================================
 // SHEETS CLIENT
-// ============================================================================
 
 export async function getSheetsClient(userId: number): Promise<sheets_v4.Sheets | null> {
   const auth = await getAuthClient(userId);
@@ -93,9 +85,7 @@ export async function getSheetsClient(userId: number): Promise<sheets_v4.Sheets 
   return google.sheets({ version: "v4", auth });
 }
 
-// ============================================================================
 // DRIVE OPERATIONS
-// ============================================================================
 
 export interface DriveFile {
   id: string;
@@ -254,9 +244,7 @@ export async function createDriveFolder(
   }
 }
 
-// ============================================================================
 // GOOGLE DOCS OPERATIONS
-// ============================================================================
 
 /**
  * Create a new Google Doc
@@ -416,9 +404,7 @@ export async function readGoogleDocText(
   }
 }
 
-// ============================================================================
 // GOOGLE SHEETS OPERATIONS
-// ============================================================================
 
 /**
  * Create a new Google Sheet
@@ -490,9 +476,7 @@ export async function readSheetData(
   }
 }
 
-// ============================================================================
 // SHARED DRIVE OPERATIONS
-// ============================================================================
 
 /**
  * List shared drives the user has access to

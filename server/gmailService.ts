@@ -8,9 +8,7 @@ import { getDb } from "./db";
 import { emailMessages, emailEntityLinks, contacts } from "../drizzle/schema";
 import { eq, and, desc, inArray, like, or, sql } from "drizzle-orm";
 
-// ============================================================================
 // TYPES
-// ============================================================================
 
 export interface GmailThread {
   id: string;
@@ -67,9 +65,7 @@ export interface SendEmailParams {
   references?: string; // References header for threading
 }
 
-// ============================================================================
 // HELPER: Parse email headers
-// ============================================================================
 
 function getHeader(headers: any[], name: string): string {
   const header = headers?.find((h: any) => h.name?.toLowerCase() === name.toLowerCase());
@@ -92,9 +88,7 @@ function parseEmailList(raw: string): string[] {
   }).filter(Boolean);
 }
 
-// ============================================================================
 // LIST THREADS
-// ============================================================================
 
 /**
  * List Gmail threads for a user with folder/search support.
@@ -213,9 +207,7 @@ export async function listGmailThreads(
   }
 }
 
-// ============================================================================
 // GET THREAD (Full messages with bodies)
-// ============================================================================
 
 /**
  * Fetch a full Gmail thread with all message bodies.
@@ -322,9 +314,7 @@ export async function getGmailThread(
   }
 }
 
-// ============================================================================
 // SEND EMAIL
-// ============================================================================
 
 /**
  * Send an email (compose, reply, or forward) via Gmail API.
@@ -402,9 +392,7 @@ export async function sendGmailEmailFull(
   }
 }
 
-// ============================================================================
 // GET UNREAD COUNT
-// ============================================================================
 
 /**
  * Get the unread message count for the user's inbox.
@@ -426,9 +414,7 @@ export async function getUnreadCount(userId: number): Promise<number> {
   }
 }
 
-// ============================================================================
 // TOGGLE STAR
-// ============================================================================
 
 /**
  * Toggle star on a message.
@@ -456,9 +442,7 @@ export async function toggleStar(
   }
 }
 
-// ============================================================================
 // TOGGLE READ/UNREAD
-// ============================================================================
 
 /**
  * Mark a message as read or unread.
@@ -486,9 +470,7 @@ export async function toggleRead(
   }
 }
 
-// ============================================================================
 // TRASH / DELETE
-// ============================================================================
 
 /**
  * Move a message to trash.
@@ -506,9 +488,7 @@ export async function trashMessage(userId: number, messageId: string): Promise<b
   }
 }
 
-// ============================================================================
 // SYNC HEADERS (Lightweight metadata sync for entity linking)
-// ============================================================================
 
 /**
  * Sync email headers to local DB for entity linking and fast search.
@@ -636,9 +616,7 @@ export async function syncEmailHeaders(
   }
 }
 
-// ============================================================================
 // GET EMAILS BY CONTACT
-// ============================================================================
 
 /**
  * Get Gmail threads related to a specific contact by their email address.
@@ -658,9 +636,7 @@ export async function getEmailsByContact(
   });
 }
 
-// ============================================================================
 // GET ATTACHMENT
-// ============================================================================
 
 /**
  * Get an attachment from a Gmail message.

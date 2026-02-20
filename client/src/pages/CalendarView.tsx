@@ -14,9 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-// ============================================================================
 // TIMEZONE CLOCKS
-// ============================================================================
 
 const TIMEZONES = [
   { label: "EST", zone: "America/New_York", city: "New York" },
@@ -78,9 +76,7 @@ function LocalClock() {
   );
 }
 
-// ============================================================================
 // CALENDAR PAGE
-// ============================================================================
 
 interface CalendarEvent {
   id: string;
@@ -520,9 +516,7 @@ export default function CalendarView() {
   );
 }
 
-// ============================================================================
 // NEW EVENT FORM (Google Calendar-style)
-// ============================================================================
 
 function NewEventForm({
   defaultDate,

@@ -71,8 +71,6 @@ webhookRouter.get("/daily-brief/pdf", async (req, res) => {
  */
 webhookRouter.post("/webhook/plaud", async (req, res) => {
   try {
-    console.log("[Webhook:Plaud] Received request:", JSON.stringify(req.body, null, 2).substring(0, 500));
-    
     const data = validateIntelligenceData(req.body);
     
     if (!data) {
@@ -84,8 +82,6 @@ webhookRouter.post("/webhook/plaud", async (req, res) => {
     }
 
     const result = await processIntelligenceData(data);
-    
-    console.log("[Webhook:Plaud] Successfully processed:", result);
     
     return res.status(200).json({
       success: true,
@@ -108,8 +104,6 @@ webhookRouter.post("/webhook/plaud", async (req, res) => {
  */
 webhookRouter.post("/webhook/fathom", async (req, res) => {
   try {
-    console.log("[Webhook:Fathom] Received request for meeting:", req.body?.title || req.body?.meeting_title || "Unknown");
-
     // Validate it looks like a Fathom payload
     if (!isFathomWebhookPayload(req.body)) {
       console.error("[Webhook:Fathom] Invalid Fathom payload");
@@ -121,8 +115,6 @@ webhookRouter.post("/webhook/fathom", async (req, res) => {
 
     // Process through the Fathom integration pipeline (LLM analysis + ingestion)
     const result = await processFathomWebhook(req.body);
-    
-    console.log("[Webhook:Fathom] Processing result:", result);
     
     return res.status(200).json({
       success: result.success,
@@ -145,11 +137,9 @@ webhookRouter.post("/webhook/fathom", async (req, res) => {
  */
 webhookRouter.post("/webhook/ingest", async (req, res) => {
   try {
-    console.log("[Webhook:Ingest] Received request");
-
     // Try Fathom format first
     if (isFathomWebhookPayload(req.body)) {
-      console.log("[Webhook:Ingest] Detected Fathom payload, routing to Fathom handler");
+
       const result = await processFathomWebhook(req.body);
       return res.status(200).json({
         success: result.success,
@@ -161,7 +151,7 @@ webhookRouter.post("/webhook/ingest", async (req, res) => {
     // Fall back to standard intelligence data format
     const data = validateIntelligenceData(req.body);
     if (data) {
-      console.log("[Webhook:Ingest] Detected standard intelligence data format");
+
       const result = await processIntelligenceData(data);
       return res.status(200).json({
         success: result.success,

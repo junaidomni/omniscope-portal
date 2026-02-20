@@ -12,9 +12,7 @@ import {
   CartesianGrid, Legend,
 } from "recharts";
 
-// ============================================================================
 // STAR CONFIG (mirrored from MailModule)
-// ============================================================================
 
 const STAR_CONFIG: Record<number, { label: string; color: string; chartColor: string }> = {
   1: { label: "Reply Today", color: "text-yellow-500", chartColor: "#eab308" },
@@ -22,9 +20,7 @@ const STAR_CONFIG: Record<number, { label: string; color: string; chartColor: st
   3: { label: "Critical", color: "text-red-500", chartColor: "#ef4444" },
 };
 
-// ============================================================================
 // METRIC CARD
-// ============================================================================
 
 function MetricCard({
   label, value, sub, icon: Icon, accent,
@@ -47,9 +43,7 @@ function MetricCard({
   );
 }
 
-// ============================================================================
 // CUSTOM TOOLTIP
-// ============================================================================
 
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -67,9 +61,7 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
-// ============================================================================
 // MAIN ANALYTICS PAGE
-// ============================================================================
 
 export default function MailAnalytics() {
   const { user } = useAuth();

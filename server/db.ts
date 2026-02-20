@@ -17,9 +17,7 @@ export async function getDb() {
   return _db;
 }
 
-// ============================================================================
 // USER OPERATIONS
-// ============================================================================
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
@@ -114,9 +112,7 @@ export async function completeOnboarding(userId: number) {
   await db.update(users).set({ onboardingCompleted: true }).where(eq(users.id, userId));
 }
 
-// ============================================================================
 // USER PROFILE / SIGNATURE OPERATIONS
-// ============================================================================
 
 export async function getUserProfile(userId: number) {
   const db = await getDb();
@@ -137,9 +133,7 @@ export async function upsertUserProfile(userId: number, data: Partial<Omit<Inser
   return await getUserProfile(userId);
 }
 
-// ============================================================================
 // CONTACT OPERATIONS
-// ============================================================================
 
 export async function createContact(contact: InsertContact) {
   const db = await getDb();
@@ -260,9 +254,7 @@ export async function getOrCreateContact(name: string, org?: string, email?: str
   return contact;
 }
 
-// ============================================================================
 // MEETING-CONTACT OPERATIONS
-// ============================================================================
 
 export async function linkContactToMeeting(meetingId: number, contactId: number) {
   const db = await getDb();
@@ -367,9 +359,7 @@ export async function getContactMeetingCount(contactId: number) {
   return result[0]?.count ?? 0;
 }
 
-// ============================================================================
 // MEETING OPERATIONS
-// ============================================================================
 
 export async function createMeeting(meeting: InsertMeeting) {
   const db = await getDb();
@@ -462,9 +452,7 @@ export async function getMeetingsBySourceId(sourceId: string) {
   return await db.select().from(meetings).where(eq(meetings.sourceId, sourceId));
 }
 
-// ============================================================================
 // TAG OPERATIONS
-// ============================================================================
 
 export async function createTag(tag: InsertTag) {
   const db = await getDb();
@@ -496,9 +484,7 @@ export async function getOrCreateTag(name: string, type: "sector" | "jurisdictio
   return tag;
 }
 
-// ============================================================================
 // MEETING TAG OPERATIONS
-// ============================================================================
 
 export async function addTagToMeeting(meetingId: number, tagId: number) {
   const db = await getDb();
@@ -552,9 +538,7 @@ export async function getMeetingsByTags(tagIds: number[]) {
     .orderBy(desc(meetings.meetingDate));
 }
 
-// ============================================================================
 // TASK OPERATIONS
-// ============================================================================
 
 export async function createTask(task: InsertTask) {
   const db = await getDb();
@@ -644,9 +628,7 @@ export async function getTasksForMeeting(meetingId: number) {
 }
 
 
-// ============================================================================
 // INVITATION OPERATIONS
-// ============================================================================
 
 import { invitations, InsertInvitation, meetingCategories, InsertMeetingCategory } from "../drizzle/schema";
 
@@ -688,9 +670,7 @@ export async function acceptInvitation(id: number, userId: number) {
   await db.update(invitations).set({ acceptedAt: new Date(), userId }).where(eq(invitations.id, id));
 }
 
-// ============================================================================
 // MEETING CATEGORY OPERATIONS
-// ============================================================================
 
 export async function addCategoryToMeeting(meetingId: number, category: string) {
   const db = await getDb();
@@ -744,9 +724,7 @@ export async function getMeetingsByCategory(category: string) {
 }
 
 
-// ============================================================================
 // CONTACT NOTES OPERATIONS
-// ============================================================================
 
 export async function createContactNote(note: InsertContactNote) {
   const db = await getDb();
@@ -769,9 +747,7 @@ export async function deleteContactNote(id: number) {
   await db.delete(contactNotes).where(eq(contactNotes.id, id));
 }
 
-// ============================================================================
 // EMPLOYEE OPERATIONS
-// ============================================================================
 
 export async function createEmployee(employee: InsertEmployee) {
   const db = await getDb();
@@ -841,9 +817,7 @@ export async function getEmployeeDepartments() {
   return result;
 }
 
-// ============================================================================
 // PAYROLL OPERATIONS
-// ============================================================================
 
 export async function createPayrollRecord(record: InsertPayrollRecord) {
   const db = await getDb();
@@ -891,9 +865,7 @@ export async function deletePayrollRecord(id: number) {
   await db.delete(payrollRecords).where(eq(payrollRecords.id, id));
 }
 
-// ============================================================================
 // HR DOCUMENT OPERATIONS
-// ============================================================================
 
 export async function createHrDocument(doc: InsertHrDocument) {
   const db = await getDb();
@@ -925,9 +897,7 @@ export async function getHrDocumentById(id: number) {
   return result.length > 0 ? result[0] : null;
 }
 
-// ============================================================================
 // CONTACT DOCUMENTS
-// ============================================================================
 
 export async function getDocumentsForContact(contactId: number, category?: string) {
   const db = await getDb();
@@ -957,9 +927,7 @@ export async function getContactDocumentById(id: number) {
   return result.length > 0 ? result[0] : null;
 }
 
-// ============================================================================
 // EMPLOYEE-CONTACT LINKING
-// ============================================================================
 
 export async function linkEmployeeToContact(employeeId: number, contactId: number) {
   const db = await getDb();
@@ -987,9 +955,7 @@ export async function getEmployeeByName(firstName: string, lastName: string) {
 }
 
 
-// ============================================================================
 // COMPANIES OPERATIONS
-// ============================================================================
 
 export async function createCompany(company: Omit<InsertCompany, "id" | "createdAt" | "updatedAt">) {
   const db = await getDb();
@@ -1062,9 +1028,7 @@ export async function getTasksForCompany(companyId: number) {
   return await db.select().from(tasks).where(eq(tasks.companyId, companyId)).orderBy(desc(tasks.createdAt));
 }
 
-// ============================================================================
 // INTERACTIONS OPERATIONS
-// ============================================================================
 
 export async function createInteraction(interaction: Omit<InsertInteraction, "id" | "createdAt">) {
   const db = await getDb();
@@ -1125,9 +1089,7 @@ export async function getInteractionBySource(sourceType: string, sourceRecordId:
   return result.length > 0 ? result[0] : null;
 }
 
-// ============================================================================
 // ENHANCED CONTACT OPERATIONS
-// ============================================================================
 
 export async function getContactsWithCompany() {
   const db = await getDb();
@@ -1190,10 +1152,8 @@ export async function globalSearch(query: string) {
 }
 
 
-// ============================================================================
 // SYSTEM-WIDE NAME PROPAGATION
 // When a contact or company name changes, propagate across the entire system
-// ============================================================================
 
 /**
  * Propagate a contact name change across meetings (participants JSON),
@@ -1289,9 +1249,7 @@ export async function propagateCompanyNameChange(companyId: number, oldName: str
 }
 
 
-// ============================================================================
 // EMAIL STAR PRIORITY OPERATIONS
-// ============================================================================
 
 export async function getEmailStar(threadId: string, userId: number) {
   const db = await getDb();
@@ -1343,9 +1301,7 @@ export async function getStarredThreadIds(userId: number, starLevel?: number) {
   return rows;
 }
 
-// ============================================================================
 // EMAIL-TO-COMPANY LINK OPERATIONS
-// ============================================================================
 
 export async function getEmailCompanyLinks(threadId: string) {
   const db = await getDb();
@@ -1395,9 +1351,7 @@ export async function getCompanyEmailThreads(companyId: number) {
 }
 
 
-// ============================================================================
 // EMAIL THREAD SUMMARIES
-// ============================================================================
 
 export async function getThreadSummary(threadId: string, userId: number) {
   const db = await getDb();
@@ -1453,9 +1407,7 @@ export async function upsertThreadSummary(
   return { id: Number(result[0].insertId), cached: false };
 }
 
-// ============================================================================
 // BULK STAR ASSIGNMENT
-// ============================================================================
 
 export async function bulkSetEmailStars(threadIds: string[], userId: number, starLevel: number) {
   const db = await getDb();
@@ -1487,9 +1439,7 @@ export async function bulkRemoveEmailStars(threadIds: string[], userId: number) 
   return { removed: threadIds.length };
 }
 
-// ============================================================================
 // EMAIL ANALYTICS
-// ============================================================================
 
 export async function getEmailAnalytics(userId: number) {
   const db = await getDb();
@@ -1597,9 +1547,7 @@ export async function getEmailAnalytics(userId: number) {
   };
 }
 
-// ============================================================================
 // UNIFIED DIRECTORY — search contacts, auto-detect company, person card
-// ============================================================================
 
 export async function directorySearch(query: string, limit = 15) {
   const db = await getDb();
@@ -1752,9 +1700,7 @@ export async function findContactByEmail(email: string) {
 }
 
 
-// ============================================================================
 // PENDING SUGGESTIONS OPERATIONS
-// ============================================================================
 
 export async function createPendingSuggestion(data: InsertPendingSuggestion) {
   const db = await getDb();
@@ -1900,9 +1846,7 @@ export async function getActivityLog(opts: {
 }
 
 
-// ============================================================================
 // CONTACT ALIASES — Smart duplicate learning
-// ============================================================================
 
 export async function saveContactAlias(userId: number, contactId: number, aliasName: string, aliasEmail?: string, source: string = "merge") {
   const db = await getDb();
@@ -1949,9 +1893,7 @@ export async function deleteContactAlias(aliasId: number) {
   await db.delete(contactAliases).where(eq(contactAliases.id, aliasId));
 }
 
-// ============================================================================
 // COMPANY ALIASES — Smart duplicate learning
-// ============================================================================
 
 export async function saveCompanyAlias(userId: number, companyId: number, aliasName: string, source: string = "merge") {
   const db = await getDb();
@@ -1976,9 +1918,7 @@ export async function findCompanyByAlias(userId: number, name: string) {
 }
 
 
-// ============================================================================
 // INTELLIGENCE VAULT — Document Operations
-// ============================================================================
 
 export async function listDocuments(filters?: {
   collection?: string;
@@ -2138,9 +2078,7 @@ export async function getDocumentEntityLinks(documentId: number) {
   return db.select().from(documentEntityLinks).where(eq(documentEntityLinks.documentId, documentId));
 }
 
-// ============================================================================
 // VAULT — Folder Operations
-// ============================================================================
 
 export async function listFolders(filters?: { collection?: string; parentId?: number | null; ownerId?: number }) {
   const db = await getDb();
@@ -2181,9 +2119,7 @@ export async function deleteFolder(id: number) {
   return true;
 }
 
-// ============================================================================
 // VAULT — Template Operations
-// ============================================================================
 
 export async function listTemplates(filters?: { category?: string; isActive?: boolean }) {
   const db = await getDb();
@@ -2222,9 +2158,7 @@ export async function incrementTemplateUsage(id: number) {
   await db.update(documentTemplates).set({ timesUsed: sql`${documentTemplates.timesUsed} + 1` }).where(eq(documentTemplates.id, id));
 }
 
-// ============================================================================
 // VAULT — Signing Provider Operations
-// ============================================================================
 
 export async function listSigningProviders() {
   const db = await getDb();
@@ -2269,9 +2203,7 @@ export async function deleteSigningProvider(id: number) {
   return true;
 }
 
-// ============================================================================
 // VAULT — Signing Envelope Operations
-// ============================================================================
 
 export async function listSigningEnvelopes(filters?: { status?: string; documentId?: number; limit?: number; offset?: number }) {
   const db = await getDb();
@@ -2445,9 +2377,7 @@ export async function getFolderBreadcrumbs(folderId: number): Promise<Array<{ id
 }
 
 
-// ============================================================================
 // INTEGRATIONS
-// ============================================================================
 
 export async function listIntegrations() {
   const db = await getDb();
@@ -2575,9 +2505,7 @@ export async function updateIntegrationLastSync(slug: string) {
   await db.update(integrations).set({ lastSyncAt: new Date() }).where(eq(integrations.slug, slug));
 }
 
-// ============================================================================
 // FEATURE TOGGLES
-// ============================================================================
 
 export async function listFeatureToggles() {
   const db = await getDb();
@@ -2661,9 +2589,7 @@ export async function seedBuiltInIntegrations() {
 }
 
 
-// ============================================================================
 // DESIGN PREFERENCES OPERATIONS
-// ============================================================================
 
 export async function getDesignPreferences(userId: number) {
   const db = await getDb();
