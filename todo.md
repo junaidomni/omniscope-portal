@@ -2358,3 +2358,10 @@
 - [x] Wire toggles to localStorage and have OmniAvatar respect preferences
 - [x] Add all new emotional states to the preview state selector
 - [x] Include descriptions for when each state triggers
+
+## v77 — Omni Character Design Revert
+- [x] Revert character visual design back to original NOMI-style (pre-v75 look)
+- [x] Keep all new emotional states, theme adaptation, event-driven state machine
+- [x] Keep all settings panel functionality
+- [x] Redesign the thinking face (dashed orbiting ring instead of bouncing dots)
+- [x] Verify all states still work with original design (142 tests passing)
