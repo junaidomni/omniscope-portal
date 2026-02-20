@@ -2311,3 +2311,23 @@
 - [x] Make Omni orb larger and more centrally positioned at top
 - [x] Push Strategic Insights and Quick Stats up to reclaim vertical space
 - [x] Ensure all tests pass after layout changes (142 triage tests passing)
+
+## v75 — Omni Intelligence Companion Evolution
+### Theme-Adaptive Colors
+- [x] Make Omni rim/glow adapt to active theme accent color
+- [x] Keep gold core eyes as Omni's identity across all themes
+- [x] Add state-specific color overlays (green success, red alert, blue focus)
+### Expanded Emotional States
+- [x] Add new states: curious, concerned, focused, alert, proud, waiting, relaxed
+- [x] Design unique eye shapes, positions, and expressions for each state
+### Event-Driven State Machine
+- [x] Wire real triage data (overdue, high-priority, meetings, approvals) to Omni states
+- [x] Auto-transition between states based on system events
+- [x] Pass Omni state from TriageFeed through context to HeroGreeting
+### Enhanced Idle Behaviors
+- [x] Add gentle floating motion during idle
+- [x] Add curiosity tilt (slight head rotation)
+- [x] Add occasional glance toward content areas
+### Verification
+- [x] All tests pass after changes (142 triage tests passing)
+- [x] Omni renders correctly across all 5 themes (theme prop wired everywhere)

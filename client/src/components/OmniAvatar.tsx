@@ -1,32 +1,99 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type OmniMode = "sigil" | "character" | "hidden";
-export type OmniState = "idle" | "hover" | "thinking" | "success" | "error" | "wave" | "thumbsup" | "celebrate";
+
+export type OmniState =
+  | "idle"
+  | "hover"
+  | "thinking"
+  | "success"
+  | "error"
+  | "wave"
+  | "thumbsup"
+  | "celebrate"
+  // New emotional states
+  | "curious"
+  | "concerned"
+  | "focused"
+  | "alert"
+  | "proud"
+  | "waiting"
+  | "relaxed";
+
+// Theme-adaptive color palette for Omni's rim, glow, and ambient aura.
+// Eyes always keep their gold core identity.
+export interface OmniThemeColors {
+  rim: string;        // Rim/border glow color
+  rimRgb: string;     // Same color as RGB triplet for rgba()
+  ambient: string;    // Ambient aura color
+  ambientRgb: string; // Same as RGB triplet
+}
+
+// Pre-defined palettes per theme. Omni's eyes stay gold (#eab308 / #ca8a04)
+// regardless of theme — gold is Omni's identity.
+export const OMNI_THEME_PALETTES: Record<string, OmniThemeColors> = {
+  obsidian: { rim: "#d4af37", rimRgb: "212,175,55", ambient: "#d4af37", ambientRgb: "212,175,55" },
+  ivory:    { rim: "#b8860b", rimRgb: "184,134,11", ambient: "#b8860b", ambientRgb: "184,134,11" },
+  midnight: { rim: "#7c8db5", rimRgb: "124,141,181", ambient: "#7c8db5", ambientRgb: "124,141,181" },
+  emerald:  { rim: "#6b9e78", rimRgb: "107,158,120", ambient: "#6b9e78", ambientRgb: "107,158,120" },
+  slate:    { rim: "#d4a054", rimRgb: "212,160,84", ambient: "#d4a054", ambientRgb: "212,160,84" },
+};
+
+// State-specific overlay colors that mix with the theme rim
+const STATE_OVERLAYS: Partial<Record<OmniState, { color: string; rgb: string }>> = {
+  success:   { color: "#22c55e", rgb: "34,197,94" },
+  celebrate: { color: "#eab308", rgb: "234,179,8" },
+  error:     { color: "#ef4444", rgb: "239,68,68" },
+  alert:     { color: "#f97316", rgb: "249,115,22" },
+  concerned: { color: "#f59e0b", rgb: "245,158,11" },
+  focused:   { color: "#3b82f6", rgb: "59,130,246" },
+  thinking:  { color: "#6366f1", rgb: "99,102,241" },
+  waiting:   { color: "#06b6d4", rgb: "6,182,212" },
+  proud:     { color: "#eab308", rgb: "234,179,8" },
+};
 
 interface OmniAvatarProps {
   mode: OmniMode;
   state: OmniState;
-  size?: number; // px, default 56
+  size?: number;
   onClick?: () => void;
-  badge?: boolean; // gold notification dot
+  badge?: boolean;
   className?: string;
+  theme?: string; // Active theme name — drives rim/glow color
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function getThemePalette(theme: string): OmniThemeColors {
+  return OMNI_THEME_PALETTES[theme] || OMNI_THEME_PALETTES.obsidian;
+}
+
+function getActiveRim(state: OmniState, theme: string): { color: string; rgb: string } {
+  const overlay = STATE_OVERLAYS[state];
+  if (overlay) return overlay;
+  const palette = getThemePalette(theme);
+  return { color: palette.rim, rgb: palette.rimRgb };
 }
 
 // ─── Sigil Mode ─────────────────────────────────────────────────────────────
-// Concentric gold rings with breathing pulse. Institutional, geometric, premium.
 
-function SigilAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mode" | "onClick" | "className">) {
+function SigilAvatar({ state, size = 56, badge, theme = "obsidian" }: Omit<OmniAvatarProps, "mode" | "onClick" | "className">) {
   const r = size / 2;
   const outerR = r - 2;
   const midR = r - 8;
   const innerR = r - 14;
+  const rim = getActiveRim(state, theme);
 
   const pulseClass =
-    state === "thinking" ? "animate-spin-slow" :
-    state === "success" || state === "thumbsup" || state === "celebrate" ? "animate-pulse-gold" :
-    state === "error" ? "opacity-50" :
+    state === "thinking" || state === "focused" ? "animate-spin-slow" :
+    state === "success" || state === "thumbsup" || state === "celebrate" || state === "proud" ? "animate-pulse-gold" :
+    state === "error" || state === "alert" ? "animate-omni-alert-pulse" :
+    state === "concerned" ? "animate-omni-concerned" :
+    state === "waiting" ? "animate-omni-waiting" :
+    state === "curious" ? "animate-omni-curious" :
+    state === "relaxed" ? "animate-breathe-slow" :
     state === "hover" || state === "wave" ? "animate-glow" :
     "animate-breathe";
 
@@ -40,17 +107,17 @@ function SigilAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mode" |
       >
         <defs>
           <radialGradient id="sigil-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ca8a04" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#ca8a04" stopOpacity="0" />
+            <stop offset="0%" stopColor={rim.color} stopOpacity="0.3" />
+            <stop offset="100%" stopColor={rim.color} stopOpacity="0" />
           </radialGradient>
         </defs>
         <circle cx={r} cy={r} r={outerR} fill="url(#sigil-glow)" />
-        <circle cx={r} cy={r} r={outerR} fill="none" stroke="#ca8a04" strokeWidth="1.5" strokeOpacity={state === "error" ? 0.3 : 0.7} />
-        <circle cx={r} cy={r} r={midR} fill="none" stroke="#ca8a04" strokeWidth="1" strokeOpacity={state === "error" ? 0.2 : 0.4} strokeDasharray={state === "thinking" ? "4 4" : "none"} />
-        <circle cx={r} cy={r} r={innerR} fill="none" stroke="#ca8a04" strokeWidth="0.75" strokeOpacity={state === "error" ? 0.15 : 0.3} />
-        <circle cx={r} cy={r} r={3} fill="#ca8a04" opacity={state === "idle" ? 0.8 : 1} />
-        {(state === "success" || state === "celebrate") && (
-          <circle cx={r} cy={r} r={outerR - 2} fill="none" stroke="#eab308" strokeWidth="2" opacity="0.6" className="animate-ping-once" />
+        <circle cx={r} cy={r} r={outerR} fill="none" stroke={rim.color} strokeWidth="1.5" strokeOpacity={state === "error" ? 0.3 : 0.7} />
+        <circle cx={r} cy={r} r={midR} fill="none" stroke={rim.color} strokeWidth="1" strokeOpacity={state === "error" ? 0.2 : 0.4} strokeDasharray={state === "thinking" || state === "focused" ? "4 4" : "none"} />
+        <circle cx={r} cy={r} r={innerR} fill="none" stroke={rim.color} strokeWidth="0.75" strokeOpacity={state === "error" ? 0.15 : 0.3} />
+        <circle cx={r} cy={r} r={3} fill="#eab308" opacity={state === "idle" || state === "relaxed" ? 0.8 : 1} />
+        {(state === "success" || state === "celebrate" || state === "proud") && (
+          <circle cx={r} cy={r} r={outerR - 2} fill="none" stroke={rim.color} strokeWidth="2" opacity="0.6" className="animate-ping-once" />
         )}
       </svg>
       {badge && (
@@ -61,23 +128,32 @@ function SigilAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mode" |
 }
 
 // ─── Character Mode (NOMI-Inspired) ────────────────────────────────────────
-// Dark sphere with expressive gold pill-shaped eyes. Inspired by NIO NOMI.
-// Eyes track cursor, blink periodically, and change expression based on state.
-// New: Thumbs up gesture, waving arm, celebration sparkles.
 
-function CharacterAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mode" | "onClick" | "className">) {
+function CharacterAvatar({ state, size = 56, badge, theme = "obsidian" }: Omit<OmniAvatarProps, "mode" | "onClick" | "className">) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [eyeOffset, setEyeOffset] = useState({ x: 0, y: 0 });
   const [blinking, setBlinking] = useState(false);
+  const [idleBehavior, setIdleBehavior] = useState<"none" | "glance-left" | "glance-right" | "glance-up" | "tilt">("none");
 
-  // Track cursor for eye movement
+  const rim = getActiveRim(state, theme);
+  const palette = getThemePalette(theme);
+
+  // ── Cursor tracking ──
   useEffect(() => {
-    if (state === "thinking") {
+    if (state === "thinking" || state === "focused") {
       setEyeOffset({ x: -1.5, y: 1 });
       return;
     }
-    if (state === "thumbsup" || state === "celebrate") {
+    if (state === "thumbsup" || state === "celebrate" || state === "proud") {
       setEyeOffset({ x: 0, y: 0 });
+      return;
+    }
+    if (state === "curious") {
+      setEyeOffset({ x: 2, y: -1.5 });
+      return;
+    }
+    if (state === "concerned") {
+      setEyeOffset({ x: 0, y: 1.5 });
       return;
     }
 
@@ -101,10 +177,10 @@ function CharacterAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mod
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, [state, size]);
 
-  // Natural blink pattern
+  // ── Natural blink pattern ──
   useEffect(() => {
     const scheduleBlink = () => {
-      const delay = 2500 + Math.random() * 3000;
+      const delay = state === "relaxed" ? 4000 + Math.random() * 3000 : 2500 + Math.random() * 3000;
       return setTimeout(() => {
         setBlinking(true);
         setTimeout(() => {
@@ -129,7 +205,55 @@ function CharacterAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mod
       clearTimeout(timer);
       clearInterval(interval);
     };
-  }, []);
+  }, [state]);
+
+  // ── Enhanced idle behaviors: occasional glances and curiosity tilts ──
+  useEffect(() => {
+    if (state !== "idle" && state !== "relaxed") {
+      setIdleBehavior("none");
+      return;
+    }
+
+    const behaviors: Array<"glance-left" | "glance-right" | "glance-up" | "tilt"> = [
+      "glance-left", "glance-right", "glance-up", "tilt",
+    ];
+
+    const scheduleIdleBehavior = () => {
+      const delay = 6000 + Math.random() * 8000; // 6-14 seconds
+      return setTimeout(() => {
+        const behavior = behaviors[Math.floor(Math.random() * behaviors.length)];
+        setIdleBehavior(behavior);
+        // Reset after the behavior plays out
+        setTimeout(() => setIdleBehavior("none"), 1500);
+      }, delay);
+    };
+
+    let timer = scheduleIdleBehavior();
+    const interval = setInterval(() => {
+      clearTimeout(timer);
+      timer = scheduleIdleBehavior();
+    }, 14000);
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [state]);
+
+  // Apply idle behavior offsets
+  const idleEyeAdjust = useMemo(() => {
+    switch (idleBehavior) {
+      case "glance-left": return { x: -3, y: 0 };
+      case "glance-right": return { x: 3, y: 0 };
+      case "glance-up": return { x: 0, y: -2 };
+      default: return { x: 0, y: 0 };
+    }
+  }, [idleBehavior]);
+
+  const finalEyeOffset = {
+    x: eyeOffset.x + idleEyeAdjust.x,
+    y: eyeOffset.y + idleEyeAdjust.y,
+  };
 
   const s = size;
   const r = s / 2;
@@ -144,9 +268,13 @@ function CharacterAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mod
     if (blinking) return 0.8 * scale;
     switch (state) {
       case "hover": case "wave": return 7 * scale;
-      case "thinking": return 4 * scale;
-      case "success": case "thumbsup": case "celebrate": return 2 * scale;
-      case "error": return 5 * scale;
+      case "curious": return 8 * scale;        // Wide, inquisitive
+      case "thinking": case "focused": return 4 * scale;  // Narrowed, concentrating
+      case "success": case "thumbsup": case "celebrate": case "proud": return 2 * scale; // Happy squint
+      case "error": case "alert": return 5 * scale;
+      case "concerned": return 5.5 * scale;    // Slightly narrowed
+      case "waiting": return 5 * scale;         // Patient, neutral
+      case "relaxed": return 4.5 * scale;       // Soft, droopy
       default: return 6 * scale;
     }
   };
@@ -154,22 +282,53 @@ function CharacterAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mod
   const eyeH = getEyeH();
   const eyeRx = eyeW / 2;
   const eyeRy = eyeH / 2;
-  const eyeY = (state === "success" || state === "thumbsup" || state === "celebrate") ? r - 1 * scale : r - 2 * scale;
 
-  const showMouth = state === "success" || state === "error" || state === "hover" || state === "thumbsup" || state === "wave" || state === "celebrate";
+  const happyStates: OmniState[] = ["success", "thumbsup", "celebrate", "proud"];
+  const isHappy = happyStates.includes(state);
+  const eyeY = isHappy ? r - 1 * scale : r - 2 * scale;
+
+  // Eye color: always gold core, but intensity/hue shifts with state
+  const getEyeColor = () => {
+    switch (state) {
+      case "error": case "alert": return "#f97316";       // Orange warning
+      case "concerned": return "#f59e0b";                  // Amber concern
+      case "focused": case "thinking": return "#eab308";   // Slightly dimmed gold
+      case "relaxed": return "#d4af37";                    // Warm, muted gold
+      case "waiting": return "#e2c76a";                    // Soft gold
+      default: return "#eab308";                           // Standard gold
+    }
+  };
+  const eyeColor = getEyeColor();
+  const eyeOpacity = (state === "thinking" || state === "focused") ? 0.6 : (state === "relaxed" ? 0.75 : 0.95);
+
+  const showMouth = ["success", "error", "hover", "thumbsup", "wave", "celebrate", "proud", "curious", "concerned", "relaxed"].includes(state);
 
   const rimOpacity =
-    state === "hover" || state === "wave" ? 0.6 :
-    state === "thinking" ? 0.3 :
-    state === "success" || state === "thumbsup" || state === "celebrate" ? 0.8 :
-    state === "error" ? 0.2 :
+    state === "hover" || state === "wave" || state === "curious" ? 0.6 :
+    state === "thinking" || state === "focused" ? 0.3 :
+    isHappy ? 0.8 :
+    state === "error" || state === "alert" ? 0.5 :
+    state === "concerned" ? 0.4 :
+    state === "relaxed" ? 0.2 :
+    state === "waiting" ? 0.35 :
     0.35;
 
   const glowClass =
-    state === "thinking" ? "animate-omni-think" :
-    state === "success" || state === "thumbsup" || state === "celebrate" ? "animate-omni-success" :
+    state === "thinking" || state === "focused" ? "animate-omni-think" :
+    isHappy ? "animate-omni-success" :
+    state === "alert" ? "animate-omni-alert-pulse" :
+    state === "concerned" ? "animate-omni-concerned" :
+    state === "curious" ? "animate-omni-curious" :
+    state === "waiting" ? "animate-omni-waiting" :
+    state === "relaxed" ? "animate-breathe-slow" :
     state === "hover" || state === "wave" ? "animate-glow" :
     "animate-breathe";
+
+  // Idle float — subtle vertical oscillation
+  const floatClass = (state === "idle" || state === "relaxed") ? "animate-omni-float" : "";
+
+  // Curiosity tilt
+  const tiltDeg = idleBehavior === "tilt" ? 8 : state === "curious" ? 6 : state === "concerned" ? -4 : 0;
 
   const uid = useRef(`omni-${Math.random().toString(36).slice(2, 8)}`).current;
 
@@ -178,13 +337,18 @@ function CharacterAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mod
   const armBaseY = r + bodyR * 0.3;
 
   return (
-    <div ref={containerRef} className="relative" style={{ width: s, height: s + (state === "thumbsup" || state === "wave" || state === "celebrate" ? 8 * scale : 0) }}>
+    <div ref={containerRef} className={`relative ${floatClass}`} style={{ width: s, height: s + (state === "thumbsup" || state === "wave" || state === "celebrate" ? 8 * scale : 0) }}>
       <svg
         viewBox={`0 0 ${s + 20 * scale} ${s + 12 * scale}`}
         width={s + 20 * scale}
         height={s + 12 * scale}
         className={`transition-all duration-300 ${glowClass}`}
-        style={{ marginLeft: -10 * scale, marginTop: -2 * scale }}
+        style={{
+          marginLeft: -10 * scale,
+          marginTop: -2 * scale,
+          transform: tiltDeg ? `rotate(${tiltDeg}deg)` : undefined,
+          transition: "transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        }}
       >
         <defs>
           <radialGradient id={`${uid}-body`} cx="40%" cy="35%" r="60%">
@@ -194,19 +358,19 @@ function CharacterAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mod
           </radialGradient>
           <radialGradient id={`${uid}-rim`} cx="50%" cy="50%" r="50%">
             <stop offset="85%" stopColor="transparent" />
-            <stop offset="95%" stopColor="#ca8a04" stopOpacity={rimOpacity} />
-            <stop offset="100%" stopColor="#ca8a04" stopOpacity={rimOpacity * 0.3} />
+            <stop offset="95%" stopColor={rim.color} stopOpacity={rimOpacity} />
+            <stop offset="100%" stopColor={rim.color} stopOpacity={rimOpacity * 0.3} />
           </radialGradient>
           <filter id={`${uid}-eye-glow`}>
-            <feGaussianBlur stdDeviation={state === "hover" || state === "wave" ? "2" : "1"} result="blur" />
+            <feGaussianBlur stdDeviation={state === "hover" || state === "wave" || state === "curious" ? "2" : "1"} result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
           <radialGradient id={`${uid}-ambient`} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ca8a04" stopOpacity={state === "hover" || state === "celebrate" ? 0.15 : 0.06} />
-            <stop offset="100%" stopColor="#ca8a04" stopOpacity="0" />
+            <stop offset="0%" stopColor={rim.color} stopOpacity={state === "hover" || state === "celebrate" || state === "alert" ? 0.15 : state === "relaxed" ? 0.03 : 0.06} />
+            <stop offset="100%" stopColor={rim.color} stopOpacity="0" />
           </radialGradient>
         </defs>
 
@@ -215,8 +379,6 @@ function CharacterAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mod
           {/* Ambient glow */}
           <circle cx={r} cy={r} r={bodyR + 6} fill={`url(#${uid}-ambient)`} />
 
-          {/* ── Arm gestures (behind body for some, in front for others) ── */}
-
           {/* Wave arm — behind body, left side */}
           {state === "wave" && (
             <g className="animate-omni-wave" style={{ transformOrigin: `${r - bodyR * 0.6}px ${r}px` }}>
@@ -224,20 +386,11 @@ function CharacterAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mod
                 d={`M ${r - bodyR * 0.6} ${r}
                     Q ${r - bodyR - 6 * scale} ${r - 6 * scale}
                       ${r - bodyR - 8 * scale} ${r - 14 * scale}`}
-                fill="none"
-                stroke="#2a2a2e"
-                strokeWidth={4 * scale}
-                strokeLinecap="round"
+                fill="none" stroke="#2a2a2e" strokeWidth={4 * scale} strokeLinecap="round"
               />
-              {/* Hand circle */}
               <circle
-                cx={r - bodyR - 8 * scale}
-                cy={r - 14 * scale}
-                r={3 * scale}
-                fill="#2a2a2e"
-                stroke="#ca8a04"
-                strokeWidth={0.8 * scale}
-                strokeOpacity="0.4"
+                cx={r - bodyR - 8 * scale} cy={r - 14 * scale} r={3 * scale}
+                fill="#2a2a2e" stroke={rim.color} strokeWidth={0.8 * scale} strokeOpacity="0.4"
               />
             </g>
           )}
@@ -250,57 +403,60 @@ function CharacterAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mod
           {/* ── Eyes ── */}
           <g filter={`url(#${uid}-eye-glow)`} className="transition-all duration-150">
             {/* Left eye */}
-            {(state === "success" || state === "thumbsup" || state === "celebrate") ? (
+            {isHappy ? (
               <path
-                d={`M ${r - eyeSpacing - eyeW} ${eyeY + eyeOffset.y}
-                    Q ${r - eyeSpacing} ${eyeY - 3 * scale + eyeOffset.y}
-                      ${r - eyeSpacing + eyeW} ${eyeY + eyeOffset.y}`}
+                d={`M ${r - eyeSpacing - eyeW} ${eyeY + finalEyeOffset.y}
+                    Q ${r - eyeSpacing} ${eyeY - 3 * scale + finalEyeOffset.y}
+                      ${r - eyeSpacing + eyeW} ${eyeY + finalEyeOffset.y}`}
                 fill="none" stroke="#eab308" strokeWidth={2 * scale} strokeLinecap="round"
                 className="transition-all duration-300"
               />
             ) : (
               <rect
-                x={r - eyeSpacing - eyeW / 2 + eyeOffset.x}
-                y={eyeY - eyeH / 2 + eyeOffset.y}
+                x={r - eyeSpacing - eyeW / 2 + finalEyeOffset.x}
+                y={eyeY - eyeH / 2 + finalEyeOffset.y + (state === "error" ? 0 : 0)}
                 width={eyeW} height={eyeH} rx={eyeRx} ry={Math.min(eyeRy, eyeRx)}
-                fill={state === "error" ? "#d97706" : "#eab308"}
-                opacity={state === "thinking" ? 0.6 : 0.95}
+                fill={eyeColor}
+                opacity={eyeOpacity}
+                transform={state === "concerned" ? `rotate(-6, ${r - eyeSpacing + finalEyeOffset.x}, ${eyeY + finalEyeOffset.y})` : undefined}
                 className="transition-all duration-150"
               />
             )}
 
             {/* Right eye */}
-            {(state === "success" || state === "thumbsup" || state === "celebrate") ? (
+            {isHappy ? (
               <path
-                d={`M ${r + eyeSpacing - eyeW} ${eyeY + eyeOffset.y}
-                    Q ${r + eyeSpacing} ${eyeY - 3 * scale + eyeOffset.y}
-                      ${r + eyeSpacing + eyeW} ${eyeY + eyeOffset.y}`}
+                d={`M ${r + eyeSpacing - eyeW} ${eyeY + finalEyeOffset.y}
+                    Q ${r + eyeSpacing} ${eyeY - 3 * scale + finalEyeOffset.y}
+                      ${r + eyeSpacing + eyeW} ${eyeY + finalEyeOffset.y}`}
                 fill="none" stroke="#eab308" strokeWidth={2 * scale} strokeLinecap="round"
                 className="transition-all duration-300"
               />
-            ) : state === "error" ? (
+            ) : state === "error" || state === "alert" ? (
               <rect
-                x={r + eyeSpacing - eyeW / 2 + eyeOffset.x}
-                y={eyeY - eyeH / 2 + eyeOffset.y - 0.5 * scale}
+                x={r + eyeSpacing - eyeW / 2 + finalEyeOffset.x}
+                y={eyeY - eyeH / 2 + finalEyeOffset.y - 0.5 * scale}
                 width={eyeW} height={eyeH} rx={eyeRx} ry={Math.min(eyeRy, eyeRx)}
-                fill="#d97706" opacity={0.9}
-                transform={`rotate(8, ${r + eyeSpacing + eyeOffset.x}, ${eyeY + eyeOffset.y})`}
+                fill={eyeColor} opacity={0.9}
+                transform={`rotate(8, ${r + eyeSpacing + finalEyeOffset.x}, ${eyeY + finalEyeOffset.y})`}
                 className="transition-all duration-150"
               />
             ) : (
               <rect
-                x={r + eyeSpacing - eyeW / 2 + eyeOffset.x}
-                y={eyeY - eyeH / 2 + eyeOffset.y}
+                x={r + eyeSpacing - eyeW / 2 + finalEyeOffset.x}
+                y={eyeY - eyeH / 2 + finalEyeOffset.y}
                 width={eyeW} height={eyeH} rx={eyeRx} ry={Math.min(eyeRy, eyeRx)}
-                fill="#eab308"
-                opacity={state === "thinking" ? 0.6 : 0.95}
+                fill={eyeColor}
+                opacity={eyeOpacity}
+                transform={state === "concerned" ? `rotate(6, ${r + eyeSpacing + finalEyeOffset.x}, ${eyeY + finalEyeOffset.y})` : undefined}
                 className="transition-all duration-150"
               />
             )}
           </g>
 
           {/* ── Mouth ── */}
-          {showMouth && (state === "success" || state === "thumbsup" || state === "celebrate") && (
+          {/* Happy smile */}
+          {showMouth && isHappy && (
             <path
               d={`M ${r - 4 * scale} ${r + 5 * scale}
                   Q ${r} ${r + 8.5 * scale}
@@ -309,86 +465,115 @@ function CharacterAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mod
               className="transition-all duration-300"
             />
           )}
-          {showMouth && state === "error" && (
+          {/* Error/alert frown */}
+          {showMouth && (state === "error" || state === "alert") && (
             <path
               d={`M ${r - 3 * scale} ${r + 6.5 * scale}
                   Q ${r} ${r + 5 * scale}
                     ${r + 3 * scale} ${r + 6.5 * scale}`}
-              fill="none" stroke="#d97706" strokeWidth={1 * scale} strokeLinecap="round" opacity="0.5"
+              fill="none" stroke={eyeColor} strokeWidth={1 * scale} strokeLinecap="round" opacity="0.5"
             />
           )}
+          {/* Concerned slight frown */}
+          {showMouth && state === "concerned" && (
+            <path
+              d={`M ${r - 2.5 * scale} ${r + 6 * scale}
+                  Q ${r} ${r + 5.2 * scale}
+                    ${r + 2.5 * scale} ${r + 6 * scale}`}
+              fill="none" stroke="#f59e0b" strokeWidth={0.8 * scale} strokeLinecap="round" opacity="0.4"
+            />
+          )}
+          {/* Hover/wave subtle smile */}
           {showMouth && (state === "hover" || state === "wave") && (
             <path
               d={`M ${r - 3 * scale} ${r + 5.5 * scale}
                   Q ${r} ${r + 6.5 * scale}
                     ${r + 3 * scale} ${r + 5.5 * scale}`}
-              fill="none" stroke="#ca8a04" strokeWidth={0.8 * scale} strokeLinecap="round" opacity="0.4"
+              fill="none" stroke={rim.color} strokeWidth={0.8 * scale} strokeLinecap="round" opacity="0.4"
+            />
+          )}
+          {/* Curious "o" mouth */}
+          {showMouth && state === "curious" && (
+            <ellipse
+              cx={r} cy={r + 6 * scale} rx={2 * scale} ry={2.5 * scale}
+              fill="none" stroke="#eab308" strokeWidth={0.8 * scale} opacity="0.4"
+            />
+          )}
+          {/* Relaxed gentle smile */}
+          {showMouth && state === "relaxed" && (
+            <path
+              d={`M ${r - 3 * scale} ${r + 5 * scale}
+                  Q ${r} ${r + 6 * scale}
+                    ${r + 3 * scale} ${r + 5 * scale}`}
+              fill="none" stroke="#d4af37" strokeWidth={0.6 * scale} strokeLinecap="round" opacity="0.3"
             />
           )}
 
           {/* ── Thinking dots ── */}
-          {state === "thinking" && (
+          {(state === "thinking" || state === "focused") && (
             <g>
-              <circle cx={r - 5 * scale} cy={r + 7 * scale} r={1.5 * scale} fill="#ca8a04" opacity="0.5" className="animate-bounce-dot-1" />
-              <circle cx={r} cy={r + 7 * scale} r={1.5 * scale} fill="#ca8a04" opacity="0.5" className="animate-bounce-dot-2" />
-              <circle cx={r + 5 * scale} cy={r + 7 * scale} r={1.5 * scale} fill="#ca8a04" opacity="0.5" className="animate-bounce-dot-3" />
+              <circle cx={r - 5 * scale} cy={r + 7 * scale} r={1.5 * scale} fill={rim.color} opacity="0.5" className="animate-bounce-dot-1" />
+              <circle cx={r} cy={r + 7 * scale} r={1.5 * scale} fill={rim.color} opacity="0.5" className="animate-bounce-dot-2" />
+              <circle cx={r + 5 * scale} cy={r + 7 * scale} r={1.5 * scale} fill={rim.color} opacity="0.5" className="animate-bounce-dot-3" />
             </g>
           )}
 
-          {/* ── Thumbs up arm — right side, in front of body ── */}
+          {/* ── Waiting ellipsis (slower, calmer dots) ── */}
+          {state === "waiting" && (
+            <g>
+              <circle cx={r - 5 * scale} cy={r + 7 * scale} r={1.2 * scale} fill={rim.color} opacity="0.4" className="animate-omni-wait-dot-1" />
+              <circle cx={r} cy={r + 7 * scale} r={1.2 * scale} fill={rim.color} opacity="0.4" className="animate-omni-wait-dot-2" />
+              <circle cx={r + 5 * scale} cy={r + 7 * scale} r={1.2 * scale} fill={rim.color} opacity="0.4" className="animate-omni-wait-dot-3" />
+            </g>
+          )}
+
+          {/* ── Alert exclamation mark ── */}
+          {state === "alert" && (
+            <g opacity="0.7" className="animate-pulse-subtle">
+              <line x1={r} y1={r - bodyR - 4 * scale} x2={r} y2={r - bodyR - 10 * scale} stroke="#f97316" strokeWidth={2 * scale} strokeLinecap="round" />
+              <circle cx={r} cy={r - bodyR - 1 * scale} r={1 * scale} fill="#f97316" />
+            </g>
+          )}
+
+          {/* ── Thumbs up arm ── */}
           {state === "thumbsup" && (
             <g className="animate-omni-thumbsup" style={{ transformOrigin: `${armBaseX}px ${armBaseY}px` }}>
-              {/* Arm */}
               <path
                 d={`M ${armBaseX} ${armBaseY}
                     Q ${r + bodyR + 2 * scale} ${r - 2 * scale}
                       ${r + bodyR + 4 * scale} ${r - 10 * scale}`}
                 fill="none" stroke="#2a2a2e" strokeWidth={4 * scale} strokeLinecap="round"
               />
-              {/* Fist */}
               <circle
-                cx={r + bodyR + 4 * scale}
-                cy={r - 10 * scale}
-                r={3.5 * scale}
-                fill="#2a2a2e"
-                stroke="#ca8a04"
-                strokeWidth={0.8 * scale}
-                strokeOpacity="0.5"
+                cx={r + bodyR + 4 * scale} cy={r - 10 * scale} r={3.5 * scale}
+                fill="#2a2a2e" stroke={rim.color} strokeWidth={0.8 * scale} strokeOpacity="0.5"
               />
-              {/* Thumb — pointing up */}
               <line
-                x1={r + bodyR + 4 * scale}
-                y1={r - 13.5 * scale}
-                x2={r + bodyR + 4 * scale}
-                y2={r - 18 * scale}
-                stroke="#ca8a04"
-                strokeWidth={2 * scale}
-                strokeLinecap="round"
-                opacity="0.8"
+                x1={r + bodyR + 4 * scale} y1={r - 13.5 * scale}
+                x2={r + bodyR + 4 * scale} y2={r - 18 * scale}
+                stroke="#eab308" strokeWidth={2 * scale} strokeLinecap="round" opacity="0.8"
               />
             </g>
           )}
 
           {/* ── Celebration sparkles ── */}
-          {state === "celebrate" && (
+          {(state === "celebrate" || state === "proud") && (
             <g>
-              {/* Sparkle particles around the body */}
               <circle cx={r - bodyR - 4 * scale} cy={r - 8 * scale} r={1.5 * scale} fill="#eab308" opacity="0.8" className="animate-sparkle-1" />
               <circle cx={r + bodyR + 5 * scale} cy={r - 6 * scale} r={1 * scale} fill="#eab308" opacity="0.7" className="animate-sparkle-2" />
               <circle cx={r - 6 * scale} cy={r - bodyR - 4 * scale} r={1.2 * scale} fill="#fbbf24" opacity="0.6" className="animate-sparkle-3" />
               <circle cx={r + 8 * scale} cy={r - bodyR - 2 * scale} r={1.5 * scale} fill="#fbbf24" opacity="0.8" className="animate-sparkle-1" />
               <circle cx={r - bodyR - 2 * scale} cy={r + 4 * scale} r={0.8 * scale} fill="#eab308" opacity="0.5" className="animate-sparkle-2" />
               <circle cx={r + bodyR + 3 * scale} cy={r + 6 * scale} r={1 * scale} fill="#eab308" opacity="0.6" className="animate-sparkle-3" />
-              {/* Star shapes */}
               <text x={r - bodyR - 6 * scale} y={r - 12 * scale} fontSize={6 * scale} fill="#eab308" opacity="0.7" className="animate-sparkle-2">✦</text>
               <text x={r + bodyR + 2 * scale} y={r - 12 * scale} fontSize={5 * scale} fill="#fbbf24" opacity="0.6" className="animate-sparkle-1">✦</text>
               <text x={r} y={r - bodyR - 6 * scale} fontSize={7 * scale} fill="#eab308" opacity="0.8" className="animate-sparkle-3">★</text>
             </g>
           )}
 
-          {/* ── Success ring flash ── */}
-          {(state === "success" || state === "celebrate") && (
-            <circle cx={r} cy={r} r={bodyR - 1} fill="none" stroke="#eab308" strokeWidth="1.5" opacity="0.4" className="animate-ping-once" />
+          {/* ── Success / celebrate ring flash ── */}
+          {(state === "success" || state === "celebrate" || state === "proud") && (
+            <circle cx={r} cy={r} r={bodyR - 1} fill="none" stroke={rim.color} strokeWidth="1.5" opacity="0.4" className="animate-ping-once" />
           )}
         </g>
       </svg>
@@ -403,7 +588,7 @@ function CharacterAvatar({ state, size = 56, badge }: Omit<OmniAvatarProps, "mod
 
 // ─── Main Export ─────────────────────────────────────────────────────────────
 
-export default function OmniAvatar({ mode, state, size = 56, onClick, badge, className }: OmniAvatarProps) {
+export default function OmniAvatar({ mode, state, size = 56, onClick, badge, className, theme = "obsidian" }: OmniAvatarProps) {
   const [hovered, setHovered] = useState(false);
   const currentState = hovered && state === "idle" ? "hover" : state;
 
@@ -419,9 +604,9 @@ export default function OmniAvatar({ mode, state, size = 56, onClick, badge, cla
       aria-label="Ask Omni AI Assistant"
     >
       {mode === "sigil" ? (
-        <SigilAvatar state={currentState} size={size} badge={badge} />
+        <SigilAvatar state={currentState} size={size} badge={badge} theme={theme} />
       ) : (
-        <CharacterAvatar state={currentState} size={size} badge={badge} />
+        <CharacterAvatar state={currentState} size={size} badge={badge} theme={theme} />
       )}
     </button>
   );

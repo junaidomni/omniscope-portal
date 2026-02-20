@@ -22,6 +22,7 @@ import {
   Target,
 } from "lucide-react";
 import OmniAvatar, { OmniState } from "./OmniAvatar";
+import { useDesign } from "./PortalLayout";
 import { Streamdown } from "streamdown";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -128,6 +129,7 @@ export default function OmniChatPanel({ open, onClose, omniMode, currentPage }: 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [, setLocation] = useLocation();
+  const { theme } = useDesign();
 
   const pageContext = getPageContext(currentPage);
   const suggestions = getContextSuggestions(pageContext.page);
@@ -278,7 +280,7 @@ export default function OmniChatPanel({ open, onClose, omniMode, currentPage }: 
           }}
         >
           <div className="relative">
-            <OmniAvatar mode={omniMode} state={omniState} size={34} />
+            <OmniAvatar mode={omniMode} state={omniState} size={34} theme={theme} />
             {/* Status dot */}
             <div 
               className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2"
@@ -353,7 +355,7 @@ export default function OmniChatPanel({ open, onClose, omniMode, currentPage }: 
               {/* Welcome */}
               <div className="text-center py-6">
                 <div className="inline-block">
-                  <OmniAvatar mode={omniMode} state="idle" size={56} />
+                  <OmniAvatar mode={omniMode} state="idle" size={56} theme={theme} />
                 </div>
                 <h4 className="text-base font-semibold text-white mt-4 tracking-tight">How can I help?</h4>
                 <p className="text-xs mt-1.5 max-w-[280px] mx-auto leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -414,7 +416,7 @@ export default function OmniChatPanel({ open, onClose, omniMode, currentPage }: 
                 {msg.role === "assistant" && (
                   <div className="flex items-start gap-2.5">
                     <div className="shrink-0 mt-1">
-                      <OmniAvatar mode={omniMode} state="idle" size={26} />
+                      <OmniAvatar mode={omniMode} state="idle" size={26} theme={theme} />
                     </div>
                     <div className="space-y-2.5 flex-1 min-w-0">
                       <div 
@@ -518,7 +520,7 @@ export default function OmniChatPanel({ open, onClose, omniMode, currentPage }: 
           {askMutation.isPending && (
             <div className="flex items-start gap-2.5">
               <div className="shrink-0 mt-1">
-                <OmniAvatar mode={omniMode} state="thinking" size={26} />
+                <OmniAvatar mode={omniMode} state="thinking" size={26} theme={theme} />
               </div>
               <div 
                 className="rounded-2xl rounded-tl-md px-4 py-3.5"

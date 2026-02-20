@@ -1,8 +1,8 @@
 import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import OmniAvatar from "@/components/OmniAvatar";
-import { useOmni } from "@/components/PortalLayout";
+import OmniAvatar, { OmniState } from "@/components/OmniAvatar";
+import { useOmni, useDesign } from "@/components/PortalLayout";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -937,11 +937,31 @@ function HeroGreeting({
   onFilterChange: (f: TriageFilter) => void;
 }) {
   const { omniMode, openChat } = useOmni();
+  const { theme } = useDesign();
   const [omniHover, setOmniHover] = useState(false);
 
   const toggleFilter = (f: TriageFilter) => {
     onFilterChange(activeFilter === f ? null : f);
   };
+
+  // ── Event-driven Omni state machine ──
+  // Derives Omni's emotional state from real triage data.
+  const omniEmotionalState: OmniState = useMemo(() => {
+    // Critical: overdue items demand attention
+    if (summary.totalOverdue > 3) return "alert";
+    if (summary.totalOverdue > 0) return "concerned";
+    // High priority load
+    if (summary.totalHighPriority > 5) return "focused";
+    // Pending approvals building up
+    if (summary.totalPendingApprovals > 5) return "waiting";
+    // All clear, tasks done
+    if (summary.totalOpen === 0 && summary.completedToday > 0) return "proud";
+    if (summary.completedToday > 3 && summary.totalOverdue === 0) return "relaxed";
+    // Light workload
+    if (summary.totalOpen < 5 && summary.totalOverdue === 0) return "relaxed";
+    // Default: calm idle
+    return "idle";
+  }, [summary]);
 
   const healthScore = useMemo(() => {
     const overdue = summary.totalOverdue;
@@ -1010,9 +1030,10 @@ function HeroGreeting({
                 >
                   <OmniAvatar
                     mode={omniMode}
-                    state={omniHover ? "wave" : "idle"}
+                    state={omniHover ? "wave" : omniEmotionalState}
                     size={120}
                     badge={false}
+                    theme={theme}
                   />
                 </div>
                 <p className="text-[10px] text-zinc-500 mt-1.5 font-medium">Ask Omni</p>
@@ -1060,9 +1081,10 @@ function HeroGreeting({
             >
               <OmniAvatar
                 mode={omniMode}
-                state="idle"
+                state={omniEmotionalState}
                 size={80}
                 badge={false}
+                theme={theme}
               />
             </div>
           </div>

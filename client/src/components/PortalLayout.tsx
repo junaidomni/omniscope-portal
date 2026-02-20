@@ -858,6 +858,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
               size={56}
               onClick={() => setOmniChatOpen(true)}
               badge={false}
+              theme={activeTheme}
             />
           </div>
         )}
