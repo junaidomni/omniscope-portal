@@ -19,9 +19,11 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { useState, useEffect, createContext, useContext, useMemo, useCallback } from "react";
+import { useState, useEffect, createContext, useContext, useMemo, useCallback, useRef } from "react";
 import OmniAvatar, { OmniMode } from "./OmniAvatar";
 import OmniChatPanel from "./OmniChatPanel";
+import OrgSwitcher from "./OrgSwitcher";
+import { useOrg } from "@/contexts/OrgContext";
 
 // ─── Theme Definitions ────────────────────────────────────────────────────
 // Each theme maps to CSS variable overrides applied to :root
@@ -460,6 +462,16 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
     } catch { toast.error("Failed to logout"); }
   };
 
+  // Auto-provision account for authenticated users who don't have one yet
+  const { isProvisioned, provision, isLoading: orgLoading } = useOrg();
+  const provisioningRef = useRef(false);
+  useEffect(() => {
+    if (isAuthenticated && user && !orgLoading && !isProvisioned && !provisioningRef.current) {
+      provisioningRef.current = true;
+      provision().catch(() => {}).finally(() => { provisioningRef.current = false; });
+    }
+  }, [isAuthenticated, user, orgLoading, isProvisioned, provision]);
+
   // Redirect first-time users to onboarding
   useEffect(() => {
     if (isAuthenticated && user && !user.onboardingCompleted && location !== '/onboarding') {
@@ -600,6 +612,21 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
               {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
             </button>
           </div>
+
+          {/* ─── Org Switcher ─── */}
+          <OrgSwitcher
+            collapsed={collapsed}
+            accentColor={accentColor}
+            accentRgb={accentRgb}
+            textPrimary={textPrimary}
+            textSecondary={textSecondary}
+            textMuted={textMuted}
+            hoverBg={hoverBg}
+            dividerColor={dividerColor}
+            isLightTheme={isLightTheme}
+            sidebarBg={sidebarBg}
+            onCreateOrg={() => setLocation('/org/new')}
+          />
 
           {/* ─── Navigation ─── */}
           <nav className={`flex-1 overflow-y-auto px-2 ${isMinimal ? 'py-2 space-y-0' : 'py-3 space-y-0.5'}`}>

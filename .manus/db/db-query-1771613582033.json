@@ -1,0 +1,381 @@
+{
+  "query": "SELECT id, accountName, accountOwnerUserId, accountPlan, accountStatus FROM accounts;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, accountName, accountOwnerUserId, accountPlan, accountStatus FROM accounts;",
+  "rows": [
+    {
+      "id": "1",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "2",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "3",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "4",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "5",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "6",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "7",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "8",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "9",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "10",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "11",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "12",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "13",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "14",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "15",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "16",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "17",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "18",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "19",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "20",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "21",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "22",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "23",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "24",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "25",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "26",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "27",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "28",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "29",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "30",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "31",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "32",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "33",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "34",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "35",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "36",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "37",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "38",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "39",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "40",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "41",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "42",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "43",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "44",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "45",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "46",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "47",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "48",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "49",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "50",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "51",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "52",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    },
+    {
+      "id": "53",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1",
+      "accountPlan": "starter",
+      "accountStatus": "active"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\taccountName\taccountOwnerUserId\taccountPlan\taccountStatus\n1\tJunaid Qureshi's Account\t1\tstarter\tactive\n2\tJunaid Qureshi's Account\t1\tstarter\tactive\n3\tJunaid Qureshi's Account\t1\tstarter\tactive\n4\tJunaid Qureshi's Account\t1\tstarter\tactive\n5\tJunaid Qureshi's Account\t1\tstarter\tactive\n6\tJunaid Qureshi's Account\t1\tstarter\tactive\n7\tJunaid Qureshi's Account\t1\tstarter\tactive\n8\tJunaid Qureshi's Account\t1\tstarter\tactive\n9\tJunaid Qureshi's Account\t1\tstarter\tactive\n10\tJunaid Qureshi's Account\t1\tstarter\tactive\n11\tJunaid Qureshi's Account\t1\tstarter\tactive\n12\tJunaid Qureshi's Account\t1\tstarter\tactive\n13\tJunaid Qureshi's Account\t1\tstarter\tactive\n14\tJunaid Qureshi's Account\t1\tstarter\tactive\n15\tJunaid Qureshi's Account\t1\tstarter\tactive\n16\tJunaid Qureshi's Account\t1\tstarter\tactive\n17\tJunaid Qureshi's Account\t1\tstarter\tactive\n18\tJunaid Qureshi's Account\t1\tstarter\tactive\n19\tJunaid Qureshi's Account\t1\tstarter\tactive\n20\tJunaid Qureshi's Account\t1\tstarter\tactive\n21\tJunaid Qureshi's Account\t1\tstarter\tactive\n22\tJunaid Qureshi's Account\t1\tstarter\tactive\n23\tJunaid Qureshi's Account\t1\tstarter\tactive\n24\tJunaid Qureshi's Account\t1\tstarter\tactive\n25\tJunaid Qureshi's Account\t1\tstarter\tactive\n26\tJunaid Qureshi's Account\t1\tstarter\tactive\n27\tJunaid Qureshi's Account\t1\tstarter\tactive\n28\tJunaid Qureshi's Account\t1\tstarter\tactive\n29\tJunaid Qureshi's Account\t1\tstarter\tactive\n30\tJunaid Qureshi's Account\t1\tstarter\tactive\n31\tJunaid Qureshi's Account\t1\tstarter\tactive\n32\tJunaid Qureshi's Account\t1\tstarter\tactive\n33\tJunaid Qureshi's Account\t1\tstarter\tactive\n34\tJunaid Qureshi's Account\t1\tstarter\tactive\n35\tJunaid Qureshi's Account\t1\tstarter\tactive\n36\tJunaid Qureshi's Account\t1\tstarter\tactive\n37\tJunaid Qureshi's Account\t1\tstarter\tactive\n38\tJunaid Qureshi's Account\t1\tstarter\tactive\n39\tJunaid Qureshi's Account\t1\tstarter\tactive\n40\tJunaid Qureshi's Account\t1\tstarter\tactive\n41\tJunaid Qureshi's Account\t1\tstarter\tactive\n42\tJunaid Qureshi's Account\t1\tstarter\tactive\n43\tJunaid Qureshi's Account\t1\tstarter\tactive\n44\tJunaid Qureshi's Account\t1\tstarter\tactive\n45\tJunaid Qureshi's Account\t1\tstarter\tactive\n46\tJunaid Qureshi's Account\t1\tstarter\tactive\n47\tJunaid Qureshi's Account\t1\tstarter\tactive\n48\tJunaid Qureshi's Account\t1\tstarter\tactive\n49\tJunaid Qureshi's Account\t1\tstarter\tactive\n50\tJunaid Qureshi's Account\t1\tstarter\tactive\n51\tJunaid Qureshi's Account\t1\tstarter\tactive\n52\tJunaid Qureshi's Account\t1\tstarter\tactive\n53\tJunaid Qureshi's Account\t1\tstarter\tactive\n",
+  "stderr": "",
+  "execution_time_ms": 350
+}

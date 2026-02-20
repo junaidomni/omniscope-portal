@@ -1,0 +1,60 @@
+{
+  "query": "SELECT id, accountName, accountOwnerUserId FROM accounts ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, accountName, accountOwnerUserId FROM accounts ORDER BY id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "53",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1"
+    },
+    {
+      "id": "52",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1"
+    },
+    {
+      "id": "51",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1"
+    },
+    {
+      "id": "50",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1"
+    },
+    {
+      "id": "49",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1"
+    },
+    {
+      "id": "48",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1"
+    },
+    {
+      "id": "47",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1"
+    },
+    {
+      "id": "46",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1"
+    },
+    {
+      "id": "45",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1"
+    },
+    {
+      "id": "44",
+      "accountName": "Junaid Qureshi's Account",
+      "accountOwnerUserId": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\taccountName\taccountOwnerUserId\n53\tJunaid Qureshi's Account\t1\n52\tJunaid Qureshi's Account\t1\n51\tJunaid Qureshi's Account\t1\n50\tJunaid Qureshi's Account\t1\n49\tJunaid Qureshi's Account\t1\n48\tJunaid Qureshi's Account\t1\n47\tJunaid Qureshi's Account\t1\n46\tJunaid Qureshi's Account\t1\n45\tJunaid Qureshi's Account\t1\n44\tJunaid Qureshi's Account\t1\n",
+  "stderr": "",
+  "execution_time_ms": 358
+}

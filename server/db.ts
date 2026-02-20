@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, like, lte, or, sql, inArray, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink, emailThreadSummaries, InsertEmailThreadSummary, emailMessages, pendingSuggestions, InsertPendingSuggestion, activityLog, InsertActivityLog, contactAliases, InsertContactAlias, companyAliases, InsertCompanyAlias, documents, InsertDocument, documentEntityLinks, InsertDocumentEntityLink, documentFolders, InsertDocumentFolder, documentAccess, InsertDocumentAccess, documentFavorites, InsertDocumentFavorite, documentTemplates, InsertDocumentTemplate, signingProviders, InsertSigningProvider, signingEnvelopes, InsertSigningEnvelope, documentNotes, integrations, InsertIntegration, featureToggles, InsertFeatureToggle, designPreferences, InsertDesignPreference } from "../drizzle/schema";
+import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink, emailThreadSummaries, InsertEmailThreadSummary, emailMessages, pendingSuggestions, InsertPendingSuggestion, activityLog, InsertActivityLog, contactAliases, InsertContactAlias, companyAliases, InsertCompanyAlias, documents, InsertDocument, documentEntityLinks, InsertDocumentEntityLink, documentFolders, InsertDocumentFolder, documentAccess, InsertDocumentAccess, documentFavorites, InsertDocumentFavorite, documentTemplates, InsertDocumentTemplate, signingProviders, InsertSigningProvider, signingEnvelopes, InsertSigningEnvelope, documentNotes, integrations, InsertIntegration, featureToggles, InsertFeatureToggle, designPreferences, InsertDesignPreference, accounts, InsertAccount, organizations, InsertOrganization, orgMemberships, InsertOrgMembership } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -2608,4 +2608,308 @@ export async function upsertDesignPreferences(userId: number, data: Partial<Omit
     await db.insert(designPreferences).values({ userId, ...data });
   }
   return await getDesignPreferences(userId);
+}
+
+
+// ============================================================================
+// MULTI-TENANT: Account & Organization Operations
+// ============================================================================
+
+/**
+ * Create a new account for a user (called during first-time setup or SaaS signup)
+ */
+export async function createAccount(data: { name: string; ownerUserId: number; plan?: "starter" | "professional" | "enterprise"; billingEmail?: string }) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(accounts).values({
+    name: data.name,
+    ownerUserId: data.ownerUserId,
+    plan: data.plan || "starter",
+    billingEmail: data.billingEmail,
+  });
+  return result.insertId;
+}
+
+/**
+ * Get account by owner user ID
+ */
+export async function getAccountByOwner(ownerUserId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [account] = await db.select().from(accounts).where(eq(accounts.ownerUserId, ownerUserId)).limit(1);
+  return account || null;
+}
+
+/**
+ * Get account by ID
+ */
+export async function getAccountById(accountId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
+  return account || null;
+}
+
+/**
+ * Create a new organization under an account
+ */
+export async function createOrganization(data: {
+  accountId: number;
+  name: string;
+  slug: string;
+  logoUrl?: string;
+  accentColor?: string;
+  industry?: string;
+  domain?: string;
+  timezone?: string;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(organizations).values({
+    accountId: data.accountId,
+    name: data.name,
+    slug: data.slug,
+    logoUrl: data.logoUrl || null,
+    accentColor: data.accentColor || "#d4af37",
+    industry: data.industry || null,
+    domain: data.domain || null,
+    timezone: data.timezone || "America/New_York",
+  });
+  return result.insertId;
+}
+
+/**
+ * Get organization by ID
+ */
+export async function getOrganizationById(orgId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
+  return org || null;
+}
+
+/**
+ * Get organization by slug
+ */
+export async function getOrganizationBySlug(slug: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const [org] = await db.select().from(organizations).where(eq(organizations.slug, slug)).limit(1);
+  return org || null;
+}
+
+/**
+ * Get all organizations for an account
+ */
+export async function getOrganizationsByAccount(accountId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(organizations).where(eq(organizations.accountId, accountId)).orderBy(asc(organizations.name));
+}
+
+/**
+ * Update organization details
+ */
+export async function updateOrganization(orgId: number, data: Partial<{
+  name: string;
+  logoUrl: string | null;
+  accentColor: string;
+  industry: string | null;
+  domain: string | null;
+  timezone: string;
+  status: "active" | "suspended" | "archived";
+  settings: string | null;
+  onboardingCompleted: boolean;
+}>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(organizations).set(data).where(eq(organizations.id, orgId));
+}
+
+/**
+ * Add a user to an organization with a role
+ */
+export async function addOrgMembership(data: {
+  userId: number;
+  organizationId: number;
+  role: "super_admin" | "account_owner" | "org_admin" | "manager" | "member" | "viewer";
+  isDefault?: boolean;
+  invitedBy?: number;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(orgMemberships).values({
+    userId: data.userId,
+    organizationId: data.organizationId,
+    role: data.role,
+    isDefault: data.isDefault ?? false,
+    invitedBy: data.invitedBy,
+  });
+  return result.insertId;
+}
+
+/**
+ * Get all org memberships for a user (which orgs they belong to)
+ */
+export async function getUserOrgMemberships(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      membership: orgMemberships,
+      org: organizations,
+    })
+    .from(orgMemberships)
+    .innerJoin(organizations, eq(orgMemberships.organizationId, organizations.id))
+    .where(and(
+      eq(orgMemberships.userId, userId),
+      eq(organizations.status, "active"),
+    ))
+    .orderBy(desc(orgMemberships.isDefault), asc(organizations.name));
+}
+
+/**
+ * Get all members of an organization
+ */
+export async function getOrgMembers(orgId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      membership: orgMemberships,
+      user: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        avatarUrl: users.avatarUrl,
+      },
+    })
+    .from(orgMemberships)
+    .innerJoin(users, eq(orgMemberships.userId, users.id))
+    .where(eq(orgMemberships.organizationId, orgId))
+    .orderBy(asc(orgMemberships.role));
+}
+
+/**
+ * Update a user's role in an organization
+ */
+export async function updateOrgMemberRole(userId: number, orgId: number, role: "super_admin" | "account_owner" | "org_admin" | "manager" | "member" | "viewer") {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(orgMemberships).set({ role }).where(
+    and(eq(orgMemberships.userId, userId), eq(orgMemberships.organizationId, orgId))
+  );
+}
+
+/**
+ * Remove a user from an organization
+ */
+export async function removeOrgMembership(userId: number, orgId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(orgMemberships).where(
+    and(eq(orgMemberships.userId, userId), eq(orgMemberships.organizationId, orgId))
+  );
+}
+
+/**
+ * Set a user's default organization
+ */
+export async function setDefaultOrg(userId: number, orgId: number) {
+  const db = await getDb();
+  if (!db) return;
+  // Clear all defaults for this user
+  await db.update(orgMemberships).set({ isDefault: false }).where(eq(orgMemberships.userId, userId));
+  // Set the new default
+  await db.update(orgMemberships).set({ isDefault: true }).where(
+    and(eq(orgMemberships.userId, userId), eq(orgMemberships.organizationId, orgId))
+  );
+}
+
+/**
+ * Get a user's membership in a specific org (for permission checks)
+ */
+export async function getOrgMembership(userId: number, orgId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [membership] = await db.select().from(orgMemberships).where(
+    and(eq(orgMemberships.userId, userId), eq(orgMemberships.organizationId, orgId))
+  ).limit(1);
+  return membership || null;
+}
+
+/**
+ * Check if a slug is available
+ */
+export async function isOrgSlugAvailable(slug: string) {
+  const db = await getDb();
+  if (!db) return false;
+  const [existing] = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.slug, slug)).limit(1);
+  return !existing;
+}
+
+/**
+ * Auto-provision: Create account + default org + membership for a new user.
+ * Called when a user first logs in and has no account yet.
+ */
+export async function autoProvisionUserAccount(userId: number, userName: string) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  // Check if user already has an account
+  const existing = await getAccountByOwner(userId);
+  if (existing) return existing;
+  
+  // Also check if user already has any org memberships (covers edge cases)
+  const existingMemberships = await getUserOrgMemberships(userId);
+  if (existingMemberships.length > 0) {
+    // User has orgs but no account as owner — find the account from their first org
+    const firstOrg = existingMemberships[0].org;
+    const orgDetail = await getOrganizationById(firstOrg.id);
+    if (orgDetail) {
+      return await getAccountById(orgDetail.accountId);
+    }
+  }
+  
+  // Create account
+  const accountId = await createAccount({
+    name: `${userName}'s Account`,
+    ownerUserId: userId,
+  });
+  if (!accountId) return null;
+  
+  // Create default organization with unique slug
+  let baseSlug = userName.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 40) + "-workspace";
+  let slug = baseSlug;
+  let attempt = 0;
+  while (!(await isOrgSlugAvailable(slug))) {
+    attempt++;
+    slug = `${baseSlug}-${attempt}`;
+    if (attempt > 10) {
+      slug = `${baseSlug}-${Date.now().toString(36)}`;
+      break;
+    }
+  }
+  
+  try {
+    const orgId = await createOrganization({
+      accountId,
+      name: `${userName}'s Workspace`,
+      slug,
+    });
+    if (!orgId) return await getAccountById(accountId);
+    
+    // Add user as account_owner of the org
+    await addOrgMembership({
+      userId,
+      organizationId: orgId,
+      role: "account_owner",
+      isDefault: true,
+    });
+  } catch (err) {
+    console.warn("[AutoProvision] Failed to create default org:", err);
+    // Account was created, org creation failed — still return the account
+  }
+  
+  return await getAccountById(accountId);
 }

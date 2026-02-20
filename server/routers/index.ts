@@ -35,6 +35,7 @@ import { templateRouter } from "./templates";
 import { signingRouter } from "./signing";
 import { integrationsRouter } from "./integrations";
 import { designRouter } from "./design";
+import { organizationsRouter } from "./organizations";
 
 export const appRouter = router({
   system: systemRouter,
@@ -78,6 +79,7 @@ export const appRouter = router({
   drive: driveRouter,
   integrations: integrationsRouter,
   design: designRouter,
+  organizations: organizationsRouter,
 });
 
 export type AppRouter = typeof appRouter;

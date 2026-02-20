@@ -21,11 +21,110 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+// ============================================================================
+// MULTI-TENANT: Accounts, Organizations, Memberships
+// ============================================================================
+
+/**
+ * Accounts — top-level paying entity (a person or business who subscribes).
+ * Jake = one account. Nick = another account. Each account owns N organizations.
+ */
+export const accounts = mysqlTable("accounts", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("accountName", { length: 500 }).notNull(),
+  ownerUserId: int("accountOwnerUserId").notNull().references(() => users.id),
+  plan: mysqlEnum("accountPlan", ["starter", "professional", "enterprise"]).default("starter").notNull(),
+  status: mysqlEnum("accountStatus", ["active", "suspended", "cancelled"]).default("active").notNull(),
+  maxOrganizations: int("accountMaxOrgs").default(5).notNull(),
+  maxUsersPerOrg: int("accountMaxUsersPerOrg").default(25).notNull(),
+  billingEmail: varchar("accountBillingEmail", { length: 320 }),
+  metadata: text("accountMetadata"), // JSON: extra account-level config
+  createdAt: timestamp("accountCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("accountUpdatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  ownerIdx: index("account_owner_idx").on(table.ownerUserId),
+  statusIdx: index("account_status_idx").on(table.status),
+}));
+
+export type Account = typeof accounts.$inferSelect;
+export type InsertAccount = typeof accounts.$inferInsert;
+
+/**
+ * Organizations — a workspace/company under an account.
+ * OmniScope, Kinetix, Pinnacle Partners, etc.
+ */
+export const organizations = mysqlTable("organizations", {
+  id: int("id").autoincrement().primaryKey(),
+  accountId: int("orgAccountId").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  name: varchar("orgName", { length: 500 }).notNull(),
+  slug: varchar("orgSlug", { length: 100 }).notNull().unique(), // URL-friendly identifier
+  logoUrl: text("orgLogoUrl"),
+  accentColor: varchar("orgAccentColor", { length: 32 }).default("#d4af37"),
+  industry: varchar("orgIndustry", { length: 255 }),
+  domain: varchar("orgDomain", { length: 500 }), // e.g. kinetix.com
+  timezone: varchar("orgTimezone", { length: 100 }).default("America/New_York"),
+  status: mysqlEnum("orgStatus", ["active", "suspended", "archived"]).default("active").notNull(),
+  settings: text("orgSettings"), // JSON: org-level feature flags, preferences
+  onboardingCompleted: boolean("orgOnboardingCompleted").default(false).notNull(),
+  createdAt: timestamp("orgCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("orgUpdatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  accountIdx: index("org_account_idx").on(table.accountId),
+  slugIdx: index("org_slug_idx").on(table.slug),
+  statusIdx: index("org_status_idx").on(table.status),
+}));
+
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = typeof organizations.$inferInsert;
+
+/**
+ * Organization Memberships — maps users to orgs with roles.
+ * A user can belong to multiple orgs (e.g., Jake in OmniScope + Kinetix).
+ * Roles: super_admin (platform god), account_owner (owns the account),
+ *        org_admin (manages one org), manager (team lead), member (standard), viewer (read-only)
+ */
+export const orgMemberships = mysqlTable("org_memberships", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("omUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  organizationId: int("omOrgId").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  role: mysqlEnum("omRole", ["super_admin", "account_owner", "org_admin", "manager", "member", "viewer"]).default("member").notNull(),
+  isDefault: boolean("omIsDefault").default(false).notNull(), // user's default org on login
+  invitedBy: int("omInvitedBy").references(() => users.id),
+  joinedAt: timestamp("omJoinedAt").defaultNow().notNull(),
+  updatedAt: timestamp("omUpdatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userOrgIdx: uniqueIndex("om_user_org_idx").on(table.userId, table.organizationId),
+  orgIdx: index("om_org_idx").on(table.organizationId),
+  userIdx: index("om_user_idx").on(table.userId),
+  roleIdx: index("om_role_idx").on(table.role),
+}));
+
+export type OrgMembership = typeof orgMemberships.$inferSelect;
+export type InsertOrgMembership = typeof orgMemberships.$inferInsert;
+
+// Multi-tenant relations
+export const accountsRelations = relations(accounts, ({ one, many }) => ({
+  owner: one(users, { fields: [accounts.ownerUserId], references: [users.id] }),
+  organizations: many(organizations),
+}));
+
+export const organizationsRelations = relations(organizations, ({ one, many }) => ({
+  account: one(accounts, { fields: [organizations.accountId], references: [accounts.id] }),
+  memberships: many(orgMemberships),
+}));
+
+export const orgMembershipsRelations = relations(orgMemberships, ({ one }) => ({
+  user: one(users, { fields: [orgMemberships.userId], references: [users.id] }),
+  organization: one(organizations, { fields: [orgMemberships.organizationId], references: [organizations.id] }),
+  inviter: one(users, { fields: [orgMemberships.invitedBy], references: [users.id] }),
+}));
+
 /**
  * Companies / Accounts table
  */
 export const companies = mysqlTable("companies", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("orgId").references(() => organizations.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 500 }).notNull(),
   domain: varchar("domain", { length: 500 }),
   industry: varchar("industry", { length: 255 }),
@@ -59,6 +158,7 @@ export type InsertCompany = typeof companies.$inferInsert;
  */
 export const contacts = mysqlTable("contacts", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("contactOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 50 }),
@@ -110,6 +210,7 @@ export type InsertContact = typeof contacts.$inferInsert;
  */
 export const contactNotes = mysqlTable("contact_notes", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("cnOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   contactId: int("contactId").notNull().references(() => contacts.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   createdBy: int("createdBy").references(() => users.id),
@@ -127,6 +228,7 @@ export type InsertContactNote = typeof contactNotes.$inferInsert;
  */
 export const contactDocuments = mysqlTable("contact_documents", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("cdOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   contactId: int("contactId").notNull().references(() => contacts.id, { onDelete: "cascade" }),
   title: varchar("title", { length: 500 }).notNull(),
   category: mysqlEnum("contactDocCategory", ["ncnda", "contract", "agreement", "proposal", "invoice", "kyc", "compliance", "correspondence", "other"]).default("other").notNull(),
@@ -149,6 +251,7 @@ export type InsertContactDocument = typeof contactDocuments.$inferInsert;
  */
 export const employees = mysqlTable("employees", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("empOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   // Personal Information
   firstName: varchar("firstName", { length: 255 }).notNull(),
   lastName: varchar("lastName", { length: 255 }).notNull(),
@@ -195,6 +298,7 @@ export type InsertEmployee = typeof employees.$inferInsert;
  */
 export const payrollRecords = mysqlTable("payroll_records", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("prOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   employeeId: int("employeeId").notNull().references(() => employees.id, { onDelete: "cascade" }),
   // Pay period
   payPeriodStart: varchar("payPeriodStart", { length: 20 }).notNull(),
@@ -228,6 +332,7 @@ export type InsertPayrollRecord = typeof payrollRecords.$inferInsert;
  */
 export const hrDocuments = mysqlTable("hr_documents", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("hrOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   employeeId: int("employeeId").notNull().references(() => employees.id, { onDelete: "cascade" }),
   title: varchar("title", { length: 500 }).notNull(),
   category: mysqlEnum("docCategory", ["contract", "id_document", "tax_form", "certification", "onboarding", "performance", "payslip", "invoice", "receipt", "other"]).default("other").notNull(),
@@ -253,6 +358,7 @@ export type InsertHrDocument = typeof hrDocuments.$inferInsert;
  */
 export const meetings = mysqlTable("meetings", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("mtgOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   
   // Metadata
   meetingTitle: varchar("meetingTitle", { length: 500 }),
@@ -298,6 +404,7 @@ export type InsertMeeting = typeof meetings.$inferInsert;
  */
 export const tags = mysqlTable("tags", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("tagOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull().unique(),
   type: mysqlEnum("type", ["sector", "jurisdiction"]).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -313,6 +420,7 @@ export type InsertTag = typeof tags.$inferInsert;
  */
 export const meetingTags = mysqlTable("meeting_tags", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("mtOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   meetingId: int("meetingId").notNull().references(() => meetings.id, { onDelete: "cascade" }),
   tagId: int("tagId").notNull().references(() => tags.id, { onDelete: "cascade" }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -329,6 +437,7 @@ export type InsertMeetingTag = typeof meetingTags.$inferInsert;
  */
 export const tasks = mysqlTable("tasks", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("taskOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   
   // Task details
   title: varchar("title", { length: 500 }).notNull(),
@@ -377,6 +486,7 @@ export type InsertTask = typeof tasks.$inferInsert;
  */
 export const meetingContacts = mysqlTable("meeting_contacts", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("mcOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   meetingId: int("meetingId").notNull().references(() => meetings.id, { onDelete: "cascade" }),
   contactId: int("contactId").notNull().references(() => contacts.id, { onDelete: "cascade" }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -393,6 +503,7 @@ export type InsertMeetingContact = typeof meetingContacts.$inferInsert;
  */
 export const calendarEvents = mysqlTable("calendar_events", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("ceOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   googleEventId: varchar("googleEventId", { length: 512 }).notNull().unique(),
   summary: varchar("summary", { length: 500 }).notNull(),
   description: text("description"),
@@ -420,6 +531,7 @@ export type InsertCalendarEvent = typeof calendarEvents.$inferInsert;
  */
 export const invitations = mysqlTable("invitations", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("invOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   email: varchar("email", { length: 320 }).notNull().unique(),
   fullName: varchar("fullName", { length: 255 }).notNull(),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
@@ -440,6 +552,7 @@ export type InsertInvitation = typeof invitations.$inferInsert;
  */
 export const meetingCategories = mysqlTable("meeting_categories", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("mcOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   meetingId: int("meetingId").notNull().references(() => meetings.id, { onDelete: "cascade" }),
   category: varchar("category", { length: 255 }).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -592,6 +705,7 @@ export const usersRelations = relations(users, ({ many }) => ({
  */
 export const interactions = mysqlTable("interactions", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("intxOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   type: mysqlEnum("interactionType", ["meeting", "note", "doc_shared", "task_update", "email", "intro", "call"]).notNull(),
   timestamp: timestamp("timestamp").notNull(),
   contactId: int("contactId").references(() => contacts.id, { onDelete: "cascade" }),
@@ -640,6 +754,7 @@ export const companiesRelations = relations(companies, ({ many }) => ({
  */
 export const emailMessages = mysqlTable("email_messages", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("emOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
   gmailMessageId: varchar("gmailMessageId", { length: 255 }).notNull(),
   gmailThreadId: varchar("gmailThreadId", { length: 255 }).notNull(),
@@ -672,6 +787,7 @@ export type InsertEmailMessage = typeof emailMessages.$inferInsert;
  */
 export const emailEntityLinks = mysqlTable("email_entity_links", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("eelOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   emailMessageId: int("emailMessageId").notNull().references(() => emailMessages.id, { onDelete: "cascade" }),
   contactId: int("contactId").references(() => contacts.id, { onDelete: "cascade" }),
   companyId: int("companyId").references(() => companies.id, { onDelete: "set null" }),
@@ -747,6 +863,7 @@ export const userProfilesRelations = relations(userProfiles, ({ one }) => ({
  */
 export const emailStars = mysqlTable("email_stars", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("esOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   threadId: varchar("threadId", { length: 255 }).notNull(),
   userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
   starLevel: int("starLevel").notNull(), // 1, 2, or 3
@@ -774,6 +891,7 @@ export const emailStarsRelations = relations(emailStars, ({ one }) => ({
  */
 export const emailCompanyLinks = mysqlTable("email_company_links", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("eclOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   threadId: varchar("threadId", { length: 255 }).notNull(),
   companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
   userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -805,6 +923,7 @@ export const emailCompanyLinksRelations = relations(emailCompanyLinks, ({ one })
  */
 export const emailThreadSummaries = mysqlTable("email_thread_summaries", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("etsOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   threadId: varchar("threadId", { length: 255 }).notNull(),
   userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
   summary: text("summary").notNull(),
@@ -831,6 +950,7 @@ export type InsertEmailThreadSummary = typeof emailThreadSummaries.$inferInsert;
  */
 export const pendingSuggestions = mysqlTable("pending_suggestions", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("psOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   type: mysqlEnum("suggestionType", ["company_link", "enrichment", "company_enrichment"]).notNull(),
   status: mysqlEnum("suggestionStatus", ["pending", "approved", "rejected"]).default("pending").notNull(),
   // Target entity
@@ -887,6 +1007,7 @@ export const pendingSuggestionsRelations = relations(pendingSuggestions, ({ one 
  */
 export const activityLog = mysqlTable("activity_log", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("alOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   userId: int("userId").notNull(),
   action: varchar("action", { length: 100 }).notNull(), // approve_contact, reject_contact, merge_contacts, approve_company, reject_company, approve_suggestion, reject_suggestion, enrich_contact, enrich_company, bulk_approve, bulk_reject, dedup_merge, dedup_dismiss
   entityType: varchar("entityType", { length: 50 }).notNull(), // contact, company, suggestion, task
@@ -920,6 +1041,7 @@ export const activityLogRelations = relations(activityLog, ({ one }) => ({
  */
 export const contactAliases = mysqlTable("contact_aliases", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("caOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   userId: int("userId").notNull(), // owner of this alias
   contactId: int("contactId").notNull(), // the canonical contact
   aliasName: varchar("aliasName", { length: 500 }).notNull(), // the alternate name
@@ -951,6 +1073,7 @@ export const contactAliasRelations = relations(contactAliases, ({ one }) => ({
  */
 export const companyAliases = mysqlTable("company_aliases", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("coaOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   userId: int("userId").notNull(),
   companyId: int("companyId").notNull(),
   aliasName: varchar("companyAliasName", { length: 500 }).notNull(),
@@ -986,6 +1109,7 @@ export const companyAliasRelations = relations(companyAliases, ({ one }) => ({
  */
 export const documentFolders = mysqlTable("document_folders", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("dfOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 500 }).notNull(),
   parentId: int("parentId"), // self-referencing FK (null = root)
   collection: mysqlEnum("folderCollection", ["company_repo", "personal", "counterparty", "templates", "signed", "transactions"]).notNull(),
@@ -1012,6 +1136,7 @@ export type InsertDocumentFolder = typeof documentFolders.$inferInsert;
  */
 export const documents = mysqlTable("documents", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("docOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   title: varchar("docTitle", { length: 1000 }).notNull(),
   description: text("docDescription"),
   sourceType: mysqlEnum("docSourceType", ["google_doc", "google_sheet", "google_slide", "pdf", "uploaded", "generated"]).notNull(),
@@ -1056,6 +1181,7 @@ export type InsertDocument = typeof documents.$inferInsert;
  */
 export const documentEntityLinks = mysqlTable("document_entity_links", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("delOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   documentId: int("delDocumentId").notNull().references(() => documents.id, { onDelete: "cascade" }),
   entityType: mysqlEnum("delEntityType", ["company", "contact", "meeting"]).notNull(),
   entityId: int("delEntityId").notNull(),
@@ -1075,6 +1201,7 @@ export type InsertDocumentEntityLink = typeof documentEntityLinks.$inferInsert;
  */
 export const documentAccess = mysqlTable("document_access", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("daOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   documentId: int("daDocumentId").references(() => documents.id, { onDelete: "cascade" }),
   folderId: int("daFolderId").references(() => documentFolders.id, { onDelete: "cascade" }),
   userId: int("daUserId").references(() => users.id, { onDelete: "cascade" }),
@@ -1099,6 +1226,7 @@ export type InsertDocumentAccess = typeof documentAccess.$inferInsert;
  */
 export const documentFavorites = mysqlTable("document_favorites", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("dfavOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   userId: int("dfUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
   documentId: int("dfDocumentId").notNull().references(() => documents.id, { onDelete: "cascade" }),
   createdAt: timestamp("dfCreatedAt").defaultNow().notNull(),
@@ -1115,6 +1243,7 @@ export type InsertDocumentFavorite = typeof documentFavorites.$inferInsert;
  */
 export const documentTemplates = mysqlTable("document_templates", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("dtOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   name: varchar("dtName", { length: 500 }).notNull(),
   description: text("dtDescription"),
   category: mysqlEnum("dtCategory", ["agreement", "compliance", "intake", "profile", "other"]).default("agreement").notNull(),
@@ -1144,6 +1273,7 @@ export type InsertDocumentTemplate = typeof documentTemplates.$inferInsert;
  */
 export const signingProviders = mysqlTable("signing_providers", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("spOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   provider: mysqlEnum("spProvider", ["firma", "signatureapi", "docuseal", "pandadocs", "docusign", "boldsign", "esignly"]).notNull(),
   displayName: varchar("spDisplayName", { length: 255 }).notNull(),
   isActive: boolean("spIsActive").default(false).notNull(),
@@ -1171,6 +1301,7 @@ export type InsertSigningProvider = typeof signingProviders.$inferInsert;
  */
 export const signingEnvelopes = mysqlTable("signing_envelopes", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("seOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   documentId: int("seDocumentId").notNull().references(() => documents.id, { onDelete: "cascade" }),
   providerId: int("seProviderId").notNull().references(() => signingProviders.id),
   providerEnvelopeId: varchar("seProviderEnvelopeId", { length: 500 }), // ID from the signing provider
@@ -1251,6 +1382,7 @@ export const signingEnvelopesRelations = relations(signingEnvelopes, ({ one }) =
  */
 export const documentNotes = mysqlTable("document_notes", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("noteOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   documentId: int("noteDocId").notNull().references(() => documents.id, { onDelete: "cascade" }),
   userId: int("noteUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
   content: text("noteContent").notNull(),
@@ -1273,6 +1405,7 @@ export const documentNotesRelations = relations(documentNotes, ({ one }) => ({
  */
 export const integrations = mysqlTable("integrations", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("intOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   slug: varchar("intSlug", { length: 100 }).notNull().unique(),
   name: varchar("intName", { length: 255 }).notNull(),
   description: text("intDescription"),
@@ -1318,6 +1451,7 @@ export type InsertIntegration = typeof integrations.$inferInsert;
  */
 export const featureToggles = mysqlTable("feature_toggles", {
   id: int("id").autoincrement().primaryKey(),
+  orgId: int("ftOrgId").references(() => organizations.id, { onDelete: "cascade" }),
   featureKey: varchar("ftKey", { length: 100 }).notNull().unique(),
   label: varchar("ftLabel", { length: 255 }).notNull(),
   description: text("ftDescription"),

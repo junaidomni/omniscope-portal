@@ -2368,3 +2368,68 @@
 
 ## v78 — Omni Waiting State Fix
 - [x] Make the waiting Omni state look friendly and not scary (wider patient eyes looking up, calm smile, slow orbiting ring instead of bouncing dots)
+
+## v79 — Multi-Tenant SaaS Architecture (Phase 1)
+
+### Database Schema
+- [ ] Create `accounts` table (account owners / paying customers)
+- [ ] Create `organizations` table (workspaces under accounts)
+- [ ] Create `org_memberships` table (user-to-org with role)
+- [ ] Expand role system: Super Admin, Account Owner, Org Admin, Manager, Member, Viewer
+- [ ] Add `org_id` foreign key to all existing data tables (tasks, contacts, emails, meetings, etc.)
+- [ ] Add `account_id` to organizations table
+- [ ] Run migrations and verify schema
+
+### Org Switcher
+- [ ] Build org switcher dropdown in sidebar header
+- [ ] Create OrgContext provider for current active org
+- [ ] "All Organizations" consolidated view option
+- [ ] Persist last-selected org per user
+
+### Data Isolation
+- [ ] Update all server queries to scope by active org_id
+- [ ] Update all tRPC procedures to inject org_id from context
+- [ ] Ensure no cross-org data leakage
+
+### Org Management
+- [ ] Create org page — name, logo, accent color, industry
+- [ ] Org settings page — integrations, API keys, feature toggles
+- [ ] Team management — invite members, assign roles, remove members
+- [ ] Role permission matrix enforcement
+
+### Account-Level Admin
+- [ ] Super Admin dashboard — see all accounts and orgs
+- [ ] Account health metrics
+- [ ] Ability to switch into any org (support mode)
+
+### Feature Deployment
+- [ ] Feature flag system per org/account tier
+- [ ] API key setup step during org onboarding
+- [ ] Integration connection flow per org
+
+
+## Multi-Tenant Organization Layer
+- [x] Design and implement accounts table (billing entity, plan limits)
+- [x] Design and implement organizations table (workspaces under accounts)
+- [x] Design and implement org_memberships table (user-org role mapping)
+- [x] Create database migration and push schema for multi-tenant tables
+- [x] Build database query helpers for accounts, orgs, and memberships
+- [x] Build organizations tRPC router with all CRUD procedures
+- [x] Implement auto-provisioning (account + default org on first login)
+- [x] Implement org creation with slug validation and limit checks
+- [x] Implement org update with role-based permission checks
+- [x] Implement org membership management (add/remove members)
+- [x] Implement org switching (set default org)
+- [x] Build OrgContext provider for client-side org state management
+- [x] Build OrgSwitcher component for sidebar (collapsed + expanded modes)
+- [x] Build company onboarding wizard (4-step: Name, Branding, Details, Review)
+- [x] Wire OrgProvider into App.tsx
+- [x] Wire OrgSwitcher into PortalLayout sidebar
+- [x] Add auto-provision effect in PortalLayout with race condition guard
+- [x] Fix infinite loop bug from duplicate account creation
+- [x] Write vitest tests for organizations router (15 tests passing)
+- [ ] Wire org context into data queries (filter meetings/tasks by org)
+- [ ] Add org settings page for managing org details
+- [ ] Add member invitation flow with email
+- [ ] Add API key management per organization (for future platform integrations)
+- [ ] Add cross-platform deployment capability for new features

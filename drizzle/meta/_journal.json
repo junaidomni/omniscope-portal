@@ -204,6 +204,13 @@
       "when": 1771585425204,
       "tag": "0028_sad_fixer",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1771612728798,
+      "tag": "0029_ancient_power_man",
+      "breakpoints": true
     }
   ]
 }

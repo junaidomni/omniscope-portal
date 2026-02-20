@@ -4,6 +4,7 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { OrgProvider } from "./contexts/OrgContext";
 import PortalLayout from "./components/PortalLayout";
 
 // Domain wrappers
@@ -25,6 +26,7 @@ import PayrollHub from "./pages/PayrollHub";
 import Setup from "./pages/Setup";
 import ActivityLog from "./pages/ActivityLog";
 import DedupSweep from "./pages/DedupSweep";
+import OrgOnboarding from "./pages/OrgOnboarding";
 
 function Router() {
   return (
@@ -68,6 +70,7 @@ function Router() {
         <Route path="/setup" component={Setup} />
         <Route path="/integrations">{() => { window.location.href = "/setup?tab=integrations"; return null; }}</Route>
         <Route path="/onboarding" component={Onboarding} />
+        <Route path="/org/new" component={OrgOnboarding} />
         <Route path="/hr" component={HRHub} />
         <Route path="/hr/employee/:id" component={EmployeeProfile} />
         <Route path="/hr/payroll" component={PayrollHub} />
@@ -90,8 +93,10 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
-          <Toaster />
-          <Router />
+          <OrgProvider>
+            <Toaster />
+            <Router />
+          </OrgProvider>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>
