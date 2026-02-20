@@ -136,18 +136,21 @@ function AdminHubRouter() {
  * the current org context and the URL path.
  */
 function ShellSwitcher() {
-  const [location] = useLocation();
-  const { currentOrg } = useOrg();
+  const [location, setLocation] = useLocation();
+  const { currentOrg, isLoading } = useOrg();
 
-  // If the URL is an /admin-hub/* route, always show AdminLayout
+  // While org context is loading, show nothing to prevent flash
+  if (isLoading) return null;
+
+  // /admin-hub/* routes ALWAYS render the AdminLayout regardless of org context.
+  // The admin hub is a standalone shell — you can view it while an org is selected.
   if (location.startsWith("/admin-hub")) {
     return <AdminHubRouter />;
   }
 
-  // If no org is selected (All Organizations mode), redirect to admin hub
-  if (currentOrg === null && location === "/") {
-    // Redirect to admin hub dashboard
-    window.location.replace("/admin-hub");
+  // For non-admin routes: if no org is selected, redirect to admin hub
+  if (currentOrg === null) {
+    setTimeout(() => setLocation("/admin-hub"), 0);
     return null;
   }
 

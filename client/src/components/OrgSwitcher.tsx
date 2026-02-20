@@ -16,6 +16,8 @@ interface OrgSwitcherProps {
   sidebarBg: string;
   onCreateOrg?: () => void;
   onViewAllOrgs?: () => void;
+  /** Called after switching to a specific org — use to navigate to workspace from admin hub */
+  onSwitchToOrg?: (orgId: number) => void;
 }
 
 export default function OrgSwitcher({
@@ -31,6 +33,7 @@ export default function OrgSwitcher({
   sidebarBg,
   onCreateOrg,
   onViewAllOrgs,
+  onSwitchToOrg,
 }: OrgSwitcherProps) {
   const { currentOrg, memberships, switchOrg, isLoading } = useOrg();
   const [, setLocation] = useLocation();
@@ -87,7 +90,7 @@ export default function OrgSwitcher({
     }
     return (
       <div
-        className="rounded-lg flex items-center justify-center shrink-0font-bold"
+        className="rounded-lg flex items-center justify-center shrink-0 font-bold"
         style={{
           width: size,
           height: size,
@@ -100,6 +103,15 @@ export default function OrgSwitcher({
         {getOrgInitials(org.name)}
       </div>
     );
+  };
+
+  const handleOrgSwitch = (orgId: number | null) => {
+    switchOrg(orgId);
+    setOpen(false);
+    // If switching to a specific org and callback provided, navigate to workspace
+    if (orgId !== null && onSwitchToOrg) {
+      onSwitchToOrg(orgId);
+    }
   };
 
   // Collapsed: just show the icon
@@ -130,7 +142,7 @@ export default function OrgSwitcher({
             <OrgDropdownContent
               memberships={memberships}
               currentOrg={currentOrg}
-              switchOrg={(id) => { switchOrg(id); setOpen(false); }}
+              switchOrg={handleOrgSwitch}
               accentColor={accentColor}
               accentRgb={accentRgb}
               textPrimary={textPrimary}
@@ -205,7 +217,7 @@ export default function OrgSwitcher({
           <OrgDropdownContent
             memberships={memberships}
             currentOrg={currentOrg}
-            switchOrg={(id) => { switchOrg(id); setOpen(false); }}
+            switchOrg={handleOrgSwitch}
             accentColor={accentColor}
             accentRgb={accentRgb}
             textPrimary={textPrimary}
@@ -274,23 +286,26 @@ function OrgDropdownContent({
         </p>
       </div>
 
-      {/* All Organizations option — navigates to management page */}
+      {/* All Organizations option — navigates to admin hub */}
       <button
         onClick={onViewAllOrgs}
         className="w-full flex items-center gap-2.5 px-3 py-2 transition-all duration-150"
         style={{
-          background: "transparent",
+          background: currentOrg === null ? `color-mix(in oklch, ${accentColor} 8%, transparent)` : "transparent",
         }}
         onMouseEnter={(e) => { e.currentTarget.style.background = hoverBg; }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.background = currentOrg === null
+            ? `color-mix(in oklch, ${accentColor} 8%, transparent)`
+            : "transparent";
         }}
       >
         <OrgIcon org={null} size={24} />
         <div className="flex-1 min-w-0 text-left">
           <p className="text-[12px] font-medium" style={{ color: textPrimary }}>All Organizations</p>
-          <p className="text-[10px]" style={{ color: textMuted }}>Manage workspaces</p>
+          <p className="text-[10px]" style={{ color: textMuted }}>Super Admin Hub</p>
         </div>
+        {currentOrg === null && <Check className="h-3.5 w-3.5 shrink-0" style={{ color: accentColor }} />}
       </button>
 
       {/* Divider */}

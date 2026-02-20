@@ -151,12 +151,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   const handleBackToWorkspace = () => {
-    // Switch to the first org (or default)
+    // Switch to the first org (or default) and navigate to workspace
     const defaultMembership = memberships.find((m) => m.isDefault) || memberships[0];
     if (defaultMembership) {
       switchOrg(defaultMembership.org.id);
+      // Use window.location to ensure full route change out of admin-hub
+      window.location.href = "/";
+    } else {
+      window.location.href = "/";
     }
-    setLocation("/");
   };
 
   // ─── Theme-aware colors ─────────────────────────────────────────────────
@@ -268,46 +271,23 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </button>
         </div>
 
-        {/* ─── Admin Mode Indicator ─── */}
-        <div
-          className="px-3 py-2.5 shrink-0"
-          style={{ borderBottom: `1px solid ${dividerColor}` }}
-        >
-          {collapsed ? (
-            <div className="flex justify-center">
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{
-                  background: `linear-gradient(135deg, ${accentColor}22, ${accentColor}44)`,
-                  border: `1px solid ${accentColor}33`,
-                }}
-                title="Super Admin Hub"
-              >
-                <Shield className="h-3.5 w-3.5" style={{ color: accentColor }} />
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2.5">
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                style={{
-                  background: `linear-gradient(135deg, ${accentColor}22, ${accentColor}44)`,
-                  border: `1px solid ${accentColor}33`,
-                }}
-              >
-                <Shield className="h-3.5 w-3.5" style={{ color: accentColor }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-semibold tracking-wide" style={{ color: accentColor }}>
-                  Super Admin
-                </p>
-                <p className="text-[10px]" style={{ color: textMuted }}>
-                  All Organizations
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* ─── Org Switcher ─── */}
+        <OrgSwitcher
+          collapsed={collapsed}
+          accentColor={accentColor}
+          accentRgb={accentRgb}
+          textPrimary={textPrimary}
+          textSecondary={textSecondary}
+          textMuted={textMuted}
+          hoverBg={hoverBg}
+          dividerColor={dividerColor}
+          isLightTheme={isLightTheme}
+          sidebarBg={sidebarBg}
+          onCreateOrg={() => setLocation("/org/new")}
+          onViewAllOrgs={() => setLocation("/admin-hub")}
+          onSwitchToOrg={() => { setLocation("/"); }}
+        />
+        <div style={{ borderBottom: `1px solid ${dividerColor}` }} />
 
         {/* ─── Navigation ─── */}
         <nav className="flex-1 overflow-y-auto px-2 py-3">

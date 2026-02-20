@@ -2468,3 +2468,7 @@
 - [x] Build full customization/appearance system (sidebar themes, color schemes, typography, layout templates)
 - [x] Make everything customizable per the blueprint phases (Apple/Tesla design philosophy)
 - [x] Write tests for new functionality (18 tests, all passing)
+
+## Bug Fixes - Admin Hub Navigation
+- [x] Fix org switcher dropdown missing from Super Admin sidebar — can't switch to org workspaces
+- [x] Fix "Back to Workspace" not working — can't enter OmniScope workspace from admin hub
