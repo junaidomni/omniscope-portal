@@ -2259,3 +2259,12 @@
 - [x] Fix sidebar style selection not applying changes (sidebarStyle exposed in DesignContext)
 - [x] Fix live preview — made reactive to theme/accent/sidebar changes
 - [x] Ensure design preferences persist to database on click (verified working)
+
+## v72 — Fix Theme System
+
+### Bug Fixes
+- [x] Fix Obsidian, Midnight, Emerald, Slate themes not showing visual differences when selected
+- [x] Fix Ivory light mode — mail, headers, fonts, boxes need proper light-mode colors
+- [x] Make each theme visually distinct with unique background, card, text, and border colors
+- [x] Ensure all components respect theme CSS variables (not hardcoded dark colors)
+- [x] Fix sidebar colors to update with theme selection (sidebar stays dark regardless of theme)

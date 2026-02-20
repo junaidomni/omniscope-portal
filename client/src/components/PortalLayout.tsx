@@ -46,6 +46,7 @@ interface ThemeColors {
 
 const THEME_MAP: Record<string, ThemeColors> = {
   obsidian: {
+    // Pure black & gold — the OmniScope default
     background: "oklch(0.12 0 0)",
     foreground: "oklch(0.88 0.05 85)",
     card: "oklch(0.16 0 0)",
@@ -56,84 +57,88 @@ const THEME_MAP: Record<string, ThemeColors> = {
     secondaryForeground: "oklch(0.88 0.05 85)",
     muted: "oklch(0.22 0 0)",
     mutedForeground: "oklch(0.60 0.03 85)",
-    border: "oklch(0.25 0 0)",
-    input: "oklch(0.25 0 0)",
+    border: "oklch(0.25 0.02 85)",
+    input: "oklch(0.25 0.02 85)",
     sidebar: "oklch(0.14 0 0)",
     sidebarForeground: "oklch(0.88 0.05 85)",
     sidebarAccent: "oklch(0.22 0 0)",
-    sidebarBorder: "oklch(0.25 0 0)",
+    sidebarBorder: "oklch(0.25 0.02 85)",
   },
   ivory: {
-    background: "oklch(0.97 0 0)",
-    foreground: "oklch(0.15 0 0)",
+    // Clean white & charcoal — Apple-inspired light mode
+    background: "oklch(0.97 0.005 90)",
+    foreground: "oklch(0.20 0 0)",
     card: "oklch(1 0 0)",
-    cardForeground: "oklch(0.15 0 0)",
+    cardForeground: "oklch(0.20 0 0)",
     popover: "oklch(0.99 0 0)",
-    popoverForeground: "oklch(0.15 0 0)",
-    secondary: "oklch(0.93 0 0)",
-    secondaryForeground: "oklch(0.15 0 0)",
-    muted: "oklch(0.90 0 0)",
+    popoverForeground: "oklch(0.20 0 0)",
+    secondary: "oklch(0.94 0.005 90)",
+    secondaryForeground: "oklch(0.20 0 0)",
+    muted: "oklch(0.92 0.005 90)",
     mutedForeground: "oklch(0.45 0 0)",
-    border: "oklch(0.85 0 0)",
-    input: "oklch(0.85 0 0)",
-    sidebar: "oklch(0.96 0 0)",
-    sidebarForeground: "oklch(0.15 0 0)",
-    sidebarAccent: "oklch(0.93 0 0)",
-    sidebarBorder: "oklch(0.88 0 0)",
+    border: "oklch(0.87 0.005 90)",
+    input: "oklch(0.87 0.005 90)",
+    sidebar: "oklch(0.96 0.005 90)",
+    sidebarForeground: "oklch(0.20 0 0)",
+    sidebarAccent: "oklch(0.93 0.005 90)",
+    sidebarBorder: "oklch(0.90 0.005 90)",
   },
   midnight: {
-    background: "oklch(0.13 0.02 260)",
-    foreground: "oklch(0.90 0.01 260)",
-    card: "oklch(0.17 0.02 260)",
-    cardForeground: "oklch(0.90 0.01 260)",
-    popover: "oklch(0.15 0.02 260)",
-    popoverForeground: "oklch(0.90 0.01 260)",
-    secondary: "oklch(0.22 0.02 260)",
-    secondaryForeground: "oklch(0.90 0.01 260)",
-    muted: "oklch(0.24 0.02 260)",
-    mutedForeground: "oklch(0.60 0.02 260)",
-    border: "oklch(0.27 0.02 260)",
-    input: "oklch(0.27 0.02 260)",
-    sidebar: "oklch(0.15 0.02 260)",
-    sidebarForeground: "oklch(0.90 0.01 260)",
-    sidebarAccent: "oklch(0.22 0.02 260)",
-    sidebarBorder: "oklch(0.27 0.02 260)",
+    // Deep navy blue — rich, unmistakable navy workspace
+    background: "oklch(0.22 0.08 255)",
+    foreground: "oklch(0.93 0.02 240)",
+    card: "oklch(0.26 0.09 255)",
+    cardForeground: "oklch(0.93 0.02 240)",
+    popover: "oklch(0.24 0.08 255)",
+    popoverForeground: "oklch(0.93 0.02 240)",
+    secondary: "oklch(0.30 0.08 255)",
+    secondaryForeground: "oklch(0.93 0.02 240)",
+    muted: "oklch(0.32 0.07 255)",
+    mutedForeground: "oklch(0.65 0.06 240)",
+    border: "oklch(0.38 0.08 255)",
+    input: "oklch(0.38 0.08 255)",
+    sidebar: "oklch(0.18 0.10 255)",
+    sidebarForeground: "oklch(0.93 0.02 240)",
+    sidebarAccent: "oklch(0.30 0.08 255)",
+    sidebarBorder: "oklch(0.38 0.08 255)",
   },
   emerald: {
-    background: "oklch(0.11 0.02 160)",
-    foreground: "oklch(0.90 0.01 160)",
-    card: "oklch(0.15 0.02 160)",
-    cardForeground: "oklch(0.90 0.01 160)",
-    popover: "oklch(0.13 0.02 160)",
-    popoverForeground: "oklch(0.90 0.01 160)",
-    secondary: "oklch(0.20 0.02 160)",
-    secondaryForeground: "oklch(0.90 0.01 160)",
-    muted: "oklch(0.22 0.02 160)",
-    mutedForeground: "oklch(0.55 0.03 160)",
-    border: "oklch(0.25 0.02 160)",
-    input: "oklch(0.25 0.02 160)",
-    sidebar: "oklch(0.13 0.02 160)",
-    sidebarForeground: "oklch(0.90 0.01 160)",
-    sidebarAccent: "oklch(0.20 0.02 160)",
-    sidebarBorder: "oklch(0.25 0.02 160)",
+    // Deep forest green — rich, unmistakable green workspace
+    background: "oklch(0.21 0.06 160)",
+    foreground: "oklch(0.93 0.04 155)",
+    card: "oklch(0.25 0.07 160)",
+    cardForeground: "oklch(0.93 0.04 155)",
+    popover: "oklch(0.23 0.06 160)",
+    popoverForeground: "oklch(0.93 0.04 155)",
+    secondary: "oklch(0.29 0.06 160)",
+    secondaryForeground: "oklch(0.93 0.04 155)",
+    muted: "oklch(0.31 0.05 160)",
+    mutedForeground: "oklch(0.62 0.08 155)",
+    border: "oklch(0.37 0.07 160)",
+    input: "oklch(0.37 0.07 160)",
+    sidebar: "oklch(0.17 0.08 160)",
+    sidebarForeground: "oklch(0.93 0.04 155)",
+    sidebarAccent: "oklch(0.29 0.06 160)",
+    sidebarBorder: "oklch(0.37 0.07 160)",
   },
   slate: {
-    background: "oklch(0.13 0.01 50)",
-    foreground: "oklch(0.90 0.01 50)",
-    card: "oklch(0.17 0.01 50)",
-    cardForeground: "oklch(0.90 0.01 50)",
-    popover: "oklch(0.15 0.01 50)",
-    popoverForeground: "oklch(0.90 0.01 50)",
-    secondary: "oklch(0.22 0.01 50)",
-    secondaryForeground: "oklch(0.90 0.01 50)",
-    muted: "oklch(0.24 0.01 50)",
-    mutedForeground: "oklch(0.55 0.02 50)",
-    border: "oklch(0.27 0.01 50)",
-    input: "oklch(0.27 0.01 50)",
-    sidebar: "oklch(0.15 0.01 50)",
-    sidebarForeground: "oklch(0.90 0.01 50)",
-    sidebarAccent: "oklch(0.22 0.01 50)",
-    sidebarBorder: "oklch(0.27 0.01 50)",
+    // Warm stone/brown — rich, unmistakable warm workspace
+    background: "oklch(0.22 0.04 55)",
+    foreground: "oklch(0.92 0.04 60)",
+    card: "oklch(0.26 0.05 55)",
+    cardForeground: "oklch(0.92 0.04 60)",
+    popover: "oklch(0.24 0.04 55)",
+    popoverForeground: "oklch(0.92 0.04 60)",
+    secondary: "oklch(0.30 0.04 55)",
+    secondaryForeground: "oklch(0.92 0.04 60)",
+    muted: "oklch(0.32 0.04 55)",
+    mutedForeground: "oklch(0.62 0.06 55)",
+    border: "oklch(0.38 0.05 55)",
+    input: "oklch(0.38 0.05 55)",
+    sidebar: "oklch(0.18 0.05 55)",
+    sidebarForeground: "oklch(0.92 0.04 60)",
+    sidebarAccent: "oklch(0.30 0.04 55)",
+    sidebarBorder: "oklch(0.38 0.05 55)",
   },
 };
 
@@ -276,6 +281,94 @@ function useThemeInjection(theme: string, accentColor: string) {
     // Chart colors based on accent
     root.style.setProperty("--chart-1", accentColor);
     
+    // ─── Override Tailwind 4 palette variables ─────────────────────────
+    // This makes hardcoded classes like bg-zinc-800, text-zinc-400, etc.
+    // respond to theme changes without modifying individual components.
+    const isLight = theme === "ivory";
+    
+    // Zinc palette → theme-aware (most commonly used in components)
+    // For dark themes: zinc-950=darkest bg, zinc-50=lightest text (normal)
+    // For light themes: zinc-950=lightest bg, zinc-50=darkest text (INVERTED)
+    root.style.setProperty("--color-zinc-950", colors.background);
+    root.style.setProperty("--color-zinc-900", colors.card);
+    root.style.setProperty("--color-zinc-800", colors.secondary);
+    root.style.setProperty("--color-zinc-700", isLight ? "oklch(0.78 0.005 90)" : colors.border);
+    root.style.setProperty("--color-zinc-600", isLight ? "oklch(0.55 0 0)" : colors.mutedForeground);
+    root.style.setProperty("--color-zinc-500", isLight ? "oklch(0.48 0 0)" : colors.mutedForeground);
+    root.style.setProperty("--color-zinc-400", isLight ? "oklch(0.40 0 0)" : colors.mutedForeground);
+    root.style.setProperty("--color-zinc-300", isLight ? "oklch(0.35 0 0)" : colors.mutedForeground);
+    root.style.setProperty("--color-zinc-200", isLight ? "oklch(0.28 0 0)" : colors.foreground);
+    root.style.setProperty("--color-zinc-100", isLight ? "oklch(0.22 0 0)" : colors.foreground);
+    root.style.setProperty("--color-zinc-50",  isLight ? "oklch(0.18 0 0)" : colors.foreground);
+    
+    // Gray palette (used in some components) — same inversion logic
+    root.style.setProperty("--color-gray-950", colors.background);
+    root.style.setProperty("--color-gray-900", colors.card);
+    root.style.setProperty("--color-gray-800", colors.secondary);
+    root.style.setProperty("--color-gray-700", isLight ? "oklch(0.78 0.005 90)" : colors.border);
+    root.style.setProperty("--color-gray-600", isLight ? "oklch(0.55 0 0)" : colors.mutedForeground);
+    root.style.setProperty("--color-gray-500", isLight ? "oklch(0.48 0 0)" : colors.mutedForeground);
+    root.style.setProperty("--color-gray-400", isLight ? "oklch(0.40 0 0)" : colors.mutedForeground);
+    root.style.setProperty("--color-gray-300", isLight ? "oklch(0.35 0 0)" : colors.mutedForeground);
+    root.style.setProperty("--color-gray-200", isLight ? "oklch(0.28 0 0)" : colors.foreground);
+    root.style.setProperty("--color-gray-100", isLight ? "oklch(0.22 0 0)" : colors.foreground);
+    root.style.setProperty("--color-gray-50",  isLight ? "oklch(0.18 0 0)" : colors.foreground);
+    
+    // Neutral palette
+    root.style.setProperty("--color-neutral-950", colors.background);
+    root.style.setProperty("--color-neutral-900", colors.card);
+    root.style.setProperty("--color-neutral-800", colors.secondary);
+    root.style.setProperty("--color-neutral-700", isLight ? "oklch(0.78 0 0)" : colors.border);
+    root.style.setProperty("--color-neutral-400", isLight ? "oklch(0.40 0 0)" : colors.mutedForeground);
+    root.style.setProperty("--color-neutral-50",  isLight ? "oklch(0.18 0 0)" : colors.foreground);
+    
+    // Stone palette
+    root.style.setProperty("--color-stone-950", colors.background);
+    root.style.setProperty("--color-stone-900", colors.card);
+    root.style.setProperty("--color-stone-800", colors.secondary);
+    root.style.setProperty("--color-stone-700", isLight ? "oklch(0.78 0 0)" : colors.border);
+    root.style.setProperty("--color-stone-400", isLight ? "oklch(0.40 0 0)" : colors.mutedForeground);
+    root.style.setProperty("--color-stone-50",  isLight ? "oklch(0.18 0 0)" : colors.foreground);
+    
+    // Slate palette
+    root.style.setProperty("--color-slate-950", colors.background);
+    root.style.setProperty("--color-slate-900", colors.card);
+    root.style.setProperty("--color-slate-800", colors.secondary);
+    root.style.setProperty("--color-slate-700", isLight ? "oklch(0.78 0 0)" : colors.border);
+    root.style.setProperty("--color-slate-400", isLight ? "oklch(0.40 0 0)" : colors.mutedForeground);
+    root.style.setProperty("--color-slate-50",  isLight ? "oklch(0.18 0 0)" : colors.foreground);
+    
+    // Yellow/Amber → follow the primary/accent color
+    // For light mode, darken the accent for better contrast
+    root.style.setProperty("--color-yellow-600", isLight ? "oklch(0.55 0.16 85)" : accentColor);
+    root.style.setProperty("--color-yellow-500", isLight ? "oklch(0.60 0.16 85)" : accentColor);
+    root.style.setProperty("--color-yellow-400", accentColor);
+    root.style.setProperty("--color-yellow-300", accentColor);
+    root.style.setProperty("--color-amber-600", isLight ? "oklch(0.55 0.16 85)" : accentColor);
+    root.style.setProperty("--color-amber-500", isLight ? "oklch(0.60 0.16 85)" : accentColor);
+    root.style.setProperty("--color-amber-400", accentColor);
+    root.style.setProperty("--color-amber-300", accentColor);
+    
+    // Emerald/green for status badges
+    if (isLight) {
+      root.style.setProperty("--color-emerald-600", "oklch(0.52 0.14 155)");
+      root.style.setProperty("--color-emerald-500", "oklch(0.58 0.14 155)");
+      root.style.setProperty("--color-red-600", "oklch(0.52 0.20 25)");
+      root.style.setProperty("--color-red-500", "oklch(0.58 0.20 25)");
+    }
+    
+    // For light mode, override white/black where used as text/bg to ensure contrast
+    // text-white on light bg = invisible, so remap to dark
+    // bg-black on light = too harsh, so remap to near-black
+    if (isLight) {
+      root.style.setProperty("--color-white", "oklch(0.15 0 0)"); // text-white → dark
+      root.style.setProperty("--color-black", "oklch(0.97 0.005 90)"); // bg-black → light bg
+    } else {
+      // Reset to defaults for dark themes
+      root.style.removeProperty("--color-white");
+      root.style.removeProperty("--color-black");
+    }
+    
     return () => {
       // No cleanup needed — next theme switch will override
     };
@@ -374,25 +467,25 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
     }
   }, [isAuthenticated, user, location]);
 
-  // Theme-aware colors for the sidebar
-  const sidebarBg = isLightTheme 
-    ? 'linear-gradient(180deg, rgba(250,250,250,0.98) 0%, rgba(245,245,245,0.99) 100%)'
-    : 'linear-gradient(180deg, rgba(15,15,15,0.98) 0%, rgba(10,10,10,0.99) 100%)';
-  const sidebarBorderColor = isLightTheme ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.04)';
-  const textPrimary = isLightTheme ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.9)';
-  const textSecondary = isLightTheme ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.45)';
-  const textMuted = isLightTheme ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)';
-  const textHover = isLightTheme ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)';
-  const hoverBg = isLightTheme ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.03)';
-  const activeBg = isLightTheme ? `rgba(${accentRgb}, 0.1)` : `rgba(${accentRgb}, 0.08)`;
-  const dividerColor = isLightTheme ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)';
-  const collapseBtnBg = isLightTheme ? 'rgba(245,245,245,0.95)' : 'rgba(30,30,30,0.95)';
+  // Theme-aware colors for the sidebar — derived from THEME_MAP so each
+  // theme (Midnight navy, Emerald green, Slate brown, etc.) is reflected
+  const themeColors = THEME_MAP[activeTheme] || THEME_MAP.obsidian;
+  const sidebarBg = `var(--sidebar, ${themeColors.sidebar})`;
+  const sidebarBorderColor = `var(--sidebar-border, ${themeColors.sidebarBorder})`;
+  const textPrimary = `var(--sidebar-foreground, ${themeColors.sidebarForeground})`;
+  const textSecondary = isLightTheme ? 'oklch(0.45 0 0)' : 'oklch(0.60 0.02 0)';
+  const textMuted = isLightTheme ? 'oklch(0.55 0 0)' : 'oklch(0.50 0.02 0)';
+  const textHover = `var(--sidebar-foreground, ${themeColors.sidebarForeground})`;
+  const hoverBg = `var(--sidebar-accent, ${themeColors.sidebarAccent})`;
+  const activeBg = `color-mix(in oklch, ${accentColor} 12%, transparent)`;
+  const dividerColor = `var(--sidebar-border, ${themeColors.sidebarBorder})`;
+  const collapseBtnBg = `var(--sidebar, ${themeColors.sidebar})`;
 
   const refetchDesign = useCallback(() => designQuery.refetch(), [designQuery]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: isLightTheme ? '#fafafa' : '#000' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: `var(--background, ${themeColors.background})` }}>
         <Loader2 className="h-8 w-8 animate-spin" style={{ color: accentColor }} />
       </div>
     );
@@ -400,7 +493,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: isLightTheme ? '#fafafa' : '#000' }}>
+      <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: `var(--background, ${themeColors.background})` }}>
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0" style={{
             backgroundImage: `
@@ -414,8 +507,8 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
         </div>
         <div className="text-center relative z-10">
           <img src={customLogo || DEFAULT_LOGO_FULL} alt="OmniScope" className="h-48 mx-auto mb-12" />
-          <h1 className="text-3xl font-bold mb-3" style={{ color: isLightTheme ? '#0a0a0a' : '#fff' }}>Intelligence Portal</h1>
-          <p className="mb-10 text-lg" style={{ color: isLightTheme ? '#666' : '#999' }}>Secure access required</p>
+          <h1 className="text-3xl font-bold mb-3" style={{ color: `var(--foreground, ${themeColors.foreground})` }}>Intelligence Portal</h1>
+          <p className="mb-10 text-lg" style={{ color: `var(--muted-foreground, ${themeColors.mutedForeground})` }}>Secure access required</p>
           <Button
             onClick={() => window.location.href = getLoginUrl()}
             className="font-medium px-8 py-6 text-lg"
@@ -444,7 +537,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
       isLightTheme,
       refetch: refetchDesign,
     }}>
-      <div className="min-h-screen flex" style={{ background: isLightTheme ? '#fafafa' : '#000' }}>
+      <div className="min-h-screen flex" style={{ background: `var(--background, ${themeColors.background})` }}>
         {/* ─── Sidebar ─── */}
         <div 
           className="flex flex-col fixed left-0 top-0 h-screen transition-all duration-300 ease-in-out z-50"
@@ -717,7 +810,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className={`${isMinimal ? 'text-xs' : 'text-[13px]'} font-medium truncate`} style={{ color: isLightTheme ? '#0a0a0a' : '#fff' }}>
+                  <p className={`${isMinimal ? 'text-xs' : 'text-[13px]'} font-medium truncate`} style={{ color: textPrimary }}>
                     {user?.name || "User"}
                   </p>
                   <p className="text-[10px] truncate" style={{ color: textSecondary }}>{user?.email}</p>
