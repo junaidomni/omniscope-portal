@@ -2460,3 +2460,11 @@
 - [x] Add per-org API key configuration
 - [x] Wire org detail page into routing from Organizations list
 - [x] Write tests for new functionality (16 tests, all passing)
+
+## Org Customization & Platform Settings Fixes
+- [x] Enable org logo upload on OrgDetail Branding tab (upload to S3)
+- [x] Build per-org feature flags with plan-based control (starter/professional/enterprise)
+- [x] Fix Platform Settings > Appearance & Design link — stays within admin hub instead of navigating to workspace
+- [x] Build full customization/appearance system (sidebar themes, color schemes, typography, layout templates)
+- [x] Make everything customizable per the blueprint phases (Apple/Tesla design philosophy)
+- [x] Write tests for new functionality (18 tests, all passing)

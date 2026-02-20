@@ -1464,6 +1464,7 @@ export const featureToggles = mysqlTable("feature_toggles", {
   ]).notNull().default("core"),
   enabled: boolean("ftEnabled").default(true).notNull(),
   isLocked: boolean("ftIsLocked").default(false).notNull(), // locked = cannot be disabled
+  requiredPlan: mysqlEnum("ftRequiredPlan", ["starter", "professional", "enterprise"]).default("starter").notNull(),
   sortOrder: int("ftSortOrder").default(0).notNull(),
   updatedBy: int("ftUpdatedBy").references(() => users.id),
   updatedAt: timestamp("ftUpdatedAt").defaultNow().onUpdateNow().notNull(),

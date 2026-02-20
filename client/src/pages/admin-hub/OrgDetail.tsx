@@ -13,7 +13,7 @@ import {
   ArrowLeft, Building2, Users, Key, Palette, Globe, Clock,
   Save, Pencil, Trash2, Shield, ChevronDown, ExternalLink,
   Copy, Eye, EyeOff, BarChart3, CheckCircle2, XCircle,
-  MoreHorizontal,
+  MoreHorizontal, Upload, ImagePlus,
 } from "lucide-react";
 
 type TabId = "general" | "members" | "integrations" | "branding";
@@ -763,6 +763,15 @@ function IntegrationRow({ integration, expanded, onToggleExpand, apiKeyVisible, 
 function BrandingTab({ org, updateOrg, tokens }: any) {
   const [logoUrl, setLogoUrl] = useState(org.logoUrl || "");
   const [accentColor, setAccentColor] = useState(org.accentColor || "#d4af37");
+  const [uploading, setUploading] = useState(false);
+
+  const uploadLogo = trpc.adminHub.uploadOrgLogo.useMutation({
+    onSuccess: (data: any) => {
+      setLogoUrl(data.url);
+      toast.success("Logo uploaded");
+    },
+    onError: (err: any) => toast.error(err.message || "Upload failed"),
+  });
 
   useEffect(() => {
     setLogoUrl(org.logoUrl || "");
@@ -776,6 +785,33 @@ function BrandingTab({ org, updateOrg, tokens }: any) {
     "#f59e0b", "#06b6d4", "#ec4899", "#8b5cf6", "#64748b",
   ];
 
+  const handleFileUpload = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/svg+xml,image/webp";
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) { toast.error("File too large (max 5MB)"); return; }
+      setUploading(true);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        uploadLogo.mutate(
+          { orgId: org.id, base64, mimeType: file.type },
+          { onSettled: () => setUploading(false) }
+        );
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoUrl("");
+    updateOrg.mutate({ orgId: org.id, logoUrl: null });
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl p-6" style={{ background: tokens.cardBg, border: `1px solid ${tokens.cardBorder}` }}>
@@ -783,36 +819,73 @@ function BrandingTab({ org, updateOrg, tokens }: any) {
           Brand Identity
         </h3>
 
-        {/* Logo Preview */}
+        {/* Logo Upload */}
         <div className="mb-6">
-          <label className="text-xs font-medium mb-2 block" style={{ color: tokens.textSecondary }}>
+          <label className="text-xs font-medium mb-3 block" style={{ color: tokens.textSecondary }}>
             Organization Logo
           </label>
-          <div className="flex items-center gap-4">
+          <div className="flex items-start gap-5">
+            {/* Logo Preview */}
             <div
-              className="w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden"
+              className="w-24 h-24 rounded-2xl flex items-center justify-center overflow-hidden relative group cursor-pointer"
               style={{ background: tokens.inputBg, border: `2px dashed ${tokens.cardBorder}` }}
+              onClick={handleFileUpload}
             >
               {logoUrl ? (
-                <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                <>
+                  <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-2" />
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-2xl">
+                    <div className="p-1.5 rounded-lg bg-white/10">
+                      <Upload className="h-4 w-4 text-white" />
+                    </div>
+                  </div>
+                </>
               ) : (
-                <Building2 className="h-8 w-8" style={{ color: tokens.textMuted }} />
+                <div className="flex flex-col items-center gap-1">
+                  <ImagePlus className="h-6 w-6" style={{ color: tokens.textMuted }} />
+                  <span className="text-[9px]" style={{ color: tokens.textMuted }}>Upload</span>
+                </div>
               )}
             </div>
-            <div className="flex-1">
+            <div className="flex-1 space-y-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={handleFileUpload}
+                  disabled={uploading}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-200"
+                  style={{ background: `${tokens.accentColor}18`, color: tokens.accentColor, border: `1px solid ${tokens.accentColor}30` }}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {uploading ? "Uploading..." : "Upload Logo"}
+                </button>
+                {logoUrl && (
+                  <button
+                    onClick={handleRemoveLogo}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-200"
+                    style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px]" style={{ color: tokens.textMuted }}>
+                Drag & drop or click to upload. PNG, SVG, JPEG, or WebP. Max 5MB.
+              </p>
+              <p className="text-[10px]" style={{ color: tokens.textMuted }}>
+                Recommended: 256×256px with transparent background.
+              </p>
+              {/* URL fallback */}
               <input
                 type="text"
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="Paste logo URL..."
-                className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all duration-200"
+                placeholder="Or paste logo URL..."
+                className="w-full px-3 py-2 rounded-xl text-xs outline-none transition-all duration-200"
                 style={{ background: tokens.inputBg, border: `1px solid ${tokens.cardBorder}`, color: tokens.textPrimary }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = `${tokens.accentColor}44`; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = tokens.cardBorder; }}
               />
-              <p className="text-[10px] mt-1" style={{ color: tokens.textMuted }}>
-                Recommended: 256×256px, PNG or SVG with transparent background
-              </p>
             </div>
           </div>
         </div>
@@ -854,6 +927,24 @@ function BrandingTab({ org, updateOrg, tokens }: any) {
               className="flex-1 h-10 rounded-lg"
               style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}88)` }}
             />
+          </div>
+        </div>
+
+        {/* Live Preview */}
+        <div className="mt-6 rounded-xl p-4" style={{ background: tokens.isLightTheme ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)", border: `1px solid ${tokens.cardBorder}` }}>
+          <p className="text-[10px] uppercase tracking-widest font-medium mb-3" style={{ color: tokens.textMuted }}>Live Preview</p>
+          <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: tokens.isLightTheme ? "rgba(0,0,0,0.06)" : "rgba(0,0,0,0.4)" }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden" style={{ background: `${accentColor}18`, border: `1px solid ${accentColor}30` }}>
+              {logoUrl ? (
+                <img src={logoUrl} alt="Preview" className="w-full h-full object-contain p-1" />
+              ) : (
+                <Building2 className="h-5 w-5" style={{ color: accentColor }} />
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: tokens.textPrimary }}>{org.name}</p>
+              <p className="text-[10px]" style={{ color: accentColor }}>{org.industry || "Organization"}</p>
+            </div>
           </div>
         </div>
 

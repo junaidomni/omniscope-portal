@@ -275,6 +275,45 @@ describe("adminHub", () => {
     });
   });
 
+  describe("updateFeaturePlan", () => {
+    it("updates the required plan tier for a feature", async () => {
+      const ctx = createAdminContext();
+      const caller = appRouter.createCaller(ctx);
+      const features = await caller.adminHub.listAllFeatureToggles();
+      if (features.length > 0) {
+        const feature = features.find((f: any) => !f.isLocked);
+        if (feature) {
+          const result = await caller.adminHub.updateFeaturePlan({
+            id: feature.id,
+            requiredPlan: "enterprise",
+          });
+          expect(result.success).toBe(true);
+          // Restore original plan
+          await caller.adminHub.updateFeaturePlan({
+            id: feature.id,
+            requiredPlan: feature.requiredPlan || "starter",
+          });
+        }
+      }
+    });
+  });
+
+  describe("updateIntegration", () => {
+    it("updates integration settings for admin user", async () => {
+      const ctx = createAdminContext();
+      const caller = appRouter.createCaller(ctx);
+      const integrations = await caller.adminHub.listAllIntegrations();
+      if (integrations.length > 0) {
+        const integration = integrations[0];
+        const result = await caller.adminHub.updateIntegration({
+          integrationId: integration.id,
+          enabled: integration.enabled,
+        });
+        expect(result.success).toBe(true);
+      }
+    });
+  });
+
   describe("access control", () => {
     it("rejects regular users from all hub procedures", async () => {
       const ctx = createRegularUserContext();

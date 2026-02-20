@@ -1,0 +1,1 @@
+ALTER TABLE `feature_toggles` ADD `ftRequiredPlan` enum('starter','professional','enterprise') DEFAULT 'starter' NOT NULL;

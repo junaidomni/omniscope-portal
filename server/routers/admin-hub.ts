@@ -7,6 +7,7 @@ import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { getDb } from "../db";
+import { storagePut } from "../storage";
 import {
   users,
   accounts,
@@ -250,7 +251,7 @@ export const adminHubRouter = router({
   }),
 
   /**
-   * Toggle a feature flag
+   * Toggle a feature flag (global)
    */
   toggleFeature: hubProcedure
     .input(z.object({ id: z.number(), enabled: z.boolean() }))
@@ -263,6 +264,60 @@ export const adminHubRouter = router({
         .set({ enabled: input.enabled, updatedBy: ctx.user.id })
         .where(eq(featureToggles.id, input.id));
       return { success: true };
+    }),
+
+  /**
+   * Update the required plan for a feature flag
+   */
+  updateFeaturePlan: hubProcedure
+    .input(z.object({
+      id: z.number(),
+      requiredPlan: z.enum(["starter", "professional", "enterprise"]),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      await db
+        .update(featureToggles)
+        .set({ requiredPlan: input.requiredPlan, updatedBy: ctx.user.id })
+        .where(eq(featureToggles.id, input.id));
+      return { success: true };
+    }),
+
+  /**
+   * Get features available for an org based on its account plan
+   */
+  getOrgAvailableFeatures: hubProcedure
+    .input(z.object({ orgId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      // Get the org's account plan
+      const [org] = await db
+        .select({ accountId: organizations.accountId })
+        .from(organizations)
+        .where(eq(organizations.id, input.orgId));
+      if (!org) throw new TRPCError({ code: "NOT_FOUND", message: "Organization not found" });
+
+      const [account] = await db
+        .select({ plan: accounts.plan })
+        .from(accounts)
+        .where(eq(accounts.id, org.accountId));
+      if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Account not found" });
+
+      const planHierarchy: Record<string, number> = { starter: 0, professional: 1, enterprise: 2 };
+      const accountLevel = planHierarchy[account.plan] ?? 0;
+
+      // Get all features
+      const allFeatures = await db.select().from(featureToggles).orderBy(featureToggles.sortOrder);
+
+      return allFeatures.map((f) => ({
+        ...f,
+        availableOnPlan: (planHierarchy[f.requiredPlan] ?? 0) <= accountLevel,
+        accountPlan: account.plan,
+      }));
     }),
 
   /**
@@ -530,6 +585,28 @@ export const adminHubRouter = router({
   /**
    * Update integration settings for an org
    */
+  /**
+   * Upload org logo to S3
+   */
+  uploadOrgLogo: hubProcedure
+    .input(z.object({
+      orgId: z.number(),
+      base64: z.string(),
+      mimeType: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const buffer = Buffer.from(input.base64, "base64");
+      const ext = input.mimeType.includes("png") ? "png" : input.mimeType.includes("svg") ? "svg" : "jpg";
+      const key = `org-logos/${input.orgId}-logo-${Date.now()}.${ext}`;
+      const { url } = await storagePut(key, buffer, input.mimeType);
+
+      await db.update(organizations).set({ logoUrl: url }).where(eq(organizations.id, input.orgId));
+      return { url };
+    }),
+
   updateIntegration: hubProcedure
     .input(
       z.object({

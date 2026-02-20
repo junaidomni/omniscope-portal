@@ -211,6 +211,13 @@
       "when": 1771612728798,
       "tag": "0029_ancient_power_man",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "5",
+      "when": 1771625413955,
+      "tag": "0030_bitter_thor_girl",
+      "breakpoints": true
     }
   ]
 }
