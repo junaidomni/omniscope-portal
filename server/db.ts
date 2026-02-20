@@ -184,6 +184,8 @@ export async function deleteContact(id: number) {
   await db.delete(interactions).where(eq(interactions.contactId, id));
   // Unlink employees
   await db.update(employees).set({ contactId: null }).where(eq(employees.contactId, id));
+  // Delete aliases for this contact
+  await db.delete(contactAliases).where(eq(contactAliases.contactId, id));
   await db.delete(contacts).where(eq(contacts.id, id));
 }
 

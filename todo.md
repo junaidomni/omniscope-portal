@@ -2094,3 +2094,6 @@
 - [x] Approval queue: approve, deny, or edit new contacts before they enter the main list (already existed)
 - [x] Quick actions: approve with edit (update name/email/org), merge with existing, deny
 - [x] Pending tab/section in Relationships with count badge (already existed)
+
+## Bug Fixes
+- [x] Fix: Contact merge fails when triggered from UI (param mismatch: sourceId/targetId → keepId/mergeId + FK cleanup)

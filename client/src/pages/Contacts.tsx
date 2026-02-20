@@ -1420,7 +1420,7 @@ export default function Contacts() {
                   <DialogClose asChild>
                     <Button variant="outline" className="border-zinc-700 text-zinc-300">Cancel</Button>
                   </DialogClose>
-                  <Button onClick={() => { if (mergeSourceId && mergeTargetId) mergeMutation.mutate({ sourceId: mergeSourceId, targetId: mergeTargetId }); }}
+                  <Button onClick={() => { if (mergeSourceId && mergeTargetId) mergeMutation.mutate({ keepId: mergeTargetId, mergeId: mergeSourceId }); }}
                     disabled={!mergeTargetId || mergeMutation.isPending}
                     className="bg-purple-600 hover:bg-purple-700 text-white">
                     {mergeMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Merging...</> : <><Merge className="h-4 w-4 mr-2" />Merge Contacts</>}
