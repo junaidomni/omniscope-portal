@@ -943,7 +943,6 @@ function HeroGreeting({
     onFilterChange(activeFilter === f ? null : f);
   };
 
-  // Calculate a "health score" for the visual ring
   const healthScore = useMemo(() => {
     const overdue = summary.totalOverdue;
     const high = summary.totalHighPriority;
@@ -957,114 +956,77 @@ function HeroGreeting({
 
   return (
     <div className="relative overflow-hidden">
-      {/* Main hero card */}
       <div className={`relative bg-gradient-to-br ${healthColor} border ${healthBorder} rounded-3xl backdrop-blur-sm overflow-hidden`}>
         {/* Subtle grid pattern overlay */}
         <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
 
-        {/* Top section: Greeting + Clock + Omni */}
-        <div className="relative p-6 lg:p-8">
-          <div className="flex items-start justify-between gap-6">
+        {/* ── Row 1: Compact greeting bar ── */}
+        <div className="relative px-6 lg:px-8 pt-5 pb-3">
+          <div className="flex items-center justify-between gap-4">
             {/* Left: Greeting */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="p-2 rounded-xl bg-white/5 border border-white/5">
-                  {timeIcon}
-                </div>
-                <h1 className="text-3xl lg:text-4xl font-bold text-white tracking-tight">
-                  {greeting}, <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">{userName}</span>
-                </h1>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-1.5 rounded-lg bg-white/5 border border-white/5 shrink-0">
+                {timeIcon}
               </div>
-              <p className="text-sm text-zinc-400 mt-2 font-medium leading-relaxed max-w-xl">{statusLine}</p>
-              <p className="text-xs text-zinc-500 mt-1 font-mono">{situationalSummary}</p>
-
-              {/* Quote */}
-              {showQuote && (
-                <div className="flex items-center gap-2.5 mt-4 group">
-                  <Quote className="h-3.5 w-3.5 text-yellow-600/30 shrink-0" />
-                  <p className="text-[11px] text-zinc-600 italic">
-                    "{quote.text}" <span className="text-zinc-700 not-italic">— {quote.author}</span>
-                  </p>
-                  <button
-                    onClick={() => setShowQuote(false)}
-                    className="p-1 rounded-lg hover:bg-zinc-800/50 text-zinc-700 hover:text-zinc-500 transition-all opacity-0 group-hover:opacity-100"
-                  >
-                    <EyeOff className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-              {!showQuote && (
-                <button
-                  onClick={() => setShowQuote(true)}
-                  className="mt-3 flex items-center gap-1.5 text-[10px] text-zinc-700 hover:text-zinc-500 transition-colors"
-                >
-                  <Eye className="h-3 w-3" /> Show quote
-                </button>
-              )}
+              <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight truncate">
+                {greeting}, <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">{userName}</span>
+              </h1>
             </div>
 
-            {/* Right: Clock + Omni */}
-            <div className="hidden lg:flex flex-col items-center gap-4 shrink-0">
-              {/* Clock */}
+            {/* Right: Clock */}
+            <div className="hidden sm:flex items-center gap-3 shrink-0">
               <div className="text-right">
-                <div className="text-2xl font-mono text-white tracking-wider tabular-nums font-bold">{timeString}</div>
-                <p className="text-[11px] text-zinc-500 mt-0.5">{dateString}</p>
-                <p className="text-[10px] text-zinc-600">{tzAbbr}</p>
+                <div className="text-xl font-mono text-white tracking-wider tabular-nums font-bold leading-none">{timeString}</div>
+                <p className="text-[10px] text-zinc-500 mt-0.5">{dateString} · {tzAbbr}</p>
               </div>
-
-              {/* Omni Avatar */}
-              {omniMode !== "hidden" && (
-                <div className="flex flex-col items-center">
-                  <div
-                    className="cursor-pointer transition-all duration-300 hover:scale-110"
-                    onMouseEnter={() => setOmniHover(true)}
-                    onMouseLeave={() => setOmniHover(false)}
-                    onClick={openChat}
-                    title="Ask Omni"
-                  >
-                    <OmniAvatar
-                      mode={omniMode}
-                      state={omniHover ? "wave" : "idle"}
-                      size={80}
-                      badge={false}
-                    />
-                  </div>
-                  <p className="text-[10px] text-zinc-600 mt-1">Click to ask Omni</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="h-px bg-gradient-to-r from-transparent via-zinc-700/30 to-transparent" />
-
-        {/* Bottom section: Insights + Stats */}
-        <div className="relative p-6 lg:p-8 pt-5 lg:pt-6">
-          <div className="flex flex-col lg:flex-row lg:gap-8">
+        {/* ── Row 2: Omni (centered, prominent) + flanked by Insights & Stats ── */}
+        <div className="relative px-6 lg:px-8 pb-5 pt-1">
+          <div className="flex flex-col lg:flex-row items-stretch gap-5">
             {/* Left: Strategic Insights */}
-            <div className="flex-1 min-w-0 mb-5 lg:mb-0">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="h-6 w-6 rounded-lg bg-yellow-500/10 flex items-center justify-center">
-                  <Brain className="h-3 w-3 text-yellow-500" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="h-5 w-5 rounded-md bg-yellow-500/10 flex items-center justify-center">
+                  <Brain className="h-2.5 w-2.5 text-yellow-500" />
                 </div>
-                <span className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Strategic Insights</span>
-                <span className="text-[9px] text-yellow-600/50 bg-yellow-600/10 px-1.5 py-0.5 rounded-full font-medium">AI</span>
+                <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">Strategic Insights</span>
+                <span className="text-[8px] text-yellow-600/50 bg-yellow-600/10 px-1.5 py-0.5 rounded-full font-medium">AI</span>
               </div>
               <InlineInsights />
             </div>
 
-            {/* Vertical divider */}
-            <div className="hidden lg:block w-px bg-gradient-to-b from-zinc-700/30 via-zinc-700/20 to-transparent self-stretch" />
+            {/* Center: Omni Avatar (larger, prominent) */}
+            {omniMode !== "hidden" && (
+              <div className="hidden lg:flex flex-col items-center justify-center shrink-0 px-6">
+                <div
+                  className="cursor-pointer transition-all duration-300 hover:scale-110"
+                  onMouseEnter={() => setOmniHover(true)}
+                  onMouseLeave={() => setOmniHover(false)}
+                  onClick={openChat}
+                  title="Ask Omni"
+                >
+                  <OmniAvatar
+                    mode={omniMode}
+                    state={omniHover ? "wave" : "idle"}
+                    size={120}
+                    badge={false}
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-500 mt-1.5 font-medium">Ask Omni</p>
+              </div>
+            )}
 
             {/* Right: Quick Stats */}
-            <div className="lg:w-[440px] xl:w-[500px] shrink-0">
-              <div className="flex items-center justify-between mb-3">
+            <div className="lg:w-[400px] xl:w-[440px] shrink-0">
+              <div className="flex items-center justify-between mb-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="h-6 w-6 rounded-lg bg-zinc-700/30 flex items-center justify-center">
-                    <BarChart3 className="h-3 w-3 text-zinc-400" />
+                  <div className="h-5 w-5 rounded-md bg-zinc-700/30 flex items-center justify-center">
+                    <BarChart3 className="h-2.5 w-2.5 text-zinc-400" />
                   </div>
-                  <span className="text-[11px] text-zinc-400 uppercase tracking-wider font-semibold">Quick Stats</span>
+                  <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">Quick Stats</span>
                 </div>
                 {activeFilter && (
                   <button
@@ -1076,7 +1038,7 @@ function HeroGreeting({
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 <StatCard icon={<ListTodo className="h-3.5 w-3.5 text-zinc-300" />} label="Open Tasks" value={summary.totalOpen} color="bg-zinc-800/50" active={activeFilter === "open"} onClick={() => toggleFilter("open")} />
                 <StatCard icon={<AlertTriangle className="h-3.5 w-3.5 text-red-400" />} label="Overdue" value={summary.totalOverdue} color="bg-red-950/40" active={activeFilter === "overdue"} onClick={() => toggleFilter("overdue")} highlight={summary.totalOverdue > 0} />
                 <StatCard icon={<Flame className="h-3.5 w-3.5 text-yellow-400" />} label="High Priority" value={summary.totalHighPriority} color="bg-yellow-950/40" active={activeFilter === "high"} onClick={() => toggleFilter("high")} />
@@ -1087,6 +1049,24 @@ function HeroGreeting({
             </div>
           </div>
         </div>
+
+        {/* Mobile Omni (visible on small screens) */}
+        {omniMode !== "hidden" && (
+          <div className="lg:hidden flex justify-center pb-4">
+            <div
+              className="cursor-pointer transition-all duration-300 hover:scale-110"
+              onClick={openChat}
+              title="Ask Omni"
+            >
+              <OmniAvatar
+                mode={omniMode}
+                state="idle"
+                size={80}
+                badge={false}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

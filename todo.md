@@ -2304,3 +2304,10 @@
 - [x] Dev server runs without errors
 - [x] Browser smoke test — all pages functional
 - [x] No functionality changes — only structural improvements
+
+## v74 — Triage Greeting Redesign
+- [x] Compress greeting area into slim horizontal bar (remove 3 sub-lines)
+- [x] Remove redundant status message, stats summary, and motivational quote
+- [x] Make Omni orb larger and more centrally positioned at top
+- [x] Push Strategic Insights and Quick Stats up to reclaim vertical space
+- [x] Ensure all tests pass after layout changes (142 triage tests passing)
