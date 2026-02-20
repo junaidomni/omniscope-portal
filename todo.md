@@ -2121,3 +2121,30 @@
 - [x] Unified relationships landing/overview page (uses DomainLayout with People/Companies/Pending tabs)
 - [x] Cross-entity search and navigation
 - [x] Activity feed and relationship health overview
+
+## v65 — Contact Detail Panel & Profile Redesign
+
+### Detail Panel
+- [ ] Widen the inline dossier panel (currently too narrow on the right)
+- [ ] Make the panel take up more screen real estate for better readability
+
+### Full Contact Profile Page
+- [x] Redesign ContactProfile page with Tesla/Apple-grade premium UI
+- [x] Full-width layout with hero header section
+- [x] Card-based sections for details, meetings, documents, notes, email
+- [x] Premium typography, spacing, and micro-interactions
+- [x] Consistent with the redesigned Contacts list page aesthetic
+
+### Full Company Profile Page Redesign
+- [x] Redesign CompanyProfile page with Tesla/Apple-grade premium UI matching ContactProfile
+- [x] Full-width immersive hero header with gradient backdrop
+- [x] Stat strip cards (People, Interactions, Tasks, Last Activity)
+- [x] AI Company Intelligence collapsible panel with generate/regenerate
+- [x] Tabbed content: Overview, People, Timeline, Tasks, Documents
+- [x] Overview tab with Company Details + Key People + Recent Activity + Open Tasks cards
+- [x] People tab with contact linking and grid layout
+- [x] Timeline tab with vertical timeline and interaction type icons
+- [x] Tasks tab with priority badges and overdue indicators
+- [x] Documents tab with Vault integration
+- [x] Edit mode with full form including Strategic Intelligence fields
+- [x] Fixed nested button DOM warning in AI Intelligence panel

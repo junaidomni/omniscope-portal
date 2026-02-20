@@ -613,7 +613,7 @@ export default function Contacts() {
 
       {/* ═══ RIGHT: DETAIL PANEL ═══ */}
       {selectedId && (
-        <div className="w-[420px] shrink-0 border-l border-zinc-800/60 flex flex-col bg-zinc-950/30 animate-fade-in-up">
+        <div className="w-[520px] shrink-0 border-l border-zinc-800/60 flex flex-col bg-zinc-950/30 animate-fade-in-up">
           {selectedProfile.isLoading ? (
             <div className="p-6 space-y-4">
               <Skeleton className="h-16 bg-zinc-800/50 rounded-lg" />

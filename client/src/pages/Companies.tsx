@@ -525,7 +525,7 @@ export default function Companies() {
 
       {/* ═══════════ RIGHT PANEL — Company Dossier ═══════════ */}
       {selectedId ? (
-        <div className="w-[380px] min-w-[380px] border-l border-zinc-800/60 flex flex-col bg-zinc-950/30 overflow-hidden">
+        <div className="w-[520px] min-w-[520px] border-l border-zinc-800/60 flex flex-col bg-zinc-950/30 overflow-hidden">
           <CompanyDossier
             companyId={selectedId}
             onClose={() => setSelectedId(null)}

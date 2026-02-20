@@ -1,0 +1,42 @@
+{
+  "query": "SELECT id, name FROM contacts LIMIT 10",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT id, name FROM contacts LIMIT 10",
+  "rows": [
+    {
+      "id": "90001",
+      "name": "Asim"
+    },
+    {
+      "id": "30026",
+      "name": "Jacob McDonald"
+    },
+    {
+      "id": "120001",
+      "name": "John Puls"
+    },
+    {
+      "id": "30022",
+      "name": "Junaid Qureshi"
+    },
+    {
+      "id": "30023",
+      "name": "Kyle Jackson"
+    },
+    {
+      "id": "30040",
+      "name": "Sania Owais"
+    },
+    {
+      "id": "120003",
+      "name": "Smtalib"
+    },
+    {
+      "id": "120002",
+      "name": "Zulfiqar Younas"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\n90001\tAsim\n30026\tJacob McDonald\n120001\tJohn Puls\n30022\tJunaid Qureshi\n30023\tKyle Jackson\n30040\tSania Owais\n120003\tSmtalib\n120002\tZulfiqar Younas\n",
+  "stderr": "",
+  "execution_time_ms": 399
+}
