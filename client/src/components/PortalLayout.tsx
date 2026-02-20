@@ -626,6 +626,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
             isLightTheme={isLightTheme}
             sidebarBg={sidebarBg}
             onCreateOrg={() => setLocation('/org/new')}
+            onViewAllOrgs={() => setLocation('/organizations')}
           />
 
           {/* ─── Navigation ─── */}

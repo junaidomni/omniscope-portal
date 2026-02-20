@@ -27,6 +27,7 @@ import Setup from "./pages/Setup";
 import ActivityLog from "./pages/ActivityLog";
 import DedupSweep from "./pages/DedupSweep";
 import OrgOnboarding from "./pages/OrgOnboarding";
+import Organizations from "./pages/Organizations";
 
 function Router() {
   return (
@@ -71,6 +72,7 @@ function Router() {
         <Route path="/integrations">{() => { window.location.href = "/setup?tab=integrations"; return null; }}</Route>
         <Route path="/onboarding" component={Onboarding} />
         <Route path="/org/new" component={OrgOnboarding} />
+        <Route path="/organizations" component={Organizations} />
         <Route path="/hr" component={HRHub} />
         <Route path="/hr/employee/:id" component={EmployeeProfile} />
         <Route path="/hr/payroll" component={PayrollHub} />

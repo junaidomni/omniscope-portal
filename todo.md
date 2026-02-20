@@ -2433,3 +2433,7 @@
 - [ ] Add member invitation flow with email
 - [ ] Add API key management per organization (for future platform integrations)
 - [ ] Add cross-platform deployment capability for new features
+
+## Bug Fixes - Org Layer
+- [x] Fix "All Organizations" click in OrgSwitcher — nothing opens when clicked
+- [x] Build All Organizations management page with org list, create new org, and org settings

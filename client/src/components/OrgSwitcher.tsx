@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useOrg, OrgInfo } from "@/contexts/OrgContext";
 import { ChevronDown, Plus, Building2, Globe, Check } from "lucide-react";
+import { useLocation } from "wouter";
 
 interface OrgSwitcherProps {
   collapsed: boolean;
@@ -14,6 +15,7 @@ interface OrgSwitcherProps {
   isLightTheme: boolean;
   sidebarBg: string;
   onCreateOrg?: () => void;
+  onViewAllOrgs?: () => void;
 }
 
 export default function OrgSwitcher({
@@ -28,8 +30,10 @@ export default function OrgSwitcher({
   isLightTheme,
   sidebarBg,
   onCreateOrg,
+  onViewAllOrgs,
 }: OrgSwitcherProps) {
   const { currentOrg, memberships, switchOrg, isLoading } = useOrg();
+  const [, setLocation] = useLocation();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -136,6 +140,7 @@ export default function OrgSwitcher({
               dividerColor={dividerColor}
               isLightTheme={isLightTheme}
               onCreateOrg={() => { setOpen(false); onCreateOrg?.(); }}
+              onViewAllOrgs={() => { setOpen(false); onViewAllOrgs?.(); }}
               OrgIcon={OrgIcon}
             />
           </div>
@@ -210,6 +215,7 @@ export default function OrgSwitcher({
             dividerColor={dividerColor}
             isLightTheme={isLightTheme}
             onCreateOrg={() => { setOpen(false); onCreateOrg?.(); }}
+            onViewAllOrgs={() => { setOpen(false); onViewAllOrgs?.(); }}
             OrgIcon={OrgIcon}
           />
         </div>
@@ -232,6 +238,7 @@ function OrgDropdownContent({
   dividerColor,
   isLightTheme,
   onCreateOrg,
+  onViewAllOrgs,
   OrgIcon,
 }: {
   memberships: any[];
@@ -246,6 +253,7 @@ function OrgDropdownContent({
   dividerColor: string;
   isLightTheme: boolean;
   onCreateOrg: () => void;
+  onViewAllOrgs: () => void;
   OrgIcon: React.ComponentType<{ org: OrgInfo | null; size?: number }>;
 }) {
   const roleLabels: Record<string, string> = {
@@ -266,26 +274,23 @@ function OrgDropdownContent({
         </p>
       </div>
 
-      {/* All Organizations option */}
+      {/* All Organizations option — navigates to management page */}
       <button
-        onClick={() => switchOrg(null)}
+        onClick={onViewAllOrgs}
         className="w-full flex items-center gap-2.5 px-3 py-2 transition-all duration-150"
         style={{
-          background: !currentOrg ? `color-mix(in oklch, ${accentColor} 8%, transparent)` : "transparent",
+          background: "transparent",
         }}
         onMouseEnter={(e) => { e.currentTarget.style.background = hoverBg; }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = !currentOrg
-            ? `color-mix(in oklch, ${accentColor} 8%, transparent)`
-            : "transparent";
+          e.currentTarget.style.background = "transparent";
         }}
       >
         <OrgIcon org={null} size={24} />
         <div className="flex-1 min-w-0 text-left">
           <p className="text-[12px] font-medium" style={{ color: textPrimary }}>All Organizations</p>
-          <p className="text-[10px]" style={{ color: textMuted }}>Consolidated view</p>
+          <p className="text-[10px]" style={{ color: textMuted }}>Manage workspaces</p>
         </div>
-        {!currentOrg && <Check className="h-3.5 w-3.5 shrink-0" style={{ color: accentColor }} />}
       </button>
 
       {/* Divider */}
