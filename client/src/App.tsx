@@ -40,6 +40,7 @@ import AdminHubAudit from "./pages/admin-hub/AuditLog";
 import AdminHubAnalytics from "./pages/admin-hub/Analytics";
 import AdminHubHealth from "./pages/admin-hub/Health";
 import AdminHubSettings from "./pages/admin-hub/Settings";
+import AdminHubOrgDetail from "./pages/admin-hub/OrgDetail";
 
 /**
  * Workspace Router — the standard PortalLayout shell.
@@ -116,6 +117,7 @@ function AdminHubRouter() {
       <Switch>
         <Route path="/admin-hub" component={AdminHubDashboard} />
         <Route path="/admin-hub/organizations" component={AdminHubOrganizations} />
+        <Route path="/admin-hub/org/:id" component={AdminHubOrgDetail} />
         <Route path="/admin-hub/people" component={AdminHubPeople} />
         <Route path="/admin-hub/integrations" component={AdminHubIntegrations} />
         <Route path="/admin-hub/features" component={AdminHubFeatures} />

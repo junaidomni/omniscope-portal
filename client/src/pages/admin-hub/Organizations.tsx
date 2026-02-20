@@ -4,7 +4,7 @@
  */
 import { trpc } from "@/lib/trpc";
 import { useDesign } from "@/components/PortalLayout";
-import { Building2, Plus, Search, MoreHorizontal, Users, Globe, ArrowUpRight } from "lucide-react";
+import { Building2, Plus, Search, MoreHorizontal, Users, Globe, ArrowUpRight, Settings } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import { toast } from "sonner";
@@ -117,9 +117,11 @@ export default function AdminHubOrganizations() {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold truncate" style={{ color: textPrimary }}>
-                          {org.name}
-                        </p>
+                        <Link href={`/admin-hub/org/${org.id}`}>
+                          <p className="text-sm font-semibold truncate cursor-pointer hover:underline" style={{ color: textPrimary }}>
+                            {org.name}
+                          </p>
+                        </Link>
                         <div
                           className="px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0"
                           style={{
@@ -147,22 +149,21 @@ export default function AdminHubOrganizations() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => {
-                          switchOrg(org.id);
-                          window.location.href = "/";
-                        }}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
-                        style={{
-                          background: `${accentColor}10`,
-                          color: accentColor,
-                          border: `1px solid ${accentColor}20`,
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = `${accentColor}20`; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = `${accentColor}10`; }}
-                      >
-                        Enter Workspace
-                      </button>
+                      <Link href={`/admin-hub/org/${org.id}`}>
+                        <button
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
+                          style={{
+                            background: `${accentColor}10`,
+                            color: accentColor,
+                            border: `1px solid ${accentColor}20`,
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = `${accentColor}20`; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = `${accentColor}10`; }}
+                        >
+                          <Settings className="h-3 w-3" />
+                          Manage
+                        </button>
+                      </Link>
                       <button
                         onClick={() => setExpandedOrg(expandedOrg === org.id ? null : org.id)}
                         className="p-1.5 rounded-lg transition-all duration-200"

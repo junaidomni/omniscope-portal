@@ -2450,3 +2450,13 @@
 - [x] Build Platform Settings page
 - [x] Write tRPC procedures for cross-org admin queries
 - [x] Write tests for admin hub functionality (9 tests, all passing)
+
+## Org Detail/Settings Page & Feature Flags Fix
+- [x] Build org detail/settings page with General, Members, API Keys, Branding tabsg)
+- [x] Enable org renaming from detail page and organizations list
+- [x] Fix feature flags toggle to persist changes and actually work
+- [x] Add org update tRPC procedures (rename, branding, timezone)
+- [x] Add member management within org detail page
+- [x] Add per-org API key configuration
+- [x] Wire org detail page into routing from Organizations list
+- [x] Write tests for new functionality (16 tests, all passing)

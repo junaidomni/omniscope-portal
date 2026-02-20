@@ -175,6 +175,106 @@ describe("adminHub", () => {
     });
   });
 
+  describe("toggleFeature", () => {
+    it("toggles a feature flag for admin user", async () => {
+      const ctx = createAdminContext();
+      const caller = appRouter.createCaller(ctx);
+      const features = await caller.adminHub.listAllFeatureToggles();
+      if (features.length > 0) {
+        const toggleable = features.find((f: any) => !f.isLocked);
+        if (toggleable) {
+          const result = await caller.adminHub.toggleFeature({
+            id: toggleable.id,
+            enabled: !toggleable.enabled,
+          });
+          expect(result.success).toBe(true);
+          // Toggle it back
+          await caller.adminHub.toggleFeature({
+            id: toggleable.id,
+            enabled: toggleable.enabled,
+          });
+        }
+      }
+    });
+  });
+
+  describe("getOrgDetail", () => {
+    it("returns org detail with members and stats for admin user", async () => {
+      const ctx = createAdminContext();
+      const caller = appRouter.createCaller(ctx);
+      const orgs = await caller.adminHub.listOrganizations();
+      if (orgs.length > 0) {
+        const result = await caller.adminHub.getOrgDetail({ orgId: orgs[0].id });
+        expect(result).toHaveProperty("id");
+        expect(result).toHaveProperty("name");
+        expect(result).toHaveProperty("slug");
+        expect(result).toHaveProperty("members");
+        expect(result).toHaveProperty("integrations");
+        expect(result).toHaveProperty("stats");
+        expect(Array.isArray(result.members)).toBe(true);
+        expect(typeof result.stats.meetings).toBe("number");
+        expect(typeof result.stats.tasks).toBe("number");
+        expect(typeof result.stats.contacts).toBe("number");
+        expect(typeof result.stats.members).toBe("number");
+      }
+    });
+
+    it("throws NOT_FOUND for non-existent org", async () => {
+      const ctx = createAdminContext();
+      const caller = appRouter.createCaller(ctx);
+      await expect(caller.adminHub.getOrgDetail({ orgId: 999999 })).rejects.toThrow(
+        /Organization not found/
+      );
+    });
+  });
+
+  describe("updateOrg", () => {
+    it("updates organization name for admin user", async () => {
+      const ctx = createAdminContext();
+      const caller = appRouter.createCaller(ctx);
+      const orgs = await caller.adminHub.listOrganizations();
+      if (orgs.length > 0) {
+        const originalName = orgs[0].name;
+        const result = await caller.adminHub.updateOrg({
+          orgId: orgs[0].id,
+          name: "Test Rename Org",
+        });
+        expect(result).toHaveProperty("name", "Test Rename Org");
+        // Restore original name
+        await caller.adminHub.updateOrg({
+          orgId: orgs[0].id,
+          name: originalName,
+        });
+      }
+    });
+
+    it("rejects empty update", async () => {
+      const ctx = createAdminContext();
+      const caller = appRouter.createCaller(ctx);
+      const orgs = await caller.adminHub.listOrganizations();
+      if (orgs.length > 0) {
+        await expect(
+          caller.adminHub.updateOrg({ orgId: orgs[0].id })
+        ).rejects.toThrow(/No fields to update/);
+      }
+    });
+  });
+
+  describe("updateOrgStatus", () => {
+    it("updates org status for admin user", async () => {
+      const ctx = createAdminContext();
+      const caller = appRouter.createCaller(ctx);
+      const orgs = await caller.adminHub.listOrganizations();
+      if (orgs.length > 0) {
+        const result = await caller.adminHub.updateOrgStatus({
+          orgId: orgs[0].id,
+          status: "active",
+        });
+        expect(result.success).toBe(true);
+      }
+    });
+  });
+
   describe("access control", () => {
     it("rejects regular users from all hub procedures", async () => {
       const ctx = createRegularUserContext();
@@ -185,6 +285,20 @@ describe("adminHub", () => {
       await expect(caller.adminHub.listAllIntegrations()).rejects.toThrow();
       await expect(caller.adminHub.listAllFeatureToggles()).rejects.toThrow();
       await expect(caller.adminHub.platformHealth()).rejects.toThrow();
+    });
+
+    it("rejects regular users from mutation procedures", async () => {
+      const ctx = createRegularUserContext();
+      const caller = appRouter.createCaller(ctx);
+      await expect(
+        caller.adminHub.toggleFeature({ id: 1, enabled: false })
+      ).rejects.toThrow();
+      await expect(
+        caller.adminHub.updateOrg({ orgId: 1, name: "hack" })
+      ).rejects.toThrow();
+      await expect(
+        caller.adminHub.updateOrgStatus({ orgId: 1, status: "suspended" })
+      ).rejects.toThrow();
     });
   });
 });

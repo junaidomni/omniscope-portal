@@ -21,7 +21,7 @@ import {
   activityLog,
   employees,
 } from "../../drizzle/schema";
-import { eq, count, desc, and, gte } from "drizzle-orm";
+import { eq, count, desc, and, gte, like } from "drizzle-orm";
 
 // Gate: only super_admin or account_owner can access
 const hubProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -365,6 +365,200 @@ export const adminHubRouter = router({
         .update(organizations)
         .set({ status: input.status })
         .where(eq(organizations.id, input.orgId));
+      return { success: true };
+    }),
+
+  /**
+   * Get single organization detail with members and integrations
+   */
+  getOrgDetail: hubProcedure
+    .input(z.object({ orgId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [org] = await db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, input.orgId))
+        .limit(1);
+
+      if (!org) throw new TRPCError({ code: "NOT_FOUND", message: "Organization not found" });
+
+      // Get members with user info
+      const members = await db
+        .select({
+          id: orgMemberships.id,
+          userId: orgMemberships.userId,
+          role: orgMemberships.role,
+          isDefault: orgMemberships.isDefault,
+          joinedAt: orgMemberships.joinedAt,
+          userName: users.name,
+          userEmail: users.email,
+        })
+        .from(orgMemberships)
+        .innerJoin(users, eq(orgMemberships.userId, users.id))
+        .where(eq(orgMemberships.organizationId, input.orgId));
+
+      // Get org integrations
+      const orgIntegrations = await db
+        .select()
+        .from(integrations)
+        .where(eq(integrations.orgId, input.orgId))
+        .orderBy(integrations.sortOrder);
+
+      // Get org feature toggles
+      const orgFeatures = await db
+        .select()
+        .from(featureToggles)
+        .where(eq(featureToggles.orgId, input.orgId));
+
+      // Count meetings, tasks, contacts for this org
+      const [meetingCount] = await db.select({ count: count() }).from(meetings).where(eq(meetings.orgId, input.orgId));
+      const [taskCount] = await db.select({ count: count() }).from(tasks).where(eq(tasks.orgId, input.orgId));
+      const [contactCount] = await db.select({ count: count() }).from(contacts).where(eq(contacts.orgId, input.orgId));
+
+      return {
+        ...org,
+        members,
+        integrations: orgIntegrations,
+        features: orgFeatures,
+        stats: {
+          meetings: meetingCount?.count ?? 0,
+          tasks: taskCount?.count ?? 0,
+          contacts: contactCount?.count ?? 0,
+          members: members.length,
+        },
+      };
+    }),
+
+  /**
+   * Update organization details (name, branding, timezone, etc.)
+   */
+  updateOrg: hubProcedure
+    .input(
+      z.object({
+        orgId: z.number(),
+        name: z.string().min(1).max(500).optional(),
+        slug: z.string().min(1).max(100).optional(),
+        logoUrl: z.string().nullable().optional(),
+        accentColor: z.string().max(32).optional(),
+        industry: z.string().max(255).nullable().optional(),
+        domain: z.string().max(500).nullable().optional(),
+        timezone: z.string().max(100).optional(),
+        settings: z.string().nullable().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const { orgId, ...updates } = input;
+
+      // If slug is being changed, check uniqueness
+      if (updates.slug) {
+        const [existing] = await db
+          .select({ id: organizations.id })
+          .from(organizations)
+          .where(and(eq(organizations.slug, updates.slug)))
+          .limit(1);
+        if (existing && existing.id !== orgId) {
+          throw new TRPCError({ code: "CONFLICT", message: "Slug already in use" });
+        }
+      }
+
+      // Filter out undefined values
+      const setObj: Record<string, any> = {};
+      if (updates.name !== undefined) setObj.name = updates.name;
+      if (updates.slug !== undefined) setObj.slug = updates.slug;
+      if (updates.logoUrl !== undefined) setObj.logoUrl = updates.logoUrl;
+      if (updates.accentColor !== undefined) setObj.accentColor = updates.accentColor;
+      if (updates.industry !== undefined) setObj.industry = updates.industry;
+      if (updates.domain !== undefined) setObj.domain = updates.domain;
+      if (updates.timezone !== undefined) setObj.timezone = updates.timezone;
+      if (updates.settings !== undefined) setObj.settings = updates.settings;
+
+      if (Object.keys(setObj).length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No fields to update" });
+      }
+
+      await db.update(organizations).set(setObj).where(eq(organizations.id, orgId));
+
+      // Return updated org
+      const [updated] = await db
+        .select()
+        .from(organizations)
+        .where(eq(organizations.id, orgId))
+        .limit(1);
+      return updated;
+    }),
+
+  /**
+   * Update member role within an organization
+   */
+  updateMemberRole: hubProcedure
+    .input(
+      z.object({
+        membershipId: z.number(),
+        role: z.enum(["super_admin", "account_owner", "org_admin", "manager", "member", "viewer"]),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      await db
+        .update(orgMemberships)
+        .set({ role: input.role })
+        .where(eq(orgMemberships.id, input.membershipId));
+      return { success: true };
+    }),
+
+  /**
+   * Remove member from an organization
+   */
+  removeMember: hubProcedure
+    .input(z.object({ membershipId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      await db.delete(orgMemberships).where(eq(orgMemberships.id, input.membershipId));
+      return { success: true };
+    }),
+
+  /**
+   * Update integration settings for an org
+   */
+  updateIntegration: hubProcedure
+    .input(
+      z.object({
+        integrationId: z.number(),
+        enabled: z.boolean().optional(),
+        apiKey: z.string().nullable().optional(),
+        apiSecret: z.string().nullable().optional(),
+        baseUrl: z.string().nullable().optional(),
+        webhookUrl: z.string().nullable().optional(),
+        config: z.string().nullable().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const { integrationId, ...updates } = input;
+      const setObj: Record<string, any> = {};
+      if (updates.enabled !== undefined) setObj.enabled = updates.enabled;
+      if (updates.apiKey !== undefined) setObj.apiKey = updates.apiKey;
+      if (updates.apiSecret !== undefined) setObj.apiSecret = updates.apiSecret;
+      if (updates.baseUrl !== undefined) setObj.baseUrl = updates.baseUrl;
+      if (updates.webhookUrl !== undefined) setObj.webhookUrl = updates.webhookUrl;
+      if (updates.config !== undefined) setObj.config = updates.config;
+
+      if (updates.enabled === true) setObj.status = "connected";
+      if (updates.enabled === false) setObj.status = "disconnected";
+
+      await db.update(integrations).set(setObj).where(eq(integrations.id, integrationId));
       return { success: true };
     }),
 });
