@@ -189,6 +189,10 @@ function CharacterAvatar({ state, size = 56, badge, theme = "obsidian" }: Omit<O
       setEyeOffset({ x: 0, y: 1 });
       return;
     }
+    if (state === "waiting") {
+      setEyeOffset({ x: 0, y: -0.8 });
+      return;
+    }
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
@@ -306,7 +310,7 @@ function CharacterAvatar({ state, size = 56, badge, theme = "obsidian" }: Omit<O
       case "success": case "thumbsup": case "celebrate": case "proud": return 2 * scale;
       case "error": case "alert": return 5 * scale;
       case "concerned": return 5 * scale;
-      case "waiting": return 4.5 * scale;
+      case "waiting": return 5.5 * scale;            // Wider, patient eyes
       case "relaxed": return 3.5 * scale;           // Soft, droopy
       default: return 6 * scale;
     }
@@ -327,7 +331,7 @@ function CharacterAvatar({ state, size = 56, badge, theme = "obsidian" }: Omit<O
       case "concerned": return "#f59e0b";
       case "focused": return "#eab308";
       case "relaxed": return "#d4af37";
-      case "waiting": return "#e2c76a";
+      case "waiting": return "#eab308";              // Warm gold, patient
       default: return "#eab308";
     }
   };
@@ -563,13 +567,25 @@ function CharacterAvatar({ state, size = 56, badge, theme = "obsidian" }: Omit<O
             />
           )}
 
-          {/* ── Waiting dots (calm, slow bounce) ── */}
+          {/* ── Waiting — gentle patient smile + slow orbiting ring ── */}
           {state === "waiting" && (
-            <g>
-              <circle cx={r - 5 * scale} cy={r + 7 * scale} r={1.3 * scale} fill={rim.color} opacity="0.4" className="animate-omni-wait-dot-1" />
-              <circle cx={r} cy={r + 7 * scale} r={1.3 * scale} fill={rim.color} opacity="0.4" className="animate-omni-wait-dot-2" />
-              <circle cx={r + 5 * scale} cy={r + 7 * scale} r={1.3 * scale} fill={rim.color} opacity="0.4" className="animate-omni-wait-dot-3" />
-            </g>
+            <>
+              {/* Small calm smile */}
+              <path
+                d={`M ${r - 3 * scale} ${r + 5 * scale}
+                    Q ${r} ${r + 7 * scale}
+                      ${r + 3 * scale} ${r + 5 * scale}`}
+                fill="none" stroke="#eab308" strokeWidth={0.9 * scale} strokeLinecap="round" opacity="0.45"
+              />
+              {/* Gentle slow-spinning ring */}
+              <circle
+                cx={r} cy={r} r={bodyR + 2.5}
+                fill="none" stroke={rim.color} strokeWidth={0.7 * scale}
+                strokeDasharray={`${8 * scale} ${12 * scale}`}
+                opacity="0.25"
+                className="animate-spin-slow"
+              />
+            </>
           )}
 
           {/* ── Alert indicator — subtle pulsing ring ── */}

@@ -2365,3 +2365,6 @@
 - [x] Keep all settings panel functionality
 - [x] Redesign the thinking face (dashed orbiting ring instead of bouncing dots)
 - [x] Verify all states still work with original design (142 tests passing)
+
+## v78 — Omni Waiting State Fix
+- [x] Make the waiting Omni state look friendly and not scary (wider patient eyes looking up, calm smile, slow orbiting ring instead of bouncing dots)
