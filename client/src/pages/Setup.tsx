@@ -15,11 +15,13 @@ import {
   HardDrive, FileText, FileSpreadsheet, Power, Plus, Search,
   ToggleLeft, ToggleRight, Lock, Unlock, ChevronDown, ChevronUp,
   Key, Globe, Webhook, Trash2, Edit3, Check, X, ArrowRight,
-  Puzzle, MessageSquare, CreditCard, BarChart3, Briefcase, Bot
+  Puzzle, MessageSquare, CreditCard, BarChart3, Briefcase, Bot,
+  Palette, Upload, Type, Layout, Sun, Moon
 } from "lucide-react";
 import OmniAvatar, { OmniMode, OmniState } from "@/components/OmniAvatar";
+import { useDesign } from "@/components/PortalLayout";
 
-type Tab = "profile" | "integrations" | "features" | "webhooks" | "omni";
+type Tab = "profile" | "integrations" | "features" | "webhooks" | "omni" | "appearance";
 
 export default function Setup() {
   const search = useSearch();
@@ -47,6 +49,7 @@ export default function Setup() {
     { id: "features", label: "Feature Controls", icon: <ToggleRight className="h-4 w-4" />, description: "Module toggles" },
     { id: "webhooks", label: "Webhooks & API", icon: <Webhook className="h-4 w-4" />, description: "Endpoints" },
     { id: "omni", label: "Omni Assistant", icon: <Sparkles className="h-4 w-4" />, description: "AI companion" },
+    { id: "appearance", label: "Appearance", icon: <Palette className="h-4 w-4" />, description: "Design & theme" },
   ];
 
   return (
@@ -97,6 +100,7 @@ export default function Setup() {
         {activeTab === "features" && <FeatureControlsTab />}
         {activeTab === "webhooks" && <WebhooksTab />}
         {activeTab === "omni" && <OmniTab />}
+        {activeTab === "appearance" && <AppearanceTab />}
       </div>
     </div>
   );
@@ -1241,4 +1245,462 @@ function OmniTab() {
       </div>
     </div>
   );
+}
+
+
+// ============================================================================
+// APPEARANCE TAB — Design Templates, Logo, Accent Color, Sidebar Style
+// ============================================================================
+
+const DESIGN_TEMPLATES = [
+  {
+    id: "obsidian" as const,
+    name: "Obsidian",
+    description: "Default black & gold — institutional, premium",
+    accent: "#d4af37",
+    bg: "#000000",
+    card: "#0a0a0a",
+    text: "#ffffff",
+    preview: "linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%)",
+    accentPreview: "linear-gradient(135deg, #d4af37, #b8962e)",
+  },
+  {
+    id: "ivory" as const,
+    name: "Ivory",
+    description: "Light mode — clean, minimal, Apple-inspired",
+    accent: "#1a1a1a",
+    bg: "#fafafa",
+    card: "#ffffff",
+    text: "#0a0a0a",
+    preview: "linear-gradient(135deg, #fafafa 0%, #f0f0f0 50%, #fafafa 100%)",
+    accentPreview: "linear-gradient(135deg, #1a1a1a, #333333)",
+  },
+  {
+    id: "midnight" as const,
+    name: "Midnight",
+    description: "Deep navy & silver — sophisticated, modern",
+    accent: "#7c8db5",
+    bg: "#0b0e17",
+    card: "#111827",
+    text: "#e5e7eb",
+    preview: "linear-gradient(135deg, #0b0e17 0%, #111827 50%, #0b0e17 100%)",
+    accentPreview: "linear-gradient(135deg, #7c8db5, #5b6f96)",
+  },
+  {
+    id: "emerald" as const,
+    name: "Emerald",
+    description: "Dark with green accents — wealth, growth",
+    accent: "#10b981",
+    bg: "#030712",
+    card: "#0a1628",
+    text: "#e5e7eb",
+    preview: "linear-gradient(135deg, #030712 0%, #0a1628 50%, #030712 100%)",
+    accentPreview: "linear-gradient(135deg, #10b981, #059669)",
+  },
+  {
+    id: "slate" as const,
+    name: "Slate",
+    description: "Warm grey & amber — understated, professional",
+    accent: "#f59e0b",
+    bg: "#0f0f0f",
+    card: "#1c1917",
+    text: "#e7e5e4",
+    preview: "linear-gradient(135deg, #0f0f0f 0%, #1c1917 50%, #0f0f0f 100%)",
+    accentPreview: "linear-gradient(135deg, #f59e0b, #d97706)",
+  },
+];
+
+const SIDEBAR_STYLES = [
+  { id: "default" as const, name: "Standard", description: "Full sidebar with labels and section headers" },
+  { id: "compact" as const, name: "Compact", description: "Narrower sidebar with tighter spacing" },
+  { id: "minimal" as const, name: "Minimal", description: "Ultra-clean with reduced visual elements" },
+];
+
+const ACCENT_PRESETS = [
+  { color: "#d4af37", name: "Gold" },
+  { color: "#3b82f6", name: "Blue" },
+  { color: "#10b981", name: "Emerald" },
+  { color: "#8b5cf6", name: "Violet" },
+  { color: "#f43f5e", name: "Rose" },
+  { color: "#f59e0b", name: "Amber" },
+  { color: "#06b6d4", name: "Cyan" },
+  { color: "#ec4899", name: "Pink" },
+  { color: "#ffffff", name: "White" },
+];
+
+function AppearanceTab() {
+  const { accentColor, logoUrl, theme, refetch } = useDesign();
+  const designQuery = trpc.design.get.useQuery();
+  const updateMutation = trpc.design.update.useMutation({
+    onSuccess: () => {
+      refetch();
+      designQuery.refetch();
+      toast.success("Appearance updated");
+    },
+    onError: (err: any) => toast.error(err.message || "Failed to update"),
+  });
+  const uploadLogoMutation = trpc.design.uploadLogo.useMutation({
+    onSuccess: () => {
+      refetch();
+      designQuery.refetch();
+      toast.success("Logo updated");
+    },
+    onError: (err: any) => toast.error(err.message || "Failed to upload logo"),
+  });
+
+  const currentTheme = designQuery.data?.theme || "obsidian";
+  const currentAccent = designQuery.data?.accentColor || "#d4af37";
+  const currentSidebarStyle = designQuery.data?.sidebarStyle || "default";
+  const currentLogo = designQuery.data?.logoUrl;
+
+  const [selectedTheme, setSelectedTheme] = useState(currentTheme);
+  const [selectedAccent, setSelectedAccent] = useState(currentAccent);
+  const [selectedSidebarStyle, setSelectedSidebarStyle] = useState(currentSidebarStyle);
+  const [customAccent, setCustomAccent] = useState(currentAccent);
+  const [uploading, setUploading] = useState(false);
+
+  // Sync with server data
+  useEffect(() => {
+    if (designQuery.data) {
+      setSelectedTheme(designQuery.data.theme || "obsidian");
+      setSelectedAccent(designQuery.data.accentColor || "#d4af37");
+      setSelectedSidebarStyle(designQuery.data.sidebarStyle || "default");
+      setCustomAccent(designQuery.data.accentColor || "#d4af37");
+    }
+  }, [designQuery.data]);
+
+  const handleThemeSelect = (themeId: string) => {
+    const template = DESIGN_TEMPLATES.find(t => t.id === themeId);
+    setSelectedTheme(themeId);
+    if (template) {
+      setSelectedAccent(template.accent);
+      setCustomAccent(template.accent);
+    }
+    updateMutation.mutate({ 
+      theme: themeId as any,
+      accentColor: template?.accent,
+    });
+  };
+
+  const handleAccentSelect = (color: string) => {
+    setSelectedAccent(color);
+    setCustomAccent(color);
+    updateMutation.mutate({ accentColor: color });
+  };
+
+  const handleSidebarStyleSelect = (style: string) => {
+    setSelectedSidebarStyle(style);
+    updateMutation.mutate({ sidebarStyle: style as any });
+  };
+
+  const handleLogoUpload = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/svg+xml,image/webp";
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) { toast.error("File too large (max 5MB)"); return; }
+      setUploading(true);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        uploadLogoMutation.mutate({ base64, mimeType: file.type }, {
+          onSettled: () => setUploading(false),
+        });
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
+
+  const handleRemoveLogo = () => {
+    updateMutation.mutate({ logoUrl: null });
+  };
+
+  const hasChanges = selectedTheme !== currentTheme || selectedAccent !== currentAccent || selectedSidebarStyle !== currentSidebarStyle;
+
+  return (
+    <div className="space-y-8 max-w-4xl">
+      {/* Section: Logo */}
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: `rgba(${hexToRgb(selectedAccent)}, 0.1)` }}>
+            <Upload className="h-4 w-4" style={{ color: selectedAccent }} />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white">Brand Logo</h3>
+            <p className="text-xs text-zinc-500">Upload your custom logo for the sidebar and login page</p>
+          </div>
+        </div>
+
+        <div className="p-6 rounded-xl border" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="flex items-center gap-6">
+            {/* Logo Preview */}
+            <div 
+              className="w-40 h-20 rounded-xl flex items-center justify-center relative group overflow-hidden"
+              style={{ background: 'rgba(0,0,0,0.4)', border: '1px dashed rgba(255,255,255,0.1)' }}
+            >
+              {currentLogo ? (
+                <>
+                  <img src={currentLogo} alt="Custom Logo" className="max-w-full max-h-full object-contain p-2" />
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button onClick={handleLogoUpload} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+                      <Edit3 className="h-3.5 w-3.5 text-white" />
+                    </button>
+                    <button onClick={handleRemoveLogo} className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 transition-colors">
+                      <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center">
+                  <Upload className="h-5 w-5 text-zinc-600 mx-auto mb-1" />
+                  <span className="text-[10px] text-zinc-600">No logo</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 space-y-3">
+              <Button
+                onClick={handleLogoUpload}
+                disabled={uploading}
+                variant="outline"
+                className="border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800"
+              >
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                {currentLogo ? "Replace Logo" : "Upload Logo"}
+              </Button>
+              <p className="text-[10px] text-zinc-600">PNG, JPG, SVG, or WebP. Max 5MB. Recommended: 160×40px or similar aspect ratio.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Section: Design Templates */}
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: `rgba(${hexToRgb(selectedAccent)}, 0.1)` }}>
+            <Palette className="h-4 w-4" style={{ color: selectedAccent }} />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white">Design Templates</h3>
+            <p className="text-xs text-zinc-500">Choose a pre-built theme that matches your brand</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {DESIGN_TEMPLATES.map((template) => {
+            const isActive = selectedTheme === template.id;
+            return (
+              <button
+                key={template.id}
+                onClick={() => handleThemeSelect(template.id)}
+                className="text-left rounded-xl overflow-hidden transition-all duration-200 group relative"
+                style={{
+                  border: isActive ? `2px solid ${template.accent}` : '2px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                {/* Theme Preview */}
+                <div className="h-24 relative" style={{ background: template.preview }}>
+                  {/* Mini sidebar preview */}
+                  <div className="absolute left-0 top-0 bottom-0 w-8" style={{ background: template.card, borderRight: `1px solid rgba(255,255,255,0.05)` }}>
+                    <div className="mt-3 mx-1.5 space-y-1.5">
+                      {[1,2,3].map(i => (
+                        <div key={i} className="h-1 rounded-full" style={{ 
+                          background: i === 1 ? template.accent : 'rgba(255,255,255,0.1)',
+                          width: i === 1 ? '100%' : '70%',
+                        }} />
+                      ))}
+                    </div>
+                  </div>
+                  {/* Mini content preview */}
+                  <div className="absolute left-10 top-3 right-2">
+                    <div className="h-2 w-16 rounded-sm mb-2" style={{ background: `${template.accent}40` }} />
+                    <div className="h-1.5 w-full rounded-sm mb-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                    <div className="h-1.5 w-3/4 rounded-sm" style={{ background: 'rgba(255,255,255,0.05)' }} />
+                  </div>
+                  {/* Accent dot */}
+                  <div className="absolute bottom-2 right-2 h-4 w-4 rounded-full" style={{ background: template.accentPreview }} />
+                  {/* Active checkmark */}
+                  {isActive && (
+                    <div className="absolute top-2 right-2 h-5 w-5 rounded-full flex items-center justify-center" style={{ backgroundColor: template.accent }}>
+                      <Check className="h-3 w-3" style={{ color: template.bg }} />
+                    </div>
+                  )}
+                </div>
+                {/* Label */}
+                <div className="px-3 py-2.5" style={{ background: template.card }}>
+                  <p className="text-xs font-semibold" style={{ color: template.text }}>{template.name}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: `${template.text}80` }}>{template.description}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Section: Accent Color */}
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: `rgba(${hexToRgb(selectedAccent)}, 0.1)` }}>
+            <Sun className="h-4 w-4" style={{ color: selectedAccent }} />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white">Accent Color</h3>
+            <p className="text-xs text-zinc-500">Customize the primary accent used across the interface</p>
+          </div>
+        </div>
+
+        <div className="p-5 rounded-xl border" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)' }}>
+          {/* Preset Colors */}
+          <div className="flex items-center gap-2 mb-4">
+            {ACCENT_PRESETS.map((preset) => (
+              <button
+                key={preset.color}
+                onClick={() => handleAccentSelect(preset.color)}
+                className="relative group"
+                title={preset.name}
+              >
+                <div 
+                  className="h-8 w-8 rounded-full transition-transform duration-200 group-hover:scale-110"
+                  style={{ 
+                    backgroundColor: preset.color,
+                    boxShadow: selectedAccent === preset.color ? `0 0 0 2px #000, 0 0 0 4px ${preset.color}` : 'none',
+                    border: preset.color === '#ffffff' ? '1px solid rgba(255,255,255,0.2)' : 'none',
+                  }}
+                />
+                {selectedAccent === preset.color && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Check className="h-3.5 w-3.5" style={{ color: preset.color === '#ffffff' || preset.color === '#f59e0b' || preset.color === '#d4af37' ? '#000' : '#fff' }} />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Custom Color Input */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="h-5 w-5 rounded-md" style={{ backgroundColor: customAccent }} />
+              <Input
+                value={customAccent}
+                onChange={(e) => setCustomAccent(e.target.value)}
+                className="w-24 h-7 text-xs bg-transparent border-none p-0 text-zinc-300 font-mono"
+                placeholder="#d4af37"
+              />
+            </div>
+            <Button
+              onClick={() => handleAccentSelect(customAccent)}
+              variant="outline"
+              size="sm"
+              className="border-zinc-700 text-zinc-400 hover:text-white text-xs"
+              disabled={customAccent === selectedAccent}
+            >
+              Apply
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Section: Sidebar Style */}
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: `rgba(${hexToRgb(selectedAccent)}, 0.1)` }}>
+            <Layout className="h-4 w-4" style={{ color: selectedAccent }} />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white">Sidebar Style</h3>
+            <p className="text-xs text-zinc-500">Choose how the navigation sidebar appears</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          {SIDEBAR_STYLES.map((style) => {
+            const isActive = selectedSidebarStyle === style.id;
+            return (
+              <button
+                key={style.id}
+                onClick={() => handleSidebarStyleSelect(style.id)}
+                className="p-4 rounded-xl text-left transition-all duration-200"
+                style={{
+                  background: isActive ? `rgba(${hexToRgb(selectedAccent)}, 0.06)` : 'rgba(255,255,255,0.02)',
+                  border: isActive ? `1px solid rgba(${hexToRgb(selectedAccent)}, 0.3)` : '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-white">{style.name}</span>
+                  {isActive && (
+                    <div className="h-4 w-4 rounded-full flex items-center justify-center" style={{ backgroundColor: selectedAccent }}>
+                      <Check className="h-2.5 w-2.5 text-black" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-zinc-500 leading-relaxed">{style.description}</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Live Preview Card */}
+      <div className="p-5 rounded-xl border" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center gap-2 mb-4">
+          <Monitor className="h-4 w-4 text-zinc-500" />
+          <span className="text-xs font-semibold text-white">Live Preview</span>
+          <Badge className="text-[9px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">LIVE</Badge>
+        </div>
+        <div className="h-32 rounded-lg overflow-hidden flex" style={{ background: '#000', border: '1px solid rgba(255,255,255,0.05)' }}>
+          {/* Mini sidebar */}
+          <div className="w-12 h-full flex flex-col items-center py-3 gap-2" style={{ background: 'rgba(15,15,15,0.98)', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+            <div className="h-6 w-6 rounded-md" style={{ background: `rgba(${hexToRgb(selectedAccent)}, 0.15)`, border: `1px solid rgba(${hexToRgb(selectedAccent)}, 0.2)` }} />
+            <div className="flex-1 flex flex-col items-center gap-1.5 mt-2">
+              {[true, false, false, false].map((active, i) => (
+                <div key={i} className="h-1.5 w-5 rounded-full" style={{ background: active ? selectedAccent : 'rgba(255,255,255,0.08)' }} />
+              ))}
+            </div>
+            <div className="h-5 w-5 rounded-full" style={{ backgroundColor: selectedAccent }} />
+          </div>
+          {/* Mini content */}
+          <div className="flex-1 p-3">
+            <div className="h-2.5 w-24 rounded-sm mb-3" style={{ background: `${selectedAccent}30` }} />
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {[1,2,3].map(i => (
+                <div key={i} className="h-10 rounded-md" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div className="h-1 w-6 rounded-full mt-2 ml-2" style={{ background: i === 1 ? `${selectedAccent}40` : 'rgba(255,255,255,0.06)' }} />
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1">
+              <div className="h-1.5 w-full rounded-sm" style={{ background: 'rgba(255,255,255,0.05)' }} />
+              <div className="h-1.5 w-3/4 rounded-sm" style={{ background: 'rgba(255,255,255,0.03)' }} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Info Note */}
+      <div className="p-4 rounded-xl flex items-start gap-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+        <Info className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: selectedAccent }} />
+        <div>
+          <p className="text-xs font-medium text-zinc-300">Design preferences are saved per user</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">
+            Each team member can customize their own appearance. Changes apply immediately across the portal.
+            Theme templates will be expanded with more options in future updates.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function hexToRgb(hex: string): string {
+  try {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `${r}, ${g}, ${b}`;
+  } catch {
+    return "212, 175, 55";
+  }
 }

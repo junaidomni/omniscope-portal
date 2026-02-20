@@ -2216,3 +2216,38 @@
 - [x] Enable profile photo upload in Settings Profile tab (hover overlay, S3 upload)
 - [x] Add Payoneer to integrations seed data (Finance category)
 - [x] Profile photo display in sidebar and profile section
+
+## v70 — Sidebar Redesign, Design Templates, Logo Customization & Ask Omni Upgrade
+
+### Sidebar Redesign (Tesla/Apple)
+- [x] Redesign sidebar with premium Tesla/Apple aesthetic
+- [x] Smooth hover animations and active state indicators
+- [x] Collapsible sections with refined transitions
+- [x] User avatar and profile section at bottom
+- [x] Logo display at top with customization support
+
+### Design Templates & Customization
+- [x] Add design_preferences table (theme, accent color, logo URL, sidebar style)
+- [x] Create 5 design templates (Obsidian, Ivory, Midnight, Emerald, Slate)
+- [x] Template preview cards in Settings with mini-dashboard previews
+- [x] Live theme switching without page reload
+- [x] Custom accent color picker with 9 presets + hex input
+
+### Logo Customization
+- [x] Logo upload in Settings (S3 storage)
+- [x] Logo display in sidebar header
+- [x] Fallback to default OmniScope logo
+
+### Appearance Settings Tab
+- [x] New "Appearance" tab in Settings
+- [x] Design template selector with visual previews
+- [x] Logo upload with click-to-upload
+- [x] Accent color customization with presets + hex
+- [x] Sidebar density options (Standard/Compact/Minimal)
+
+### Ask Omni Upgrade
+- [x] Redesign Ask Omni chat with premium Tesla/Apple aesthetic
+- [x] Better message bubbles with glassmorphism backdrop
+- [x] Typing indicator with animated dots
+- [x] Context-aware suggestions per page
+- [x] Premium input bar with unified container style

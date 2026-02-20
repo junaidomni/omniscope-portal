@@ -1340,3 +1340,31 @@ export const featureToggles = mysqlTable("feature_toggles", {
 
 export type FeatureToggle = typeof featureToggles.$inferSelect;
 export type InsertFeatureToggle = typeof featureToggles.$inferInsert;
+
+
+// ─── Design Preferences ────────────────────────────────────────────────────
+export const designPreferences = mysqlTable("design_preferences", {
+  id: int("dpId").primaryKey().autoincrement(),
+  userId: int("dpUserId").notNull().references(() => users.id),
+  theme: mysqlEnum("dpTheme", [
+    "obsidian",       // Default black & gold
+    "ivory",          // Light cream & charcoal
+    "midnight",       // Deep navy & silver
+    "emerald",        // Dark green & gold
+    "slate",          // Cool gray & blue
+  ]).notNull().default("obsidian"),
+  accentColor: varchar("dpAccentColor", { length: 32 }).default("#d4af37").notNull(),
+  logoUrl: text("dpLogoUrl"),
+  sidebarStyle: mysqlEnum("dpSidebarStyle", [
+    "default",
+    "compact",
+    "minimal",
+  ]).notNull().default("default"),
+  sidebarPosition: mysqlEnum("dpSidebarPosition", ["left", "right"]).notNull().default("left"),
+  fontFamily: varchar("dpFontFamily", { length: 64 }).default("Inter").notNull(),
+  updatedAt: timestamp("dpUpdatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userIdx: uniqueIndex("dp_user_idx").on(table.userId),
+}));
+export type DesignPreference = typeof designPreferences.$inferSelect;
+export type InsertDesignPreference = typeof designPreferences.$inferInsert;
