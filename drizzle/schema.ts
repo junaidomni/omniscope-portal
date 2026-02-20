@@ -1076,7 +1076,9 @@ export const documentAccess = mysqlTable("document_access", {
   id: int("id").autoincrement().primaryKey(),
   documentId: int("daDocumentId").references(() => documents.id, { onDelete: "cascade" }),
   folderId: int("daFolderId").references(() => documentFolders.id, { onDelete: "cascade" }),
-  userId: int("daUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: int("daUserId").references(() => users.id, { onDelete: "cascade" }),
+  contactId: int("daContactId").references(() => contacts.id, { onDelete: "cascade" }),
+  companyId: int("daCompanyId").references(() => companies.id, { onDelete: "cascade" }),
   accessLevel: mysqlEnum("daAccessLevel", ["view", "edit", "admin"]).default("view").notNull(),
   grantedBy: int("daGrantedBy").references(() => users.id),
   createdAt: timestamp("daCreatedAt").defaultNow().notNull(),
@@ -1084,6 +1086,8 @@ export const documentAccess = mysqlTable("document_access", {
   documentIdx: index("da_document_idx").on(table.documentId),
   folderIdx: index("da_folder_idx").on(table.folderId),
   userIdx: index("da_user_idx").on(table.userId),
+  contactIdx: index("da_contact_idx").on(table.contactId),
+  companyIdx: index("da_company_idx").on(table.companyId),
 }));
 
 export type DocumentAccess = typeof documentAccess.$inferSelect;
@@ -1215,6 +1219,8 @@ export const documentAccessRelations = relations(documentAccess, ({ one }) => ({
   document: one(documents, { fields: [documentAccess.documentId], references: [documents.id] }),
   folder: one(documentFolders, { fields: [documentAccess.folderId], references: [documentFolders.id] }),
   user: one(users, { fields: [documentAccess.userId], references: [users.id] }),
+  contact: one(contacts, { fields: [documentAccess.contactId], references: [contacts.id] }),
+  company: one(companies, { fields: [documentAccess.companyId], references: [companies.id] }),
   granter: one(users, { fields: [documentAccess.grantedBy], references: [users.id] }),
 }));
 

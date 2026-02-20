@@ -2057,3 +2057,18 @@
 - [x] Folder mutations (create, rename, delete) all refetch rootFolders for instant updates
 - [x] Wider folder cards (4-column grid) to show full folder names
 - [x] All 938 tests passing across 37 files
+
+## v61 — Document Movement & Company Access
+
+### Document Movement
+- [x] Move documents between Vault folders freely
+- [x] Move documents between collections
+- [x] Move documents to Templates section (convert to template)
+- [ ] Move Google Drive files directly to any Vault folder or Templates
+- [x] Enhanced Move dialog with folder tree, collection picker, and "Move to Templates" option
+
+### Company Access Tagging
+- [x] Grant access to companies (not just individual contacts)
+- [x] Company access in Share/Access dialog alongside individual contacts
+- [x] Search both companies and contacts in the Share dialog
+- [x] Show company access badges on documents and folders

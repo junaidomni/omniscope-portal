@@ -230,10 +230,26 @@ export default function Vault() {
     },
     onError: (e) => toast.error(e.message),
   });
-
   const revokeAccess = trpc.vault.revokeAccess.useMutation({
     onSuccess: () => {
       toast.success("Access revoked");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const moveToCollection = trpc.vault.moveToCollection.useMutation({
+    onSuccess: () => {
+      toast.success("Document moved to new collection");
+      recentDocs.refetch();
+      collectionDocs.refetch();
+      folderDocs.refetch();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const convertToTemplate = trpc.vault.convertToTemplate.useMutation({
+    onSuccess: () => {
+      toast.success("Document converted to template");
+      recentDocs.refetch();
+      collectionDocs.refetch();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -746,7 +762,13 @@ export default function Vault() {
         onMove={(docId, folderId) => {
           moveDocToFolder.mutate({ documentId: docId, folderId });
         }}
-        isLoading={moveDocToFolder.isPending}
+        onMoveToCollection={(docId, collection) => {
+          moveToCollection.mutate({ documentId: docId, collection: collection as any });
+        }}
+        onConvertToTemplate={(docId, name, category) => {
+          convertToTemplate.mutate({ documentId: docId, name, category: category as any });
+        }}
+        isLoading={moveDocToFolder.isPending || moveToCollection.isPending || convertToTemplate.isPending}
       />
 
       {/* Share / Access Dialog */}
@@ -754,11 +776,11 @@ export default function Vault() {
         open={shareDialogOpen}
         onClose={() => { setShareDialogOpen(false); setShareTarget(null); }}
         target={shareTarget}
-        onGrant={(targetType, targetId, contactId, level) => {
-          grantAccess.mutate({ targetType, targetId, contactId, level });
+        onGrant={(params) => {
+          grantAccess.mutate(params);
         }}
         onRevoke={(accessId) => {
-          revokeAccess.mutate({ id: accessId });
+          revokeAccess.mutate({ accessId });
         }}
       />
     </div>
@@ -2314,116 +2336,244 @@ function NewFolderDialog({
 
 // ─── Move to Folder Dialog ───
 function MoveToFolderDialog({
-  open, onClose, documentId, onMove, isLoading
+  open, onClose, documentId, onMove, onMoveToCollection, onConvertToTemplate, isLoading
 }: {
   open: boolean;
   onClose: () => void;
   documentId: number | null;
   onMove: (docId: number, folderId: number | null) => void;
+  onMoveToCollection?: (docId: number, collection: string) => void;
+  onConvertToTemplate?: (docId: number, name: string, category: string) => void;
   isLoading: boolean;
 }) {
+  const [moveTab, setMoveTab] = useState<"folder" | "collection" | "template">("folder");
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [browseFolderId, setBrowseFolderId] = useState<number | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<Array<{ id: number | null; name: string }>>([{ id: null, name: "Root" }]);
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+  const [templateName, setTemplateName] = useState("");
+  const [templateCategory, setTemplateCategory] = useState("agreement");
 
   const allFolders = trpc.vault.listFolders.useQuery(
     { parentId: browseFolderId },
-    { enabled: open }
+    { enabled: open && moveTab === "folder" }
+  );
+  const docDetail = trpc.vault.getDocument.useQuery(
+    { id: documentId || 0 },
+    { enabled: open && !!documentId && moveTab === "template" }
   );
 
   const navigateInto = (folderId: number, folderName: string) => {
     setBrowseFolderId(folderId);
     setBreadcrumbs(prev => [...prev, { id: folderId, name: folderName }]);
   };
-
   const navigateToIndex = (index: number) => {
-    const target = breadcrumbs[index];
-    setBrowseFolderId(target.id);
+    const bc = breadcrumbs[index];
+    setBrowseFolderId(bc.id);
     setBreadcrumbs(breadcrumbs.slice(0, index + 1));
   };
 
-  const handleMove = () => {
+  const handleAction = () => {
     if (documentId === null) return;
-    onMove(documentId, selectedFolderId);
+    if (moveTab === "folder") {
+      onMove(documentId, selectedFolderId);
+    } else if (moveTab === "collection" && selectedCollection) {
+      onMoveToCollection?.(documentId, selectedCollection);
+    } else if (moveTab === "template" && templateName.trim()) {
+      onConvertToTemplate?.(documentId, templateName.trim(), templateCategory);
+    }
   };
 
+  const resetState = () => {
+    setSelectedFolderId(null);
+    setBrowseFolderId(null);
+    setBreadcrumbs([{ id: null, name: "Root" }]);
+    setSelectedCollection(null);
+    setTemplateName("");
+    setTemplateCategory("agreement");
+    setMoveTab("folder");
+  };
+
+  const collections = [
+    { key: "company_repo", label: "Company Repository", icon: Building2, color: "text-yellow-500" },
+    { key: "personal", label: "Personal", icon: Lock, color: "text-blue-400" },
+    { key: "counterparty", label: "Counterparty Files", icon: Users, color: "text-purple-400" },
+    { key: "template", label: "Templates", icon: FilePlus, color: "text-emerald-400" },
+    { key: "transaction", label: "Transactions", icon: FileSpreadsheet, color: "text-orange-400" },
+    { key: "signed", label: "Signed Documents", icon: Shield, color: "text-green-400" },
+  ];
+
+  const canSubmit = moveTab === "folder" || (moveTab === "collection" && !!selectedCollection) || (moveTab === "template" && templateName.trim().length > 0);
+
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); setSelectedFolderId(null); setBrowseFolderId(null); setBreadcrumbs([{ id: null, name: "Root" }]); } }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); resetState(); } }}>
       <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-white flex items-center gap-2">
-            <FolderOpen className="h-5 w-5 text-yellow-500" /> Move to Folder
+            <FolderOpen className="h-5 w-5 text-yellow-500" /> Move Document
           </DialogTitle>
         </DialogHeader>
+
+        {/* Tab switcher */}
+        <div className="flex gap-1 p-1 bg-zinc-900/60 rounded-lg border border-zinc-800/60">
+          <button
+            onClick={() => setMoveTab("folder")}
+            className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+              moveTab === "folder" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <FolderOpen className="h-3.5 w-3.5 inline mr-1" /> Folder
+          </button>
+          <button
+            onClick={() => setMoveTab("collection")}
+            className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+              moveTab === "collection" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <Archive className="h-3.5 w-3.5 inline mr-1" /> Collection
+          </button>
+          <button
+            onClick={() => setMoveTab("template")}
+            className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+              moveTab === "template" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <FilePlus className="h-3.5 w-3.5 inline mr-1" /> Template
+          </button>
+        </div>
+
         <div className="space-y-3 py-2">
-          {/* Breadcrumbs */}
-          <div className="flex items-center gap-1 text-xs text-zinc-500">
-            {breadcrumbs.map((bc, i) => (
-              <span key={i} className="flex items-center gap-1">
-                {i > 0 && <ChevronRight className="h-3 w-3" />}
+          {/* Folder tab */}
+          {moveTab === "folder" && (
+            <>
+              <div className="flex items-center gap-1 text-xs text-zinc-500">
+                {breadcrumbs.map((bc, i) => (
+                  <span key={i} className="flex items-center gap-1">
+                    {i > 0 && <ChevronRight className="h-3 w-3" />}
+                    <button
+                      onClick={() => navigateToIndex(i)}
+                      className={i === breadcrumbs.length - 1 ? "text-zinc-300" : "hover:text-zinc-300"}
+                    >
+                      {bc.name}
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="border border-zinc-800 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
                 <button
-                  onClick={() => navigateToIndex(i)}
-                  className={i === breadcrumbs.length - 1 ? "text-zinc-300" : "hover:text-zinc-300"}
+                  onClick={() => setSelectedFolderId(null)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${
+                    selectedFolderId === null ? "bg-yellow-600/10 border-l-2 border-yellow-500" : "hover:bg-zinc-900"
+                  }`}
                 >
-                  {bc.name}
+                  <Archive className="h-4 w-4 text-zinc-500" />
+                  <span className="text-sm text-zinc-300">No folder (root level)</span>
                 </button>
-              </span>
-            ))}
-          </div>
-
-          {/* Folder list */}
-          <div className="border border-zinc-800 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
-            {/* Move to root option */}
-            <button
-              onClick={() => setSelectedFolderId(null)}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${
-                selectedFolderId === null ? "bg-yellow-600/10 border-l-2 border-yellow-500" : "hover:bg-zinc-900"
-              }`}
-            >
-              <Archive className="h-4 w-4 text-zinc-500" />
-              <span className="text-sm text-zinc-300">No folder (root level)</span>
-            </button>
-
-            {allFolders.isLoading ? (
-              <div className="p-4 text-center">
-                <Loader2 className="h-4 w-4 animate-spin mx-auto text-zinc-500" />
+                {allFolders.isLoading ? (
+                  <div className="p-4 text-center">
+                    <Loader2 className="h-4 w-4 animate-spin mx-auto text-zinc-500" />
+                  </div>
+                ) : (allFolders.data || []).length === 0 ? (
+                  <div className="p-4 text-center text-xs text-zinc-600">
+                    No folders here. Create one first.
+                  </div>
+                ) : (
+                  (allFolders.data || []).map((folder: any) => (
+                    <div key={folder.id} className="flex items-center">
+                      <button
+                        onClick={() => setSelectedFolderId(folder.id)}
+                        className={`flex-1 flex items-center gap-3 px-4 py-3 text-left transition-all ${
+                          selectedFolderId === folder.id ? "bg-yellow-600/10 border-l-2 border-yellow-500" : "hover:bg-zinc-900"
+                        }`}
+                      >
+                        <FolderOpen className="h-4 w-4 text-yellow-600" />
+                        <span className="text-sm text-zinc-300">{folder.name}</span>
+                      </button>
+                      <button
+                        onClick={() => navigateInto(folder.id, folder.name)}
+                        className="px-3 py-3 text-zinc-600 hover:text-zinc-300 transition-colors"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
-            ) : (allFolders.data || []).length === 0 ? (
-              <div className="p-4 text-center text-xs text-zinc-600">
-                No folders here. Create one first.
-              </div>
-            ) : (
-              (allFolders.data || []).map((folder: any) => (
-                <div key={folder.id} className="flex items-center">
+            </>
+          )}
+
+          {/* Collection tab */}
+          {moveTab === "collection" && (
+            <div className="border border-zinc-800 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+              {collections.map((col) => {
+                const Icon = col.icon;
+                return (
                   <button
-                    onClick={() => setSelectedFolderId(folder.id)}
-                    className={`flex-1 flex items-center gap-3 px-4 py-3 text-left transition-all ${
-                      selectedFolderId === folder.id ? "bg-yellow-600/10 border-l-2 border-yellow-500" : "hover:bg-zinc-900"
+                    key={col.key}
+                    onClick={() => setSelectedCollection(col.key)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${
+                      selectedCollection === col.key ? "bg-yellow-600/10 border-l-2 border-yellow-500" : "hover:bg-zinc-900"
                     }`}
                   >
-                    <FolderOpen className="h-4 w-4 text-yellow-600" />
-                    <span className="text-sm text-zinc-300">{folder.name}</span>
+                    <Icon className={`h-4 w-4 ${col.color}`} />
+                    <span className="text-sm text-zinc-300">{col.label}</span>
                   </button>
-                  <button
-                    onClick={() => navigateInto(folder.id, folder.name)}
-                    className="px-3 py-3 text-zinc-600 hover:text-zinc-300 transition-colors"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Template tab */}
+          {moveTab === "template" && (
+            <div className="space-y-3">
+              <p className="text-xs text-zinc-500">
+                Convert this document into a reusable template. The original document will be moved to the Templates collection.
+              </p>
+              <div className="space-y-2">
+                <Label className="text-zinc-400 text-xs">Template Name</Label>
+                <Input
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder={docDetail.data?.title || "Enter template name..."}
+                  className="bg-zinc-900 border-zinc-800 text-white text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-zinc-400 text-xs">Template Category</Label>
+                <Select value={templateCategory} onValueChange={setTemplateCategory}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-800 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="agreement">Agreement</SelectItem>
+                    <SelectItem value="compliance">Compliance</SelectItem>
+                    <SelectItem value="intake">Intake Form</SelectItem>
+                    <SelectItem value="profile">Profile</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
         </div>
+
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} className="text-zinc-400">Cancel</Button>
           <Button
-            onClick={handleMove}
-            disabled={isLoading}
+            onClick={handleAction}
+            disabled={isLoading || !canSubmit}
             className="bg-yellow-600 hover:bg-yellow-700 text-black"
           >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <FolderOpen className="h-4 w-4 mr-1.5" />}
-            Move Here
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+            ) : moveTab === "folder" ? (
+              <FolderOpen className="h-4 w-4 mr-1.5" />
+            ) : moveTab === "collection" ? (
+              <Archive className="h-4 w-4 mr-1.5" />
+            ) : (
+              <FilePlus className="h-4 w-4 mr-1.5" />
+            )}
+            {moveTab === "folder" ? "Move Here" : moveTab === "collection" ? "Move to Collection" : "Convert to Template"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2438,11 +2588,13 @@ function ShareAccessDialog({
   open: boolean;
   onClose: () => void;
   target: { type: 'document' | 'folder'; id: number; name: string } | null;
-  onGrant: (targetType: string, targetId: number, contactId: number, level: string) => void;
+  onGrant: (params: { targetType: 'document' | 'folder'; targetId: number; contactId?: number; companyId?: number; accessLevel: string }) => void;
   onRevoke: (accessId: number) => void;
 }) {
+  const [grantMode, setGrantMode] = useState<"contact" | "company">("contact");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [accessLevel, setAccessLevel] = useState<string>("view");
 
   const accessList = trpc.vault.getAccessList.useQuery(
@@ -2452,19 +2604,33 @@ function ShareAccessDialog({
 
   const contactSearch = trpc.contacts.search.useQuery(
     { query: searchQuery },
-    { enabled: searchQuery.length >= 2 }
+    { enabled: searchQuery.length >= 2 && grantMode === "contact" }
+  );
+
+  const companySearch = trpc.companies.list.useQuery(
+    { search: searchQuery },
+    { enabled: searchQuery.length >= 2 && grantMode === "company" }
   );
 
   const handleGrant = () => {
-    if (!target || !selectedContactId) return;
-    onGrant(target.type, target.id, selectedContactId, accessLevel);
+    if (!target) return;
+    if (grantMode === "contact" && selectedContactId) {
+      onGrant({ targetType: target.type, targetId: target.id, contactId: selectedContactId, accessLevel });
+    } else if (grantMode === "company" && selectedCompanyId) {
+      onGrant({ targetType: target.type, targetId: target.id, companyId: selectedCompanyId, accessLevel });
+    } else {
+      return;
+    }
     setSearchQuery("");
     setSelectedContactId(null);
+    setSelectedCompanyId(null);
     setTimeout(() => accessList.refetch(), 500);
   };
 
+  const canGrant = grantMode === "contact" ? !!selectedContactId : !!selectedCompanyId;
+
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); setSearchQuery(""); setSelectedContactId(null); } }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { onClose(); setSearchQuery(""); setSelectedContactId(null); setSelectedCompanyId(null); } }}>
       <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-white flex items-center gap-2">
@@ -2477,19 +2643,42 @@ function ShareAccessDialog({
           )}
         </DialogHeader>
         <div className="space-y-4 py-2">
-          {/* Add person */}
+          {/* Grant mode toggle */}
+          <div className="flex gap-1 p-1 bg-zinc-900/60 rounded-lg border border-zinc-800/60">
+            <button
+              onClick={() => { setGrantMode("contact"); setSearchQuery(""); setSelectedContactId(null); setSelectedCompanyId(null); }}
+              className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                grantMode === "contact" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <User className="h-3.5 w-3.5 inline mr-1" /> Individual
+            </button>
+            <button
+              onClick={() => { setGrantMode("company"); setSearchQuery(""); setSelectedContactId(null); setSelectedCompanyId(null); }}
+              className={`flex-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                grantMode === "company" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <Building2 className="h-3.5 w-3.5 inline mr-1" /> Company
+            </button>
+          </div>
+
+          {/* Search and grant */}
           <div className="space-y-2">
-            <Label className="text-zinc-400 text-xs">Tag a person for access</Label>
+            <Label className="text-zinc-400 text-xs">
+              {grantMode === "contact" ? "Tag a person for access" : "Tag a company for access"}
+            </Label>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
                 <Input
                   value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setSelectedContactId(null); }}
-                  placeholder="Search contacts..."
+                  onChange={(e) => { setSearchQuery(e.target.value); setSelectedContactId(null); setSelectedCompanyId(null); }}
+                  placeholder={grantMode === "contact" ? "Search contacts..." : "Search companies..."}
                   className="pl-9 bg-zinc-900 border-zinc-800 text-white text-sm"
                 />
-                {searchQuery.length >= 2 && contactSearch.data && !selectedContactId && (
+                {/* Contact dropdown */}
+                {grantMode === "contact" && searchQuery.length >= 2 && contactSearch.data && !selectedContactId && (
                   <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 max-h-48 overflow-auto">
                     {(contactSearch.data as any[]).length === 0 ? (
                       <div className="p-3 text-xs text-zinc-500">No contacts found</div>
@@ -2500,10 +2689,32 @@ function ShareAccessDialog({
                           onClick={() => { setSelectedContactId(c.id); setSearchQuery(c.name || c.email); }}
                           className="w-full flex items-center gap-2 px-3 py-2 hover:bg-zinc-800 text-left"
                         >
-                          <User className="h-3.5 w-3.5 text-zinc-500" />
+                          <User className="h-3.5 w-3.5 text-blue-400" />
                           <div>
                             <p className="text-sm text-white">{c.name}</p>
                             {c.email && <p className="text-xs text-zinc-500">{c.email}</p>}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+                {/* Company dropdown */}
+                {grantMode === "company" && searchQuery.length >= 2 && companySearch.data && !selectedCompanyId && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 max-h-48 overflow-auto">
+                    {(companySearch.data as any[]).length === 0 ? (
+                      <div className="p-3 text-xs text-zinc-500">No companies found</div>
+                    ) : (
+                      (companySearch.data as any[]).map((c: any) => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setSelectedCompanyId(c.id); setSearchQuery(c.name); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-zinc-800 text-left"
+                        >
+                          <Building2 className="h-3.5 w-3.5 text-yellow-500" />
+                          <div>
+                            <p className="text-sm text-white">{c.name}</p>
+                            {c.domain && <p className="text-xs text-zinc-500">{c.domain}</p>}
                           </div>
                         </button>
                       ))
@@ -2523,7 +2734,7 @@ function ShareAccessDialog({
               </Select>
               <Button
                 onClick={handleGrant}
-                disabled={!selectedContactId}
+                disabled={!canGrant}
                 size="sm"
                 className="bg-yellow-600 hover:bg-yellow-700 text-black"
               >
@@ -2534,7 +2745,7 @@ function ShareAccessDialog({
 
           {/* Current access list */}
           <div>
-            <Label className="text-zinc-400 text-xs">People with access</Label>
+            <Label className="text-zinc-400 text-xs">Entities with access</Label>
             <div className="mt-2 space-y-1 max-h-48 overflow-auto">
               {accessList.isLoading ? (
                 <div className="p-4 text-center">
@@ -2549,12 +2760,20 @@ function ShareAccessDialog({
                 (accessList.data as any[] || []).map((access: any) => (
                   <div key={access.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-zinc-900/60 border border-zinc-800/40">
                     <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-zinc-800 flex items-center justify-center">
-                        <User className="h-3.5 w-3.5 text-zinc-400" />
+                      <div className={`h-7 w-7 rounded-full flex items-center justify-center ${
+                        access.entityType === 'company' ? 'bg-yellow-600/20' : 'bg-zinc-800'
+                      }`}>
+                        {access.entityType === 'company' ? (
+                          <Building2 className="h-3.5 w-3.5 text-yellow-500" />
+                        ) : (
+                          <User className="h-3.5 w-3.5 text-zinc-400" />
+                        )}
                       </div>
                       <div>
-                        <p className="text-sm text-white">{access.contactName || "Unknown"}</p>
-                        <p className="text-xs text-zinc-500">{access.contactEmail || ""}</p>
+                        <p className="text-sm text-white">{access.entityName || access.contactName || access.companyName || "Unknown"}</p>
+                        <p className="text-xs text-zinc-500">
+                          {access.entityType === 'company' ? 'Company' : (access.contactEmail || '')}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

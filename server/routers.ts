@@ -3837,27 +3837,100 @@ const vaultRouter = router({
       return db.getFolderAccessList(input.folderId);
     }),
 
+  // Unified access list query (supports both documents and folders)
+  getAccessList: protectedProcedure
+    .input(z.object({
+      targetType: z.enum(["document", "folder"]),
+      targetId: z.number(),
+    }))
+    .query(async ({ input }) => {
+      if (input.targetType === "folder") {
+        return db.getFolderAccessList(input.targetId);
+      }
+      return db.getDocumentAccessList(input.targetId);
+    }),
+
   grantAccess: protectedProcedure
     .input(z.object({
-      documentId: z.number().optional(),
-      folderId: z.number().optional(),
-      userId: z.number(),
+      targetType: z.enum(["document", "folder"]),
+      targetId: z.number(),
+      contactId: z.number().optional(),
+      companyId: z.number().optional(),
+      userId: z.number().optional(),
       accessLevel: z.enum(["view", "edit", "admin"]).default("view"),
     }))
     .mutation(async ({ input, ctx }) => {
-      if (input.folderId) {
-        return db.grantFolderAccess({ folderId: input.folderId, userId: input.userId, accessLevel: input.accessLevel, grantedBy: ctx.user!.id });
+      const base: any = {
+        accessLevel: input.accessLevel,
+        grantedBy: ctx.user!.id,
+      };
+      if (input.contactId) base.contactId = input.contactId;
+      if (input.companyId) base.companyId = input.companyId;
+      if (input.userId) base.userId = input.userId;
+      if (input.targetType === "folder") {
+        return db.grantFolderAccess({ folderId: input.targetId, ...base });
       }
-      if (input.documentId) {
-        return db.grantDocumentAccess({ documentId: input.documentId, userId: input.userId, accessLevel: input.accessLevel, grantedBy: ctx.user!.id });
-      }
-      return null;
+      return db.grantDocumentAccess({ documentId: input.targetId, ...base });
     }),
 
   revokeAccess: protectedProcedure
     .input(z.object({ accessId: z.number() }))
     .mutation(async ({ input }) => {
       return db.revokeDocumentAccess(input.accessId);
+    }),
+
+  // Move document to a different collection
+  moveToCollection: protectedProcedure
+    .input(z.object({
+      documentId: z.number(),
+      collection: z.enum(["company_repo", "personal", "counterparty", "template", "transaction", "signed"]),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const doc = await db.moveDocumentToCollection(input.documentId, input.collection);
+      if (doc) {
+        await db.logActivity({
+          userId: ctx.user!.id,
+          action: "document_moved",
+          entityType: "document",
+          entityId: String(input.documentId),
+          entityName: doc.title,
+          details: JSON.stringify({ newCollection: input.collection }),
+        });
+      }
+      return doc;
+    }),
+
+  // Convert a document to a template
+  convertToTemplate: protectedProcedure
+    .input(z.object({
+      documentId: z.number(),
+      name: z.string().min(1),
+      category: z.enum(["agreement", "compliance", "intake", "profile", "other"]).default("agreement"),
+      subcategory: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const doc = await db.getDocumentById(input.documentId);
+      if (!doc) throw new TRPCError({ code: "NOT_FOUND", message: "Document not found" });
+      const template = await db.createTemplate({
+        name: input.name,
+        category: input.category,
+        subcategory: input.subcategory,
+        googleFileId: doc.googleFileId,
+        s3Url: doc.s3Url,
+        createdBy: ctx.user!.id,
+      });
+      // Also move the document to the template collection
+      await db.moveDocumentToCollection(input.documentId, "template");
+      await db.updateDocument(input.documentId, { isTemplate: true });
+      await db.logActivity({
+        userId: ctx.user!.id,
+        action: "document_converted_to_template",
+        entityType: "document",
+        entityId: String(input.documentId),
+        entityName: doc.title,
+        details: JSON.stringify({ templateName: input.name, templateId: template?.id }),
+      });
+      return template;
     }),
 
   // AI Document Analysiss

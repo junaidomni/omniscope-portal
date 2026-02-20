@@ -2320,20 +2320,71 @@ export async function revokeDocumentAccess(id: number) {
 export async function getDocumentAccessList(documentId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(documentAccess).where(eq(documentAccess.documentId, documentId));
+  const rows = await db.select({
+    id: documentAccess.id,
+    documentId: documentAccess.documentId,
+    folderId: documentAccess.folderId,
+    userId: documentAccess.userId,
+    contactId: documentAccess.contactId,
+    companyId: documentAccess.companyId,
+    accessLevel: documentAccess.accessLevel,
+    createdAt: documentAccess.createdAt,
+    contactName: contacts.name,
+    contactEmail: contacts.email,
+    companyName: companies.name,
+  })
+    .from(documentAccess)
+    .leftJoin(contacts, eq(documentAccess.contactId, contacts.id))
+    .leftJoin(companies, eq(documentAccess.companyId, companies.id))
+    .where(eq(documentAccess.documentId, documentId));
+  return rows.map(r => ({
+    ...r,
+    entityType: r.companyId ? 'company' as const : 'contact' as const,
+    entityName: r.companyId ? r.companyName : r.contactName,
+    level: r.accessLevel,
+  }));
 }
 
 export async function getFolderAccessList(folderId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(documentAccess).where(eq(documentAccess.folderId, folderId));
+  const rows = await db.select({
+    id: documentAccess.id,
+    documentId: documentAccess.documentId,
+    folderId: documentAccess.folderId,
+    userId: documentAccess.userId,
+    contactId: documentAccess.contactId,
+    companyId: documentAccess.companyId,
+    accessLevel: documentAccess.accessLevel,
+    createdAt: documentAccess.createdAt,
+    contactName: contacts.name,
+    contactEmail: contacts.email,
+    companyName: companies.name,
+  })
+    .from(documentAccess)
+    .leftJoin(contacts, eq(documentAccess.contactId, contacts.id))
+    .leftJoin(companies, eq(documentAccess.companyId, companies.id))
+    .where(eq(documentAccess.folderId, folderId));
+  return rows.map(r => ({
+    ...r,
+    entityType: r.companyId ? 'company' as const : 'contact' as const,
+    entityName: r.companyId ? r.companyName : r.contactName,
+    level: r.accessLevel,
+  }));
 }
 
-export async function grantFolderAccess(data: { folderId: number; userId: number; accessLevel: 'view' | 'edit' | 'admin'; grantedBy: number }) {
+export async function grantFolderAccess(data: { folderId: number; userId?: number; contactId?: number; companyId?: number; accessLevel: 'view' | 'edit' | 'admin'; grantedBy: number }) {
   const db = await getDb();
   if (!db) return null;
   const [result] = await db.insert(documentAccess).values(data);
   return { id: result.insertId, ...data };
+}
+
+export async function moveDocumentToCollection(documentId: number, collection: string) {
+  const db = await getDb();
+  if (!db) return null;
+  await db.update(documents).set({ collection: collection as any }).where(eq(documents.id, documentId));
+  return getDocumentById(documentId);
 }
 
 export async function moveDocumentToFolder(documentId: number, folderId: number | null) {

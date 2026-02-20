@@ -176,6 +176,13 @@
       "when": 1771528623589,
       "tag": "0024_whole_nextwave",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1771556192276,
+      "tag": "0025_awesome_power_man",
+      "breakpoints": true
     }
   ]
 }
