@@ -1,10 +1,10 @@
 import * as db from "../db";
 import { invokeLLM } from "../_core/llm";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 
 export const aiInsightsRouter = router({
-  followUpReminders: protectedProcedure.query(async () => {
-    const contacts = await db.getAllContacts();
+  followUpReminders: orgScopedProcedure.query(async () => {
+    const contacts = await db.getAllContacts(ctx.orgId);
     const reminders: any[] = [];
     
     for (const c of contacts) {
@@ -32,9 +32,9 @@ export const aiInsightsRouter = router({
     return reminders.sort((a, b) => b.daysSinceLastMeeting - a.daysSinceLastMeeting);
   }),
 
-  upcomingBirthdays: protectedProcedure.query(async () => {
-    const contacts = await db.getAllContacts();
-    const employees = await db.getAllEmployees();
+  upcomingBirthdays: orgScopedProcedure.query(async () => {
+    const contacts = await db.getAllContacts(ctx.orgId);
+    const employees = await db.getAllEmployees({ orgId: ctx.orgId ?? undefined });
     const now = new Date();
     const birthdays: any[] = [];
     
@@ -59,14 +59,14 @@ export const aiInsightsRouter = router({
     return birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
   }),
 
-  dailyBriefing: protectedProcedure.query(async () => {
+  dailyBriefing: orgScopedProcedure.query(async () => {
     const { invokeLLM } = await import("../_core/llm");
     
     // Gather data for AI analysis
-    const allContacts = await db.getAllContacts();
-    const allTasks = await db.getAllTasks();
-    const recentMeetings = await db.getAllMeetings({ limit: 20 });
-    const allEmployees = await db.getAllEmployees();
+    const allContacts = await db.getAllContacts(ctx.orgId);
+    const allTasks = await db.getAllTasks({ orgId: ctx.orgId ?? undefined });
+    const recentMeetings = await db.getAllMeetings({ limit: 20, orgId: ctx.orgId ?? undefined });
+    const allEmployees = await db.getAllEmployees({ orgId: ctx.orgId ?? undefined });
     
     // Find contacts not met in 14+ days
     const staleContacts: string[] = [];

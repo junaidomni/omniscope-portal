@@ -1,10 +1,10 @@
 import * as db from "../db";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const meetingsRouter = router({
-  list: protectedProcedure
+  list: orgScopedProcedure
     .input(
       z.object({
         startDate: z.string().optional(),
@@ -14,18 +14,19 @@ export const meetingsRouter = router({
         offset: z.number().min(0).default(0),
       }).optional()
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const filters = input ? {
         startDate: input.startDate ? new Date(input.startDate) : undefined,
         endDate: input.endDate ? new Date(input.endDate) : undefined,
         primaryLead: input.primaryLead,
         limit: input.limit,
         offset: input.offset,
-      } : undefined;
+        orgId: ctx.orgId ?? undefined,
+      } : ctx.orgId ? { orgId: ctx.orgId } : undefined;
       return await db.getAllMeetings(filters);
     }),
 
-  getById: protectedProcedure
+  getById: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const meeting = await db.getMeetingById(input.id);
@@ -33,19 +34,19 @@ export const meetingsRouter = router({
       return meeting;
     }),
 
-  getTags: protectedProcedure
+  getTags: orgScopedProcedure
     .input(z.object({ meetingId: z.number() }))
     .query(async ({ input }) => {
       return await db.getTagsForMeeting(input.meetingId);
     }),
 
-  getTasks: protectedProcedure
+  getTasks: orgScopedProcedure
     .input(z.object({ meetingId: z.number() }))
     .query(async ({ input }) => {
       return await db.getTasksForMeeting(input.meetingId);
     }),
 
-  getContacts: protectedProcedure
+  getContacts: orgScopedProcedure
     .input(z.object({ meetingId: z.number() }))
     .query(async ({ input }) => {
       const contactsForMeeting = await db.getContactsForMeeting(input.meetingId);
@@ -58,22 +59,22 @@ export const meetingsRouter = router({
       return enriched;
     }),
 
-  search: protectedProcedure
+  search: orgScopedProcedure
     .input(z.object({
       query: z.string().min(1),
       limit: z.number().min(1).max(100).default(50),
     }))
-    .query(async ({ input }) => {
-      return await db.searchMeetings(input.query, input.limit);
+    .query(async ({ input, ctx }) => {
+      return await db.searchMeetings(input.query, input.limit, ctx.orgId ?? undefined);
     }),
 
-  filterByTags: protectedProcedure
+  filterByTags: orgScopedProcedure
     .input(z.object({ tagIds: z.array(z.number()).min(1) }))
     .query(async ({ input }) => {
       return await db.getMeetingsByTags(input.tagIds);
     }),
 
-  create: protectedProcedure
+  create: orgScopedProcedure
     .input(
       z.object({
         meetingDate: z.string(),
@@ -120,7 +121,7 @@ export const meetingsRouter = router({
       return { id: meetingId };
     }),
 
-  update: protectedProcedure
+  update: orgScopedProcedure
     .input(
       z.object({
         id: z.number(),
@@ -156,14 +157,14 @@ export const meetingsRouter = router({
       return { success: true };
     }),
 
-  delete: protectedProcedure
+  delete: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       await db.deleteMeeting(input.id);
       return { success: true };
     }),
 
-  bulkDelete: protectedProcedure
+  bulkDelete: orgScopedProcedure
     .input(z.object({ ids: z.array(z.number()).min(1, "Select at least one meeting") }))
     .mutation(async ({ input }) => {
       let deleted = 0;

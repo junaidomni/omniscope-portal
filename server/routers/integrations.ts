@@ -1,34 +1,34 @@
 import * as db from "../db";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const integrationsRouter = router({
-  list: protectedProcedure.query(async () => {
-    return db.listIntegrations();
+  list: orgScopedProcedure.query(async () => {
+    return db.listIntegrations(ctx.orgId);
   }),
 
-  getBySlug: protectedProcedure
+  getBySlug: orgScopedProcedure
     .input(z.object({ slug: z.string() }))
     .query(async ({ input }) => {
       return db.getIntegrationBySlug(input.slug);
     }),
 
-  toggle: protectedProcedure
+  toggle: orgScopedProcedure
     .input(z.object({ id: z.number(), enabled: z.boolean() }))
     .mutation(async ({ input }) => {
       await db.toggleIntegration(input.id, input.enabled);
       return { success: true };
     }),
 
-  updateApiKey: protectedProcedure
+  updateApiKey: orgScopedProcedure
     .input(z.object({ id: z.number(), apiKey: z.string().nullable() }))
     .mutation(async ({ input }) => {
       await db.updateIntegrationApiKey(input.id, input.apiKey);
       return { success: true };
     }),
 
-  upsert: protectedProcedure
+  upsert: orgScopedProcedure
     .input(z.object({
       slug: z.string(),
       name: z.string(),
@@ -50,7 +50,7 @@ export const integrationsRouter = router({
       return db.upsertIntegration({ ...input, createdBy: ctx.user?.id });
     }),
 
-  delete: protectedProcedure
+  delete: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       await db.deleteIntegration(input.id);
@@ -58,11 +58,11 @@ export const integrationsRouter = router({
     }),
 
   // Feature Toggles
-  listToggles: protectedProcedure.query(async () => {
-    return db.listFeatureToggles();
+  listToggles: orgScopedProcedure.query(async () => {
+    return db.listFeatureToggles(ctx.orgId);
   }),
 
-  setToggle: protectedProcedure
+  setToggle: orgScopedProcedure
     .input(z.object({ key: z.string(), enabled: z.boolean() }))
     .mutation(async ({ input, ctx }) => {
       const result = await db.setFeatureToggle(input.key, input.enabled, ctx.user?.id);

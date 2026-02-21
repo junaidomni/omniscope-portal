@@ -1,11 +1,11 @@
 import * as db from "../db";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const dedupRouter = router({
-  scan: protectedProcedure.mutation(async () => {
-    const allContacts = await db.getAllContacts();
+  scan: orgScopedProcedure.mutation(async () => {
+    const allContacts = await db.getAllContacts(ctx.orgId);
     const approved = allContacts.filter((c: any) => c.approvalStatus === "approved");
     const clusters: Array<{ contacts: typeof approved; confidence: number; reason: string }> = [];
 
@@ -66,7 +66,7 @@ export const dedupRouter = router({
     return { clusters: clusters.slice(0, 50), totalScanned: approved.length };
   }),
 
-  merge: protectedProcedure
+  merge: orgScopedProcedure
     .input(z.object({ keepId: z.number(), mergeId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const keep = await db.getContactById(input.keepId);
@@ -101,7 +101,7 @@ export const dedupRouter = router({
       return { success: true };
     }),
 
-  dismiss: protectedProcedure
+  dismiss: orgScopedProcedure
     .input(z.object({ contactAId: z.number(), contactBId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       await db.logActivity({

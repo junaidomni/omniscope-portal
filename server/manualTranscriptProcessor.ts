@@ -28,6 +28,8 @@ interface ManualUploadInput {
   participants?: string[];
   /** User ID who uploaded */
   createdBy?: number;
+  /** Organization ID for scoping */
+  orgId?: number;
 }
 
 interface ManualUploadResult {
@@ -291,7 +293,7 @@ export async function processManualTranscript(input: ManualUploadInput): Promise
           validated.sourceType = "manual";
           validated.sourceId = `manual-${Date.now()}`;
 
-          const result = await processIntelligenceData(validated, input.createdBy);
+            const result = await processIntelligenceData(validated, input.createdBy, input.orgId);
           return {
             success: result.success,
             meetingId: result.meetingId,
@@ -384,7 +386,7 @@ export async function processManualTranscript(input: ManualUploadInput): Promise
   };
 
   // Step 4: Process through the standard ingestion pipeline
-  const result = await processIntelligenceData(intelligenceData, input.createdBy);
+  const result = await processIntelligenceData(intelligenceData, input.createdBy, input.orgId);
 
   if (result.success) {
     console.log(`[ManualUpload] Successfully processed meeting ${result.meetingId}: "${analysis.meetingTitle}"`);

@@ -75,7 +75,7 @@ function normalizeIntelligenceData(data: IntelligenceData) {
 /**
  * Process incoming intelligence data and store it in the database
  */
-export async function processIntelligenceData(rawData: IntelligenceData, createdBy?: number) {
+export async function processIntelligenceData(rawData: IntelligenceData, createdBy?: number, orgId?: number) {
   // Normalize field names
   const data = normalizeIntelligenceData(rawData);
   
@@ -90,6 +90,7 @@ export async function processIntelligenceData(rawData: IntelligenceData, created
 
   // Create the meeting
   const meetingId = await db.createMeeting({
+    orgId: orgId ?? null,
     meetingTitle: (rawData as any).meetingTitle || null,
     meetingDate: new Date(data.meetingDate),
     primaryLead: data.primaryLead,
@@ -170,6 +171,7 @@ export async function processIntelligenceData(rawData: IntelligenceData, created
       }
 
       await db.createTask({
+        orgId: orgId ?? null,
         title: taskTitle,
         description: taskDescription,
         priority: taskPriority,
@@ -261,7 +263,7 @@ export async function processIntelligenceData(rawData: IntelligenceData, created
             let company = await db.getCompanyByName(orgName);
             if (!company) {
               // Create company as pending — it still needs approval
-              const newCompanyId = await db.createCompany({ name: orgName, status: "active", approvalStatus: "pending" });
+              const newCompanyId = await db.createCompany({ name: orgName, status: "active", approvalStatus: "pending", orgId: orgId ?? null });
               company = await db.getCompanyById(newCompanyId);
             }
             if (company) {

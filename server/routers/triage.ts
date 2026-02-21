@@ -2,11 +2,11 @@ import * as db from "../db";
 import * as gmailService from "../gmailService";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const triageRouter = router({
-  feed: protectedProcedure.query(async ({ ctx }) => {
+  feed: orgScopedProcedure.query(async ({ ctx }) => {
     const userId = ctx.user.id;
     const userName = ctx.user.name || 'there';
     const now = new Date();
@@ -15,7 +15,7 @@ export const triageRouter = router({
     endOfToday.setDate(endOfToday.getDate() + 1);
 
     // 1. Overdue tasks
-    const allTasks = await db.getAllTasks();
+    const allTasks = await db.getAllTasks({ orgId: ctx.orgId ?? undefined });
     const overdueTasks = allTasks
       .filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < startOfToday)
       .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
@@ -82,17 +82,17 @@ export const triageRouter = router({
     }
 
     // 5. Pending contact approvals
-    const allContacts = await db.getAllContacts();
+    const allContacts = await db.getAllContacts(ctx.orgId);
     const pendingContacts = allContacts.filter(c => c.approvalStatus === 'pending').slice(0, 10);
 
     // 6. Pending company approvals
-    const allCompanies = await db.getAllCompanies();
+    const allCompanies = await db.getAllCompanies(ctx.orgId);
     const pendingCompanies = allCompanies.filter(c => c.approvalStatus === 'pending').slice(0, 10);
 
     // 7. Recent meetings (last 7 days)
     const sevenDaysAgo = new Date(startOfToday);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recentMeetings = await db.getAllMeetings({ startDate: sevenDaysAgo, endDate: endOfToday, limit: 6 });
+    const recentMeetings = await db.getAllMeetings({ startDate: sevenDaysAgo, endDate: endOfToday, limit: 6, orgId: ctx.orgId ?? undefined });
 
     // 8. Tomorrow's tasks
     const startOfTomorrow = new Date(endOfToday);
@@ -125,7 +125,7 @@ export const triageRouter = router({
     const completedToday = completedTodayTasks.length;
     const totalStarred = starredEmails.length;
     // 8. Pending suggestions (company links, enrichment)
-    const allSuggestions = await db.getPendingSuggestions({ status: "pending" });
+    const allSuggestions = await db.getPendingSuggestions({ status: "pending", orgId: ctx.orgId ?? undefined });
     const pendingSuggestionsData = await Promise.all(allSuggestions.slice(0, 10).map(async (s) => {
       const contact = s.contactId ? await db.getContactById(s.contactId) : null;
       const company = s.companyId ? await db.getCompanyById(s.companyId) : null;
@@ -203,7 +203,7 @@ export const triageRouter = router({
   }),
 
   // Quick-complete a task from triage
-  completeTask: protectedProcedure
+  completeTask: orgScopedProcedure
     .input(z.object({ taskId: z.number() }))
     .mutation(async ({ input }) => {
       await db.updateTask(input.taskId, { status: 'completed' });
@@ -211,7 +211,7 @@ export const triageRouter = router({
     }),
 
   // Dismiss a task (snooze by pushing due date forward)
-  snoozeTask: protectedProcedure
+  snoozeTask: orgScopedProcedure
     .input(z.object({ taskId: z.number(), days: z.number().min(1).max(30).default(1) }))
     .mutation(async ({ input }) => {
       const newDate = new Date();
@@ -221,7 +221,7 @@ export const triageRouter = router({
     }),
 
   // Delete a task from triage
-  deleteTask: protectedProcedure
+  deleteTask: orgScopedProcedure
     .input(z.object({ taskId: z.number() }))
     .mutation(async ({ input }) => {
       await db.deleteTask(input.taskId);
@@ -229,7 +229,7 @@ export const triageRouter = router({
     }),
 
   // Update a task from triage (inline edit)
-  updateTask: protectedProcedure
+  updateTask: orgScopedProcedure
     .input(z.object({
       taskId: z.number(),
       title: z.string().optional(),
@@ -255,12 +255,12 @@ export const triageRouter = router({
     }),
 
   // Find potential duplicates for a specific pending contact
-  findDuplicatesFor: protectedProcedure
+  findDuplicatesFor: orgScopedProcedure
     .input(z.object({ contactId: z.number() }))
     .query(async ({ input }) => {
       const target = await db.getContactById(input.contactId);
       if (!target) throw new TRPCError({ code: 'NOT_FOUND' });
-      const allContacts = await db.getAllContacts();
+      const allContacts = await db.getAllContacts(ctx.orgId);
       const approvedContacts = allContacts.filter(c => c.approvalStatus === 'approved' && c.id !== target.id);
       const targetName = target.name.toLowerCase().trim();
       const targetParts = targetName.split(/\s+/);
@@ -323,7 +323,7 @@ export const triageRouter = router({
     }),
 
   // Merge a pending contact into an existing approved contact
-  mergeAndApprove: protectedProcedure
+  mergeAndApprove: orgScopedProcedure
     .input(z.object({ pendingId: z.number(), mergeIntoId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const pending = await db.getContactById(input.pendingId);
@@ -363,7 +363,7 @@ export const triageRouter = router({
     }),
 
   // Approve a contact from triage
-  approveContact: protectedProcedure
+  approveContact: orgScopedProcedure
     .input(z.object({ contactId: z.number() }))
     .mutation(async ({ input }) => {
       await db.updateContact(input.contactId, { approvalStatus: 'approved' });
@@ -371,7 +371,7 @@ export const triageRouter = router({
     }),
 
   // Reject a contact from triage
-  rejectContact: protectedProcedure
+  rejectContact: orgScopedProcedure
     .input(z.object({ contactId: z.number() }))
     .mutation(async ({ input }) => {
       await db.updateContact(input.contactId, { approvalStatus: 'rejected' });
@@ -379,7 +379,7 @@ export const triageRouter = router({
     }),
 
   // Approve a company from triage
-  approveCompany: protectedProcedure
+  approveCompany: orgScopedProcedure
     .input(z.object({ companyId: z.number() }))
     .mutation(async ({ input }) => {
       await db.updateCompany(input.companyId, { approvalStatus: 'approved' });
@@ -387,7 +387,7 @@ export const triageRouter = router({
     }),
 
   // Reject a company from triage
-  rejectCompany: protectedProcedure
+  rejectCompany: orgScopedProcedure
     .input(z.object({ companyId: z.number() }))
     .mutation(async ({ input }) => {
       await db.updateCompany(input.companyId, { approvalStatus: 'rejected' });
@@ -395,7 +395,7 @@ export const triageRouter = router({
     }),
 
   // Merge a pending company into an existing approved company
-  mergeCompany: protectedProcedure
+  mergeCompany: orgScopedProcedure
     .input(z.object({ pendingId: z.number(), mergeIntoId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const pending = await db.getCompanyById(input.pendingId);
@@ -413,7 +413,7 @@ export const triageRouter = router({
       if (Object.keys(updates).length > 0) await db.updateCompany(input.mergeIntoId, updates);
 
       // Transfer any contacts linked to the pending company
-      const allContacts = await db.getAllContacts();
+      const allContacts = await db.getAllContacts(ctx.orgId);
       for (const c of allContacts) {
         if ((c as any).companyId === input.pendingId) {
           await db.updateContact(c.id, { companyId: input.mergeIntoId } as any);
@@ -431,12 +431,12 @@ export const triageRouter = router({
     }),
 
   // Find potential duplicate companies for a pending company
-  findCompanyDuplicatesFor: protectedProcedure
+  findCompanyDuplicatesFor: orgScopedProcedure
     .input(z.object({ companyId: z.number() }))
     .query(async ({ input }) => {
       const company = await db.getCompanyById(input.companyId);
       if (!company) return [];
-      const allCompanies = await db.getAllCompanies();
+      const allCompanies = await db.getAllCompanies(ctx.orgId);
       const approved = allCompanies.filter((c: any) => c.approvalStatus === 'approved' && c.id !== input.companyId);
       const matches: { company: any; confidence: number; reason: string }[] = [];
       const pendingName = (company.name || '').toLowerCase().trim();
@@ -481,7 +481,7 @@ export const triageRouter = router({
       return matches.sort((a, b) => b.confidence - a.confidence).slice(0, 5);
     }),
 
-  bulkApproveCompanies: protectedProcedure
+  bulkApproveCompanies: orgScopedProcedure
     .input(z.object({ ids: z.array(z.number()) }))
     .mutation(async ({ ctx, input }) => {
       for (const id of input.ids) {
@@ -491,7 +491,7 @@ export const triageRouter = router({
       return { approved: input.ids.length };
     }),
 
-  bulkRejectCompanies: protectedProcedure
+  bulkRejectCompanies: orgScopedProcedure
     .input(z.object({ ids: z.array(z.number()) }))
     .mutation(async ({ ctx, input }) => {
       for (const id of input.ids) {
@@ -502,12 +502,12 @@ export const triageRouter = router({
     }),
 
   // AI Strategic Insights — generates contextual recommendations
-  strategicInsights: protectedProcedure.query(async ({ ctx }) => {
+  strategicInsights: orgScopedProcedure.query(async ({ ctx }) => {
     const { invokeLLM } = await import('../_core/llm');
-    const allTasks = await db.getAllTasks();
-    const allContacts = await db.getAllContacts();
-    const allCompanies = await db.getAllCompanies();
-    const recentMeetings = await db.getAllMeetings({ limit: 10 });
+    const allTasks = await db.getAllTasks({ orgId: ctx.orgId ?? undefined });
+    const allContacts = await db.getAllContacts(ctx.orgId);
+    const allCompanies = await db.getAllCompanies(ctx.orgId);
+    const recentMeetings = await db.getAllMeetings({ limit: 10, orgId: ctx.orgId ?? undefined });
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 

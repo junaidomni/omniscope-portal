@@ -1452,7 +1452,7 @@ export type InsertIntegration = typeof integrations.$inferInsert;
 export const featureToggles = mysqlTable("feature_toggles", {
   id: int("id").autoincrement().primaryKey(),
   orgId: int("ftOrgId").references(() => organizations.id, { onDelete: "cascade" }),
-  featureKey: varchar("ftKey", { length: 100 }).notNull().unique(),
+  featureKey: varchar("ftKey", { length: 100 }).notNull(),
   label: varchar("ftLabel", { length: 255 }).notNull(),
   description: text("ftDescription"),
   category: mysqlEnum("ftCategory", [
@@ -1469,6 +1469,7 @@ export const featureToggles = mysqlTable("feature_toggles", {
   updatedBy: int("ftUpdatedBy").references(() => users.id),
   updatedAt: timestamp("ftUpdatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
+  orgKeyIdx: uniqueIndex("ft_org_key_idx").on(table.orgId, table.featureKey),
   keyIdx: index("ft_key_idx").on(table.featureKey),
   categoryIdx: index("ft_category_idx").on(table.category),
 }));
@@ -1503,3 +1504,122 @@ export const designPreferences = mysqlTable("design_preferences", {
 }));
 export type DesignPreference = typeof designPreferences.$inferSelect;
 export type InsertDesignPreference = typeof designPreferences.$inferInsert;
+
+
+// ============================================================================
+// PLANS & SUBSCRIPTIONS
+// ============================================================================
+
+/**
+ * Plans — defines the available subscription tiers.
+ * Starter → Professional → Enterprise → Sovereign
+ * Each plan defines limits and which features are included.
+ */
+export const plans = mysqlTable("plans", {
+  id: int("id").autoincrement().primaryKey(),
+  key: varchar("planKey", { length: 50 }).notNull().unique(), // "starter", "professional", "enterprise", "sovereign"
+  name: varchar("planName", { length: 100 }).notNull(),
+  description: text("planDescription"),
+  tier: int("planTier").notNull().default(0), // 0=starter, 1=pro, 2=enterprise, 3=sovereign — for comparison
+  // Pricing
+  priceMonthly: decimal("planPriceMonthly", { precision: 10, scale: 2 }), // null = custom pricing
+  priceAnnual: decimal("planPriceAnnual", { precision: 10, scale: 2 }),
+  currency: varchar("planCurrency", { length: 10 }).default("USD").notNull(),
+  // Limits
+  maxOrganizations: int("planMaxOrgs").default(1).notNull(),
+  maxUsersPerOrg: int("planMaxUsersPerOrg").default(5).notNull(),
+  maxContacts: int("planMaxContacts").default(500).notNull(), // -1 = unlimited
+  maxMeetingsPerMonth: int("planMaxMeetingsPerMonth").default(50).notNull(), // -1 = unlimited
+  maxStorageGb: int("planMaxStorageGb").default(5).notNull(), // -1 = unlimited
+  // Feature flags (which feature categories are included)
+  includesCore: boolean("planIncludesCore").default(true).notNull(),
+  includesCommunication: boolean("planIncludesComm").default(false).notNull(),
+  includesIntelligence: boolean("planIncludesIntel").default(false).notNull(),
+  includesOperations: boolean("planIncludesOps").default(false).notNull(),
+  includesExperimental: boolean("planIncludesExp").default(false).notNull(),
+  // Capabilities
+  hasApiAccess: boolean("planHasApi").default(false).notNull(),
+  hasPrioritySupport: boolean("planHasPrioritySupport").default(false).notNull(),
+  hasWhiteLabel: boolean("planHasWhiteLabel").default(false).notNull(),
+  hasDedicatedAccount: boolean("planHasDedicatedAccount").default(false).notNull(),
+  hasCustomIntegrations: boolean("planHasCustomIntegrations").default(false).notNull(),
+  // Meta
+  isActive: boolean("planIsActive").default(true).notNull(),
+  sortOrder: int("planSortOrder").default(0).notNull(),
+  createdAt: timestamp("planCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("planUpdatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  keyIdx: uniqueIndex("plan_key_idx").on(table.key),
+  tierIdx: index("plan_tier_idx").on(table.tier),
+}));
+
+export type Plan = typeof plans.$inferSelect;
+export type InsertPlan = typeof plans.$inferInsert;
+
+/**
+ * Subscriptions — links an account to a plan with billing state.
+ * One active subscription per account at a time.
+ */
+export const subscriptions = mysqlTable("subscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  accountId: int("subAccountId").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  planId: int("subPlanId").notNull().references(() => plans.id),
+  status: mysqlEnum("subStatus", ["active", "trialing", "past_due", "cancelled", "expired"]).default("active").notNull(),
+  billingCycle: mysqlEnum("subBillingCycle", ["monthly", "annual", "custom"]).default("monthly").notNull(),
+  // Dates
+  startDate: timestamp("subStartDate").defaultNow().notNull(),
+  endDate: timestamp("subEndDate"),
+  trialEndsAt: timestamp("subTrialEndsAt"),
+  cancelledAt: timestamp("subCancelledAt"),
+  // Payment
+  stripeCustomerId: varchar("subStripeCustomerId", { length: 255 }),
+  stripeSubscriptionId: varchar("subStripeSubId", { length: 255 }),
+  // Override limits (null = use plan defaults)
+  overrideMaxOrgs: int("subOverrideMaxOrgs"),
+  overrideMaxUsersPerOrg: int("subOverrideMaxUsers"),
+  overrideMaxContacts: int("subOverrideMaxContacts"),
+  overrideMaxStorageGb: int("subOverrideMaxStorage"),
+  // Meta
+  notes: text("subNotes"),
+  createdAt: timestamp("subCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("subUpdatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  accountIdx: index("sub_account_idx").on(table.accountId),
+  planIdx: index("sub_plan_idx").on(table.planId),
+  statusIdx: index("sub_status_idx").on(table.status),
+}));
+
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;
+
+/**
+ * Plan Feature Map — explicitly maps which feature keys are included in each plan.
+ * This allows fine-grained control beyond the category-level booleans on the plan.
+ */
+export const planFeatures = mysqlTable("plan_features", {
+  id: int("id").autoincrement().primaryKey(),
+  planId: int("pfPlanId").notNull().references(() => plans.id, { onDelete: "cascade" }),
+  featureKey: varchar("pfFeatureKey", { length: 100 }).notNull(),
+  included: boolean("pfIncluded").default(true).notNull(),
+}, (table) => ({
+  planFeatureIdx: uniqueIndex("pf_plan_feature_idx").on(table.planId, table.featureKey),
+  planIdx: index("pf_plan_idx").on(table.planId),
+}));
+
+export type PlanFeature = typeof planFeatures.$inferSelect;
+export type InsertPlanFeature = typeof planFeatures.$inferInsert;
+
+// Plans & Subscriptions relations
+export const plansRelations = relations(plans, ({ many }) => ({
+  subscriptions: many(subscriptions),
+  features: many(planFeatures),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  account: one(accounts, { fields: [subscriptions.accountId], references: [accounts.id] }),
+  plan: one(plans, { fields: [subscriptions.planId], references: [plans.id] }),
+}));
+
+export const planFeaturesRelations = relations(planFeatures, ({ one }) => ({
+  plan: one(plans, { fields: [planFeatures.planId], references: [plans.id] }),
+}));

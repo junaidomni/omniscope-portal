@@ -3,11 +3,11 @@ import * as gmailService from "../gmailService";
 import { TRPCError } from "@trpc/server";
 import { getGoogleAuthUrl, isGoogleConnected, syncGoogleCalendarEvents } from "../googleCalendar";
 import { invokeLLM } from "../_core/llm";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const mailRouter = router({
-  listThreads: protectedProcedure
+  listThreads: orgScopedProcedure
     .input(
       z.object({
         folder: z.enum(["inbox", "sent", "drafts", "starred", "all"]).default("inbox"),
@@ -25,13 +25,13 @@ export const mailRouter = router({
       });
     }),
 
-  getThread: protectedProcedure
+  getThread: orgScopedProcedure
     .input(z.object({ threadId: z.string() }))
     .query(async ({ ctx, input }) => {
       return await gmailService.getGmailThread(ctx.user.id, input.threadId);
     }),
 
-  send: protectedProcedure
+  send: orgScopedProcedure
     .input(
       z.object({
         to: z.array(z.string().email()),
@@ -53,11 +53,11 @@ export const mailRouter = router({
       return result;
     }),
 
-  getUnreadCount: protectedProcedure.query(async ({ ctx }) => {
+  getUnreadCount: orgScopedProcedure.query(async ({ ctx }) => {
     return { count: await gmailService.getUnreadCount(ctx.user.id) };
   }),
 
-  toggleStar: protectedProcedure
+  toggleStar: orgScopedProcedure
     .input(z.object({ messageId: z.string(), starred: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       const ok = await gmailService.toggleStar(ctx.user.id, input.messageId, input.starred);
@@ -65,7 +65,7 @@ export const mailRouter = router({
       return { success: true };
     }),
 
-  toggleRead: protectedProcedure
+  toggleRead: orgScopedProcedure
     .input(z.object({ messageId: z.string(), read: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       const ok = await gmailService.toggleRead(ctx.user.id, input.messageId, input.read);
@@ -73,7 +73,7 @@ export const mailRouter = router({
       return { success: true };
     }),
 
-  trash: protectedProcedure
+  trash: orgScopedProcedure
     .input(z.object({ messageId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const ok = await gmailService.trashMessage(ctx.user.id, input.messageId);
@@ -81,23 +81,23 @@ export const mailRouter = router({
       return { success: true };
     }),
 
-  syncHeaders: protectedProcedure
+  syncHeaders: orgScopedProcedure
     .input(z.object({ maxResults: z.number().min(10).max(500).default(100) }).optional())
     .mutation(async ({ ctx, input }) => {
       return await gmailService.syncEmailHeaders(ctx.user.id, { maxResults: input?.maxResults });
     }),
 
-  getByContact: protectedProcedure
+  getByContact: orgScopedProcedure
     .input(z.object({ contactEmail: z.string(), maxResults: z.number().default(15) }))
     .query(async ({ ctx, input }) => {
       return await gmailService.getEmailsByContact(ctx.user.id, input.contactEmail, input.maxResults);
     }),
 
-  connectionStatus: protectedProcedure.query(async ({ ctx }) => {
+  connectionStatus: orgScopedProcedure.query(async ({ ctx }) => {
     return await isGoogleConnected(ctx.user.id);
   }),
 
-  getAuthUrl: protectedProcedure
+  getAuthUrl: orgScopedProcedure
     .input(z.object({ origin: z.string(), returnPath: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       const url = getGoogleAuthUrl(input.origin, ctx.user.id, input.returnPath);
@@ -105,50 +105,50 @@ export const mailRouter = router({
     }),
 
   // Star Priority System
-  getStar: protectedProcedure
+  getStar: orgScopedProcedure
     .input(z.object({ threadId: z.string() }))
     .query(async ({ ctx, input }) => {
       const star = await db.getEmailStar(input.threadId, ctx.user.id);
       return star ? { starLevel: star.starLevel } : null;
     }),
 
-  getStars: protectedProcedure.query(async ({ ctx }) => {
+  getStars: orgScopedProcedure.query(async ({ ctx }) => {
     return await db.getEmailStarsForUser(ctx.user.id);
   }),
 
-  setStar: protectedProcedure
+  setStar: orgScopedProcedure
     .input(z.object({ threadId: z.string(), starLevel: z.number().min(1).max(3) }))
     .mutation(async ({ ctx, input }) => {
       return await db.setEmailStar(input.threadId, ctx.user.id, input.starLevel);
     }),
 
-  removeStar: protectedProcedure
+  removeStar: orgScopedProcedure
     .input(z.object({ threadId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       return await db.removeEmailStar(input.threadId, ctx.user.id);
     }),
 
   // Email-to-Company Links
-  getCompanyLinks: protectedProcedure
+  getCompanyLinks: orgScopedProcedure
     .input(z.object({ threadId: z.string() }))
     .query(async ({ input }) => {
       return await db.getEmailCompanyLinks(input.threadId);
     }),
 
-  linkToCompany: protectedProcedure
+  linkToCompany: orgScopedProcedure
     .input(z.object({ threadId: z.string(), companyId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       return await db.linkEmailToCompany(input.threadId, input.companyId, ctx.user.id);
     }),
 
-  unlinkCompany: protectedProcedure
+  unlinkCompany: orgScopedProcedure
     .input(z.object({ linkId: z.number() }))
     .mutation(async ({ input }) => {
       return await db.unlinkEmailFromCompany(input.linkId);
     }),
 
   // AI Thread Summary
-  getThreadSummary: protectedProcedure
+  getThreadSummary: orgScopedProcedure
     .input(z.object({ threadId: z.string() }))
     .query(async ({ ctx, input }) => {
       const cached = await db.getThreadSummary(input.threadId, ctx.user.id);
@@ -164,7 +164,7 @@ export const mailRouter = router({
       };
     }),
 
-  summarizeThread: protectedProcedure
+  summarizeThread: orgScopedProcedure
     .input(z.object({ threadId: z.string(), force: z.boolean().default(false) }))
     .mutation(async ({ ctx, input }) => {
       // Check cache first (unless force refresh)
@@ -267,7 +267,7 @@ Return ONLY valid JSON. No markdown, no code blocks.`,
 
   // Convert to Task
   // Legacy single task (kept for backward compat)
-  convertToTask: protectedProcedure
+  convertToTask: orgScopedProcedure
     .input(z.object({
       threadId: z.string(),
       subject: z.string(),
@@ -305,7 +305,7 @@ Return ONLY valid JSON. No markdown, no code blocks.`,
     }),
 
   // Multi-task creation from email
-  convertToTasks: protectedProcedure
+  convertToTasks: orgScopedProcedure
     .input(z.object({
       threadId: z.string(),
       subject: z.string(),
@@ -341,14 +341,14 @@ Return ONLY valid JSON. No markdown, no code blocks.`,
     }),
 
   // Get tasks linked to a thread
-  getThreadTasks: protectedProcedure
+  getThreadTasks: orgScopedProcedure
     .input(z.object({ threadId: z.string() }))
     .query(async ({ input }) => {
       return await db.getTasksByThreadId(input.threadId);
     }),
 
   // Bulk Star Assignment
-  bulkSetStars: protectedProcedure
+  bulkSetStars: orgScopedProcedure
     .input(z.object({
       threadIds: z.array(z.string()).min(1).max(100),
       starLevel: z.number().min(1).max(3),
@@ -358,7 +358,7 @@ Return ONLY valid JSON. No markdown, no code blocks.`,
       return { updated: results.length, starLevel: input.starLevel };
     }),
 
-  bulkRemoveStars: protectedProcedure
+  bulkRemoveStars: orgScopedProcedure
     .input(z.object({
       threadIds: z.array(z.string()).min(1).max(100),
     }))
@@ -368,12 +368,12 @@ Return ONLY valid JSON. No markdown, no code blocks.`,
     }),
 
   // Email Analytics
-  analytics: protectedProcedure.query(async ({ ctx }) => {
+  analytics: orgScopedProcedure.query(async ({ ctx }) => {
     return await db.getEmailAnalytics(ctx.user.id);
   }),
 
   // AI Task Extraction from Email Thread
-  extractTasks: protectedProcedure
+  extractTasks: orgScopedProcedure
     .input(z.object({ threadId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       // Fetch thread messages
@@ -489,7 +489,7 @@ Return ONLY valid JSON. No markdown, no code blocks.`,
               contactName = contact.name;
             }
           } else if (task.assignee) {
-            const results = await db.directorySearch(task.assignee, 1);
+            const results = await db.directorySearch(task.assignee, 1, ctx.orgId ?? undefined);
             if (results.length > 0) {
               contactId = results[0].id;
               contactName = results[0].name;

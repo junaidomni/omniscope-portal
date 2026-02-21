@@ -1,10 +1,10 @@
 import * as db from "../db";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const tasksRouter = router({
-  list: protectedProcedure
+  list: orgScopedProcedure
     .input(
       z.object({
         status: z.enum(["open", "in_progress", "completed"]).optional(),
@@ -14,11 +14,11 @@ export const tasksRouter = router({
         category: z.string().optional(),
       }).optional()
     )
-    .query(async ({ input }) => {
-      return await db.getAllTasks(input);
+    .query(async ({ input, ctx }) => {
+      return await db.getAllTasks(input ? { ...input, orgId: ctx.orgId ?? undefined } : { orgId: ctx.orgId ?? undefined });
     }),
 
-  getById: protectedProcedure
+  getById: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const task = await db.getTaskById(input.id);
@@ -26,15 +26,15 @@ export const tasksRouter = router({
       return task;
     }),
 
-  categories: protectedProcedure.query(async () => {
-    return await db.getTaskCategories();
+  categories: orgScopedProcedure.query(async ({ ctx }) => {
+    return await db.getTaskCategories(ctx.orgId ?? undefined);
   }),
 
-  assignees: protectedProcedure.query(async () => {
-    return await db.getTaskAssignees();
+  assignees: orgScopedProcedure.query(async ({ ctx }) => {
+    return await db.getTaskAssignees(ctx.orgId ?? undefined);
   }),
 
-  create: protectedProcedure
+  create: orgScopedProcedure
     .input(
       z.object({
         title: z.string().min(1).max(500),
@@ -67,7 +67,7 @@ export const tasksRouter = router({
       return { id: taskId };
     }),
 
-  update: protectedProcedure
+  update: orgScopedProcedure
     .input(
       z.object({
         id: z.number(),
@@ -99,14 +99,14 @@ export const tasksRouter = router({
       return { success: true };
     }),
 
-  delete: protectedProcedure
+  delete: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       await db.deleteTask(input.id);
       return { success: true };
     }),
 
-  bulkDelete: protectedProcedure
+  bulkDelete: orgScopedProcedure
     .input(z.object({ ids: z.array(z.number()).min(1) }))
     .mutation(async ({ input }) => {
       for (const id of input.ids) {
@@ -115,7 +115,7 @@ export const tasksRouter = router({
       return { success: true, deleted: input.ids.length };
     }),
 
-  bulkUpdate: protectedProcedure
+  bulkUpdate: orgScopedProcedure
     .input(z.object({
       ids: z.array(z.number()).min(1),
       updates: z.object({

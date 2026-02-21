@@ -1,21 +1,21 @@
 import * as db from "../db";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const directoryRouter = router({
-  search: protectedProcedure
+  search: orgScopedProcedure
     .input(z.object({ query: z.string().min(1).max(200), limit: z.number().min(1).max(50).default(15) }))
-    .query(async ({ input }) => {
-      return await db.directorySearch(input.query, input.limit);
+    .query(async ({ input, ctx }) => {
+      return await db.directorySearch(input.query, input.limit, ctx.orgId ?? undefined);
     }),
 
-  personCard: protectedProcedure
+  personCard: orgScopedProcedure
     .input(z.object({ contactId: z.number() }))
     .query(async ({ input }) => {
       return await db.getPersonCard(input.contactId);
     }),
 
-  findByEmail: protectedProcedure
+  findByEmail: orgScopedProcedure
     .input(z.object({ email: z.string().email() }))
     .query(async ({ input }) => {
       const contact = await db.findContactByEmail(input.email);
@@ -23,7 +23,7 @@ export const directoryRouter = router({
       return { contact, company };
     }),
 
-  quickCreateContact: protectedProcedure
+  quickCreateContact: orgScopedProcedure
     .input(z.object({
       name: z.string().min(1),
       email: z.string().email(),

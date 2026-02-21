@@ -1,13 +1,13 @@
 import * as db from "../db";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
 import { z } from "zod";
 
 export const contactsRouter = router({
-  list: protectedProcedure.query(async () => {
-    const allContacts = await db.getContactsWithCompany();
+  list: orgScopedProcedure.query(async () => {
+    const allContacts = await db.getContactsWithCompany(ctx.orgId);
     const enriched = await Promise.all(allContacts.map(async (c: any) => {
       const contactMeetings = await db.getMeetingsForContact(c.id);
       const lastMeetingDate = contactMeetings.length > 0 ? contactMeetings[0].meeting.meetingDate : null;
@@ -24,10 +24,10 @@ export const contactsRouter = router({
     return enriched;
   }),
 
-  searchByName: protectedProcedure
+  searchByName: orgScopedProcedure
     .input(z.object({ query: z.string().min(1), limit: z.number().min(1).max(50).default(10) }))
     .query(async ({ input }) => {
-      const allContacts = await db.getAllContacts();
+      const allContacts = await db.getAllContacts(ctx.orgId);
       const q = input.query.toLowerCase().trim();
       const matched = allContacts
         .filter((c: any) => {
@@ -48,7 +48,7 @@ export const contactsRouter = router({
       return matched;
     }),
 
-  getById: protectedProcedure
+  getById: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const contact = await db.getContactById(input.id);
@@ -56,7 +56,7 @@ export const contactsRouter = router({
       return contact;
     }),
 
-  getProfile: protectedProcedure
+  getProfile: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const profile = await db.getContactProfile(input.id);
@@ -64,19 +64,19 @@ export const contactsRouter = router({
       return profile;
     }),
 
-  getMeetings: protectedProcedure
+  getMeetings: orgScopedProcedure
     .input(z.object({ contactId: z.number() }))
     .query(async ({ input }) => {
       return await db.getMeetingsForContact(input.contactId);
     }),
 
-  search: protectedProcedure
+  search: orgScopedProcedure
     .input(z.object({ query: z.string() }))
-    .query(async ({ input }) => {
-      return await db.searchContacts(input.query);
+    .query(async ({ input, ctx }) => {
+      return await db.searchContacts(input.query, ctx.orgId ?? undefined);
     }),
 
-  create: protectedProcedure
+  create: orgScopedProcedure
     .input(z.object({
       name: z.string().min(1),
       email: z.string().optional(),
@@ -107,7 +107,7 @@ export const contactsRouter = router({
       return { id };
     }),
 
-  update: protectedProcedure
+  update: orgScopedProcedure
     .input(z.object({
       id: z.number(),
       name: z.string().optional(),
@@ -151,7 +151,7 @@ export const contactsRouter = router({
       return { success: true };
     }),
 
-  toggleStar: protectedProcedure
+  toggleStar: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const contact = await db.getContactById(input.id);
@@ -160,13 +160,13 @@ export const contactsRouter = router({
       return { starred: !contact.starred };
     }),
 
-  getNotes: protectedProcedure
+  getNotes: orgScopedProcedure
     .input(z.object({ contactId: z.number() }))
     .query(async ({ input }) => {
       return await db.getNotesForContact(input.contactId);
     }),
 
-  addNote: protectedProcedure
+  addNote: orgScopedProcedure
     .input(z.object({ contactId: z.number(), content: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
       const id = await db.createContactNote({
@@ -178,17 +178,17 @@ export const contactsRouter = router({
       return { id };
     }),
 
-  deleteNote: protectedProcedure
+  deleteNote: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       await db.deleteContactNote(input.id);
       return { success: true };
     }),
 
-  checkDuplicates: protectedProcedure
+  checkDuplicates: orgScopedProcedure
     .input(z.object({ name: z.string() }))
     .query(async ({ input }) => {
-      const allContacts = await db.getAllContacts();
+      const allContacts = await db.getAllContacts(ctx.orgId);
       const nameLower = input.name.toLowerCase().trim();
       const duplicates = allContacts.filter(c => {
         const cName = c.name.toLowerCase().trim();
@@ -202,7 +202,7 @@ export const contactsRouter = router({
       return duplicates;
     }),
 
-  mergeContacts: protectedProcedure
+  mergeContacts: orgScopedProcedure
     .input(z.object({ keepId: z.number(), mergeId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const keep = await db.getContactById(input.keepId);
@@ -236,7 +236,7 @@ export const contactsRouter = router({
       return { success: true };
     }),
 
-  approve: protectedProcedure
+  approve: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const contact = await db.getContactById(input.id);
@@ -245,7 +245,7 @@ export const contactsRouter = router({
       return { success: true };
     }),
 
-  reject: protectedProcedure
+  reject: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const contact = await db.getContactById(input.id);
@@ -254,7 +254,7 @@ export const contactsRouter = router({
       return { success: true };
     }),
 
-  bulkApprove: protectedProcedure
+  bulkApprove: orgScopedProcedure
     .input(z.object({ ids: z.array(z.number()) }))
     .mutation(async ({ ctx, input }) => {
       for (const id of input.ids) {
@@ -264,7 +264,7 @@ export const contactsRouter = router({
       return { success: true, count: input.ids.length };
     }),
 
-  bulkReject: protectedProcedure
+  bulkReject: orgScopedProcedure
     .input(z.object({ ids: z.array(z.number()) }))
     .mutation(async ({ ctx, input }) => {
       for (const id of input.ids) {
@@ -274,7 +274,7 @@ export const contactsRouter = router({
       return { success: true, count: input.ids.length };
     }),
 
-  delete: protectedProcedure
+  delete: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       await db.deleteContact(input.id);
@@ -283,10 +283,10 @@ export const contactsRouter = router({
 
   // ========== PENDING SUGGESTIONS ==========
 
-  pendingSuggestions: protectedProcedure
+  pendingSuggestions: orgScopedProcedure
     .input(z.object({ type: z.string().optional(), status: z.string().optional() }).optional())
-    .query(async ({ input }) => {
-      const suggestions = await db.getPendingSuggestions({
+    .query(async ({ input, ctx }) => {
+      const suggestions = await db.getPendingSuggestions({ orgId: ctx.orgId ?? undefined,
         type: input?.type,
         status: input?.status || "pending",
       });
@@ -307,12 +307,12 @@ export const contactsRouter = router({
       return enriched;
     }),
 
-  pendingSuggestionsCount: protectedProcedure
+  pendingSuggestionsCount: orgScopedProcedure
     .query(async () => {
-      return await db.getPendingSuggestionsCount();
+      return await db.getPendingSuggestionsCount(ctx.orgId);
     }),
 
-  approveSuggestion: protectedProcedure
+  approveSuggestion: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const suggestion = await db.getPendingSuggestionById(input.id);
@@ -339,7 +339,7 @@ export const contactsRouter = router({
       return { success: true };
     }),
 
-  rejectSuggestion: protectedProcedure
+  rejectSuggestion: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const suggestion = await db.getPendingSuggestionById(input.id);
@@ -354,7 +354,7 @@ export const contactsRouter = router({
       return { success: true };
     }),
 
-  bulkApproveSuggestions: protectedProcedure
+  bulkApproveSuggestions: orgScopedProcedure
     .input(z.object({ ids: z.array(z.number()) }))
     .mutation(async ({ ctx, input }) => {
       let approved = 0;
@@ -377,7 +377,7 @@ export const contactsRouter = router({
       return { success: true, count: approved };
     }),
 
-  bulkRejectSuggestions: protectedProcedure
+  bulkRejectSuggestions: orgScopedProcedure
     .input(z.object({ ids: z.array(z.number()) }))
     .mutation(async ({ ctx, input }) => {
       let rejected = 0;
@@ -391,9 +391,9 @@ export const contactsRouter = router({
       return { success: true, count: rejected };
     }),
 
-  syncFromMeetings: protectedProcedure
-    .mutation(async () => {
-      const allMeetings = await db.getAllMeetings({ limit: 500 });
+  syncFromMeetings: orgScopedProcedure
+    .mutation(async ({ ctx }) => {
+      const allMeetings = await db.getAllMeetings({ limit: 500, orgId: ctx.orgId ?? undefined });
       let created = 0;
       let linked = 0;
       for (const meeting of allMeetings) {
@@ -418,9 +418,9 @@ export const contactsRouter = router({
       return { success: true, created, linked, meetings: allMeetings.length };
     }),
 
-  detectDuplicates: protectedProcedure
+  detectDuplicates: orgScopedProcedure
     .query(async () => {
-      const contacts = await db.getAllContacts();
+      const contacts = await db.getAllContacts(ctx.orgId);
       const duplicates: { group: any[] }[] = [];
       const processed = new Set<number>();
       
@@ -460,7 +460,7 @@ export const contactsRouter = router({
       return duplicates;
     }),
 
-  generateAiSummary: protectedProcedure
+  generateAiSummary: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const contact = await db.getContactById(input.id);
@@ -469,7 +469,7 @@ export const contactsRouter = router({
       const contactMeetings = await db.getMeetingsForContact(input.id);
       
       // Also check meetings by participant name
-      const allMeetings = await db.getAllMeetings({ limit: 500 });
+      const allMeetings = await db.getAllMeetings({ limit: 500, orgId: ctx.orgId ?? undefined });
       const nameMatches = allMeetings.filter(m => {
         try {
           const participants = JSON.parse(m.participants || '[]');
@@ -508,7 +508,7 @@ export const contactsRouter = router({
         })
         .join('\n');
 
-      const contactTasks = await db.getTasksForContact(contact.name);
+      const contactTasks = await db.getTasksForContact(contact.name, ctx.orgId ?? undefined);
       const taskSummary = contactTasks.slice(0, 10).map(t => 
         `- [${t.status}] ${t.title}`
       ).join('\n');
@@ -539,7 +539,7 @@ ${taskSummary || 'No tasks assigned'}`
     }),
 
   // AI Enrichment - extract contact info from meeting transcripts
-  enrichWithAI: protectedProcedure
+  enrichWithAI: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const contact = await db.getContactById(input.id);
@@ -547,7 +547,7 @@ ${taskSummary || 'No tasks assigned'}`
 
       // Get all meetings involving this contact
       const contactMeetings = await db.getMeetingsForContact(input.id);
-      const allMeetings = await db.getAllMeetings({ limit: 500 });
+      const allMeetings = await db.getAllMeetings({ limit: 500, orgId: ctx.orgId ?? undefined });
       const nameMatches = allMeetings.filter(m => {
         try {
           const participants = JSON.parse(m.participants || '[]');
@@ -706,9 +706,9 @@ IMPORTANT: Only include fields where you have high confidence from the meeting d
     }),
 
   // Bulk AI enrichment for all contacts
-  enrichAllWithAI: protectedProcedure
+  enrichAllWithAI: orgScopedProcedure
     .mutation(async () => {
-      const allContacts = await db.getAllContacts();
+      const allContacts = await db.getAllContacts(ctx.orgId);
       let enriched = 0;
       let errors = 0;
       for (const contact of allContacts) {
@@ -741,7 +741,7 @@ IMPORTANT: Only include fields where you have high confidence from the meeting d
     }),
 
   // Link employee to contact
-  linkEmployee: protectedProcedure
+  linkEmployee: orgScopedProcedure
     .input(z.object({ contactId: z.number(), employeeId: z.number() }))
     .mutation(async ({ input }) => {
       await db.linkEmployeeToContact(input.employeeId, input.contactId);
@@ -761,10 +761,10 @@ IMPORTANT: Only include fields where you have high confidence from the meeting d
     }),
 
   // Auto-link employees to contacts by name matching
-  autoLinkEmployees: protectedProcedure
-    .mutation(async () => {
-      const allEmployees = await db.getAllEmployees();
-      const allContacts = await db.getAllContacts();
+  autoLinkEmployees: orgScopedProcedure
+    .mutation(async ({ ctx }) => {
+      const allEmployees = await db.getAllEmployees({ orgId: ctx.orgId ?? undefined });
+      const allContacts = await db.getAllContacts(ctx.orgId);
       let linked = 0;
       for (const emp of allEmployees) {
         if (emp.contactId) continue; // Already linked
@@ -793,13 +793,13 @@ IMPORTANT: Only include fields where you have high confidence from the meeting d
     }),
 
   // Contact documents
-  getDocuments: protectedProcedure
+  getDocuments: orgScopedProcedure
     .input(z.object({ contactId: z.number(), category: z.string().optional() }))
     .query(async ({ input }) => {
       return await db.getDocumentsForContact(input.contactId, input.category);
     }),
 
-  uploadDocument: protectedProcedure
+  uploadDocument: orgScopedProcedure
     .input(z.object({
       contactId: z.number(),
       title: z.string().min(1),
@@ -826,7 +826,7 @@ IMPORTANT: Only include fields where you have high confidence from the meeting d
       return { id, url };
     }),
 
-  deleteDocument: protectedProcedure
+  deleteDocument: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       await db.deleteContactDocument(input.id);
@@ -834,20 +834,20 @@ IMPORTANT: Only include fields where you have high confidence from the meeting d
     }),
 
   // Get linked employee for a contact
-  getLinkedEmployee: protectedProcedure
+  getLinkedEmployee: orgScopedProcedure
     .input(z.object({ contactId: z.number() }))
     .query(async ({ input }) => {
       return await db.getEmployeeByContactId(input.contactId);
     }),
 
   // ========== ALIASES ==========
-  getAliases: protectedProcedure
+  getAliases: orgScopedProcedure
     .input(z.object({ contactId: z.number() }))
     .query(async ({ ctx, input }) => {
       return await db.getAliasesForContact(ctx.user!.id, input.contactId);
     }),
 
-  addAlias: protectedProcedure
+  addAlias: orgScopedProcedure
     .input(z.object({ contactId: z.number(), aliasName: z.string().min(1), aliasEmail: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       const result = await db.saveContactAlias(ctx.user!.id, input.contactId, input.aliasName, input.aliasEmail, "manual");
@@ -856,7 +856,7 @@ IMPORTANT: Only include fields where you have high confidence from the meeting d
       return result;
     }),
 
-  removeAlias: protectedProcedure
+  removeAlias: orgScopedProcedure
     .input(z.object({ aliasId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       return await db.deleteContactAlias(input.aliasId);

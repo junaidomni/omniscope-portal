@@ -1,9 +1,9 @@
 import * as db from "../db";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const activityLogRouter = router({
-  list: protectedProcedure
+  list: orgScopedProcedure
     .input(z.object({
       limit: z.number().min(1).max(100).default(50),
       offset: z.number().min(0).default(0),
@@ -12,8 +12,9 @@ export const activityLogRouter = router({
       startDate: z.string().optional(),
       endDate: z.string().optional(),
     }).optional())
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       return await db.getActivityLog({
+        orgId: ctx.orgId ?? undefined,
         limit: input?.limit || 50,
         offset: input?.offset || 0,
         action: input?.action,
@@ -23,14 +24,15 @@ export const activityLogRouter = router({
       });
     }),
 
-  exportAll: protectedProcedure
+  exportAll: orgScopedProcedure
     .input(z.object({
       action: z.string().optional(),
       entityType: z.string().optional(),
     }).optional())
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       // Fetch ALL entries (no limit) for CSV export
       return await db.getActivityLog({
+        orgId: ctx.orgId ?? undefined,
         limit: 10000,
         offset: 0,
         action: input?.action,
@@ -38,7 +40,7 @@ export const activityLogRouter = router({
       });
     }),
 
-  actions: protectedProcedure.query(async () => {
+  actions: orgScopedProcedure.query(async () => {
     // Return distinct action types for filter dropdown
     return [
       "approve_contact", "reject_contact", "merge_contacts",

@@ -2504,3 +2504,13 @@
 - [x] A-6: Make meeting row fully clickable in select mode
 - [x] A-7: Add server-side 60s cooldown to Fathom sync
 - [x] A-8: Add error handling and sync guard to calendar fetch
+
+## Phase B: Org Scoping & Multi-Tenancy Foundation
+- [x] B-1: Audit all DB functions — 216 functions cataloged, 39 need org scoping
+- [x] B-2: Add orgId filtering to entity queries (contacts, companies, meetings, tasks, employees, payroll)
+- [x] B-3: Add orgId filtering to relationship queries (suggestions, interactions, documents, activity log, directory)
+- [x] B-4: Update all 17 tRPC routers to pass ctx.orgId — X-Org-Id header + orgScopedProcedure middleware
+- [x] B-5: Fix ingestion pipeline — processIntelligenceData, Fathom sync, manual transcript all pass orgId
+- [x] B-6: Add featureGatedProcedure factory + composite unique key (orgId + featureKey)
+- [x] B-7: Plans schema (plans, subscriptions, plan_features tables) + 4 tiers seeded + plans router + DB helpers
+- [x] B-8: 23 vitest tests for org scoping, feature gating, plans, and ingestion pipeline

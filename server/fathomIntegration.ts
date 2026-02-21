@@ -405,7 +405,7 @@ Return a JSON object with these fields:
 /**
  * Transform a Fathom webhook payload into OmniScope intelligence data and ingest it
  */
-export async function processFathomWebhook(payload: FathomWebhookPayload): Promise<{
+export async function processFathomWebhook(payload: FathomWebhookPayload, orgId?: number): Promise<{
   success: boolean;
   meetingId?: number;
   reason?: string;
@@ -480,7 +480,7 @@ export async function processFathomWebhook(payload: FathomWebhookPayload): Promi
   };
 
   // Process through the standard ingestion pipeline
-  const result = await processIntelligenceData(intelligenceData);
+  const result = await processIntelligenceData(intelligenceData, undefined, orgId);
 
   if (result.success) {
     console.log(`[Fathom] Successfully ingested meeting ${result.meetingId}: "${title}"`);
@@ -497,6 +497,7 @@ export async function processFathomWebhook(payload: FathomWebhookPayload): Promi
 export async function importFathomMeetings(options?: {
   limit?: number;
   cursor?: string;
+  orgId?: number;
 }): Promise<{
   imported: number;
   skipped: number;
@@ -536,7 +537,7 @@ export async function importFathomMeetings(options?: {
 
   for (const meeting of meetings) {
     try {
-      const result = await processFathomWebhook(meeting);
+      const result = await processFathomWebhook(meeting, options?.orgId);
       if (result.success) {
         imported++;
       } else {

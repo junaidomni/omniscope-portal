@@ -1,12 +1,12 @@
 import * as db from "../db";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const vaultRouter = router({
   // Document CRUD
-  listDocuments: protectedProcedure
+  listDocuments: orgScopedProcedure
     .input(z.object({
       collection: z.string().optional(),
       category: z.string().optional(),
@@ -18,10 +18,10 @@ export const vaultRouter = router({
       offset: z.number().min(0).default(0),
     }).optional())
     .query(async ({ input, ctx }) => {
-      return db.listDocuments(input ? { ...input, ownerId: undefined } : undefined);
+      return db.listDocuments(input ? { ...input, ownerId: undefined, orgId: ctx.orgId ?? undefined } : { orgId: ctx.orgId ?? undefined });
     }),
 
-  getDocument: protectedProcedure
+  getDocument: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const doc = await db.getDocumentById(input.id);
@@ -29,7 +29,7 @@ export const vaultRouter = router({
       return doc;
     }),
 
-  createDocument: protectedProcedure
+  createDocument: orgScopedProcedure
     .input(z.object({
       title: z.string().min(1),
       description: z.string().optional(),
@@ -74,7 +74,7 @@ export const vaultRouter = router({
       return doc;
     }),
 
-  updateDocument: protectedProcedure
+  updateDocument: orgScopedProcedure
     .input(z.object({
       id: z.number(),
       title: z.string().optional(),
@@ -93,7 +93,7 @@ export const vaultRouter = router({
       return doc;
     }),
 
-  deleteDocument: protectedProcedure
+  deleteDocument: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input, ctx }) => {
       const doc = await db.getDocumentById(input.id);
@@ -111,7 +111,7 @@ export const vaultRouter = router({
     }),
 
   // Entity links
-  addEntityLink: protectedProcedure
+  addEntityLink: orgScopedProcedure
     .input(z.object({
       documentId: z.number(),
       entityType: z.enum(["company", "contact", "meeting"]),
@@ -122,13 +122,13 @@ export const vaultRouter = router({
       return db.addDocumentEntityLink(input);
     }),
 
-  removeEntityLink: protectedProcedure
+  removeEntityLink: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       return db.removeDocumentEntityLink(input.id);
     }),
 
-  getDocumentsByEntity: protectedProcedure
+  getDocumentsByEntity: orgScopedProcedure
     .input(z.object({
       entityType: z.enum(["company", "contact", "meeting"]),
       entityId: z.number(),
@@ -138,26 +138,26 @@ export const vaultRouter = router({
     }),
 
   // Favorites
-  toggleFavorite: protectedProcedure
+  toggleFavorite: orgScopedProcedure
     .input(z.object({ documentId: z.number() }))
     .mutation(async ({ input, ctx }) => {
       const isFavorited = await db.toggleFavorite(ctx.user!.id, input.documentId);
       return { isFavorited };
     }),
 
-  getFavorites: protectedProcedure
+  getFavorites: orgScopedProcedure
     .query(async ({ ctx }) => {
       return db.getFavoriteDocuments(ctx.user!.id);
     }),
 
-  getRecent: protectedProcedure
+  getRecent: orgScopedProcedure
     .input(z.object({ limit: z.number().min(1).max(50).default(20) }).optional())
     .query(async ({ input, ctx }) => {
       return db.getRecentDocuments(ctx.user!.id, input?.limit);
     }),
 
   // Folders
-  listFolders: protectedProcedure
+  listFolders: orgScopedProcedure
     .input(z.object({
       collection: z.string().optional(),
       parentId: z.number().nullable().optional(),
@@ -166,7 +166,7 @@ export const vaultRouter = router({
       return db.listFolders(input || undefined);
     }),
 
-  createFolder: protectedProcedure
+  createFolder: orgScopedProcedure
     .input(z.object({
       name: z.string().min(1),
       collection: z.enum(["company_repo", "personal", "counterparty", "templates", "signed", "transactions"]),
@@ -178,7 +178,7 @@ export const vaultRouter = router({
       return db.createFolder({ ...input, ownerId: ctx.user!.id });
     }),
 
-  updateFolder: protectedProcedure
+  updateFolder: orgScopedProcedure
     .input(z.object({
       id: z.number(),
       name: z.string().optional(),
@@ -188,66 +188,66 @@ export const vaultRouter = router({
       return db.updateFolder(id, data);
     }),
 
-  deleteFolder: protectedProcedure
+  deleteFolder: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       return db.deleteFolder(input.id);
     }),
 
   // Folder navigation
-  getFolderContents: protectedProcedure
+  getFolderContents: orgScopedProcedure
     .input(z.object({ folderId: z.number().nullable() }))
     .query(async ({ input }) => {
       return db.getFolderWithChildren(input.folderId);
     }),
 
-  getFolderBreadcrumbs: protectedProcedure
+  getFolderBreadcrumbs: orgScopedProcedure
     .input(z.object({ folderId: z.number() }))
     .query(async ({ input }) => {
       return db.getFolderBreadcrumbs(input.folderId);
     }),
 
-  getFolderById: protectedProcedure
+  getFolderById: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       return db.getFolderById(input.id);
     }),
 
   // Move documents to folder
-  moveDocumentToFolder: protectedProcedure
+  moveDocumentToFolder: orgScopedProcedure
     .input(z.object({ documentId: z.number(), folderId: z.number().nullable() }))
     .mutation(async ({ input }) => {
       return db.moveDocumentToFolder(input.documentId, input.folderId);
     }),
 
-  moveDocumentsToFolder: protectedProcedure
+  moveDocumentsToFolder: orgScopedProcedure
     .input(z.object({ documentIds: z.array(z.number()), folderId: z.number().nullable() }))
     .mutation(async ({ input }) => {
       return db.moveDocumentsToFolder(input.documentIds, input.folderId);
     }),
 
   // Move folder (change parent)
-  moveFolder: protectedProcedure
+  moveFolder: orgScopedProcedure
     .input(z.object({ folderId: z.number(), newParentId: z.number().nullable() }))
     .mutation(async ({ input }) => {
       return db.updateFolder(input.folderId, { parentId: input.newParentId ?? undefined });
     }),
 
   // Access management
-  getDocumentAccess: protectedProcedure
+  getDocumentAccess: orgScopedProcedure
     .input(z.object({ documentId: z.number() }))
     .query(async ({ input }) => {
       return db.getDocumentAccessList(input.documentId);
     }),
 
-  getFolderAccess: protectedProcedure
+  getFolderAccess: orgScopedProcedure
     .input(z.object({ folderId: z.number() }))
     .query(async ({ input }) => {
       return db.getFolderAccessList(input.folderId);
     }),
 
   // Unified access list query (supports both documents and folders)
-  getAccessList: protectedProcedure
+  getAccessList: orgScopedProcedure
     .input(z.object({
       targetType: z.enum(["document", "folder"]),
       targetId: z.number(),
@@ -259,7 +259,7 @@ export const vaultRouter = router({
       return db.getDocumentAccessList(input.targetId);
     }),
 
-  grantAccess: protectedProcedure
+  grantAccess: orgScopedProcedure
     .input(z.object({
       targetType: z.enum(["document", "folder"]),
       targetId: z.number(),
@@ -282,14 +282,14 @@ export const vaultRouter = router({
       return db.grantDocumentAccess({ documentId: input.targetId, ...base });
     }),
 
-  revokeAccess: protectedProcedure
+  revokeAccess: orgScopedProcedure
     .input(z.object({ accessId: z.number() }))
     .mutation(async ({ input }) => {
       return db.revokeDocumentAccess(input.accessId);
     }),
 
   // Move document to a different collection
-  moveToCollection: protectedProcedure
+  moveToCollection: orgScopedProcedure
     .input(z.object({
       documentId: z.number(),
       collection: z.enum(["company_repo", "personal", "counterparty", "template", "transaction", "signed"]),
@@ -310,7 +310,7 @@ export const vaultRouter = router({
     }),
 
   // Convert a document to a template
-  convertToTemplate: protectedProcedure
+  convertToTemplate: orgScopedProcedure
     .input(z.object({
       documentId: z.number(),
       name: z.string().min(1),
@@ -343,7 +343,7 @@ export const vaultRouter = router({
     }),
 
   // AI Document Analysiss
-  analyzeDocument: protectedProcedure
+  analyzeDocument: orgScopedProcedure
     .input(z.object({
       title: z.string(),
       fileName: z.string().optional(),
@@ -409,19 +409,19 @@ Return JSON with: { "suggestedTitle": string, "category": string, "subcategory":
     }),
 
   // ── Document Notes ──
-  getNotes: protectedProcedure
+  getNotes: orgScopedProcedure
     .input(z.object({ documentId: z.number() }))
     .query(async ({ input }) => {
       return db.getDocumentNotes(input.documentId);
     }),
 
-  addNote: protectedProcedure
+  addNote: orgScopedProcedure
     .input(z.object({ documentId: z.number(), content: z.string().min(1) }))
     .mutation(async ({ input, ctx }) => {
       return db.addDocumentNote(input.documentId, ctx.user.id, input.content);
     }),
 
-  deleteNote: protectedProcedure
+  deleteNote: orgScopedProcedure
     .input(z.object({ noteId: z.number() }))
     .mutation(async ({ input, ctx }) => {
       return db.deleteDocumentNote(input.noteId, ctx.user.id);

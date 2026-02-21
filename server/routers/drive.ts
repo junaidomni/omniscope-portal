@@ -3,12 +3,12 @@ import * as googleDrive from "../googleDrive";
 import { TRPCError } from "@trpc/server";
 import { getGoogleAuthUrl, isGoogleConnected, syncGoogleCalendarEvents } from "../googleCalendar";
 import { invokeLLM } from "../_core/llm";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const driveRouter = router({
   // Connection status
-  connectionStatus: protectedProcedure.query(async ({ ctx }) => {
+  connectionStatus: orgScopedProcedure.query(async ({ ctx }) => {
     const status = await isGoogleConnected(ctx.user.id);
     return {
       connected: status.connected,
@@ -20,7 +20,7 @@ export const driveRouter = router({
   }),
 
   // List files in a Drive folder
-  listFiles: protectedProcedure
+  listFiles: orgScopedProcedure
     .input(z.object({
       folderId: z.string().optional(),
       pageToken: z.string().optional(),
@@ -42,7 +42,7 @@ export const driveRouter = router({
     }),
 
   // Search files across Drive
-  searchFiles: protectedProcedure
+  searchFiles: orgScopedProcedure
     .input(z.object({ query: z.string().min(1), pageSize: z.number().default(20) }))
     .query(async ({ input, ctx }) => {
       const files = await googleDrive.searchDriveFiles(ctx.user.id, input.query, input.pageSize);
@@ -51,7 +51,7 @@ export const driveRouter = router({
     }),
 
   // Get file metadata
-  getFile: protectedProcedure
+  getFile: orgScopedProcedure
     .input(z.object({ fileId: z.string() }))
     .query(async ({ input, ctx }) => {
       const file = await googleDrive.getDriveFile(ctx.user.id, input.fileId);
@@ -60,7 +60,7 @@ export const driveRouter = router({
     }),
 
   // Create a new folder in Drive
-  createFolder: protectedProcedure
+  createFolder: orgScopedProcedure
     .input(z.object({ name: z.string().min(1), parentFolderId: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
       const folder = await googleDrive.createDriveFolder(ctx.user.id, input.name, input.parentFolderId);
@@ -76,7 +76,7 @@ export const driveRouter = router({
     }),
 
   // Create a new Google Doc
-  createDoc: protectedProcedure
+  createDoc: orgScopedProcedure
     .input(z.object({
       title: z.string().min(1),
       folderId: z.string().optional(),
@@ -127,7 +127,7 @@ export const driveRouter = router({
     }),
 
   // Create a new Google Sheet
-  createSheet: protectedProcedure
+  createSheet: orgScopedProcedure
     .input(z.object({
       title: z.string().min(1),
       folderId: z.string().optional(),
@@ -177,7 +177,7 @@ export const driveRouter = router({
     }),
 
   // Read Google Doc text (for AI analysis or preview)
-  readDocText: protectedProcedure
+  readDocText: orgScopedProcedure
     .input(z.object({ docId: z.string() }))
     .query(async ({ input, ctx }) => {
       const text = await googleDrive.readGoogleDocText(ctx.user.id, input.docId);
@@ -185,7 +185,7 @@ export const driveRouter = router({
     }),
 
   // Export Google Doc as HTML for internal viewer
-  exportDocHtml: protectedProcedure
+  exportDocHtml: orgScopedProcedure
     .input(z.object({ docId: z.string() }))
     .query(async ({ input, ctx }) => {
       const drive = await googleDrive.getDriveClient(ctx.user.id);
@@ -203,20 +203,20 @@ export const driveRouter = router({
     }),
 
   // Read Google Sheet data (for preview)
-  readSheetData: protectedProcedure
+  readSheetData: orgScopedProcedure
     .input(z.object({ spreadsheetId: z.string(), range: z.string().default("Sheet1!A1:Z100") }))
     .query(async ({ input, ctx }) => {
       return googleDrive.readSheetData(ctx.user.id, input.spreadsheetId, input.range);
     }),
 
   // List shared drives
-  listSharedDrives: protectedProcedure
+  listSharedDrives: orgScopedProcedure
     .query(async ({ ctx }) => {
       return googleDrive.listSharedDrives(ctx.user.id);
     }),
 
   // Generate document from template (Google Docs-based)
-  generateFromTemplate: protectedProcedure
+  generateFromTemplate: orgScopedProcedure
     .input(z.object({
       templateDocId: z.string(), // Google Doc ID of the template
       newTitle: z.string(),
@@ -278,7 +278,7 @@ export const driveRouter = router({
     }),
 
   // Import a Drive file into the Vault
-  importToVault: protectedProcedure
+  importToVault: orgScopedProcedure
     .input(z.object({
       googleFileId: z.string(),
       title: z.string().optional(),
@@ -335,7 +335,7 @@ export const driveRouter = router({
     }),
 
   // Batch scan & import from shared drive
-  batchImportSharedDrive: protectedProcedure
+  batchImportSharedDrive: orgScopedProcedure
     .input(z.object({
       driveId: z.string(),
       driveName: z.string().default("OMNISCOPE"),
@@ -349,13 +349,13 @@ export const driveRouter = router({
       console.log(`[Batch Import] Found ${allFiles.length} files`);
 
       // Step 2: Get existing contacts and companies for matching
-      const existingCompanies = await db.getAllCompanies();
-      const existingContacts = await db.getAllContacts();
+      const existingCompanies = await db.getAllCompanies(ctx.orgId);
+      const existingContacts = await db.getAllContacts(ctx.orgId);
       const companyNames = (Array.isArray(existingCompanies) ? existingCompanies : []).map((c: any) => ({ id: c.id, name: c.name }));
       const contactNames = (Array.isArray(existingContacts) ? existingContacts : []).map((c: any) => ({ id: c.id, name: c.name, company: c.organization || "" }));
 
       // Step 3: Check which files are already imported
-      const existingDocs = await db.listDocuments({ limit: 1000 });
+      const existingDocs = await db.listDocuments({ limit: 1000, orgId: ctx.orgId ?? undefined });
       const importedGoogleIds = new Set(existingDocs.items.filter((d: any) => d.googleFileId).map((d: any) => d.googleFileId));
 
       const results: Array<{ fileName: string; status: string; docId?: number; category?: string; entities?: string[] }> = [];
@@ -602,7 +602,7 @@ ${textContent ? `Content preview (first 2000 chars):\n${textContent.substring(0,
     }),
 
   // Copy individual files from Drive to a Vault folder
-  copyToVault: protectedProcedure
+  copyToVault: orgScopedProcedure
     .input(z.object({
       files: z.array(z.object({
         googleFileId: z.string(),
@@ -618,7 +618,7 @@ ${textContent ? `Content preview (first 2000 chars):\n${textContent.substring(0,
       for (const file of input.files) {
         try {
           // Check if already imported
-          const existing = await db.listDocuments({ search: file.name, limit: 1 });
+          const existing = await db.listDocuments({ search: file.name, limit: 1, orgId: ctx.orgId ?? undefined });
           if (existing.items.some((d: any) => d.googleFileId === file.googleFileId)) {
             results.push({ name: file.name, success: true, error: 'Already exists' });
             continue;

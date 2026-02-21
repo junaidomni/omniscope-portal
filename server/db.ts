@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, like, lte, or, sql, inArray, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink, emailThreadSummaries, InsertEmailThreadSummary, emailMessages, pendingSuggestions, InsertPendingSuggestion, activityLog, InsertActivityLog, contactAliases, InsertContactAlias, companyAliases, InsertCompanyAlias, documents, InsertDocument, documentEntityLinks, InsertDocumentEntityLink, documentFolders, InsertDocumentFolder, documentAccess, InsertDocumentAccess, documentFavorites, InsertDocumentFavorite, documentTemplates, InsertDocumentTemplate, signingProviders, InsertSigningProvider, signingEnvelopes, InsertSigningEnvelope, documentNotes, integrations, InsertIntegration, featureToggles, InsertFeatureToggle, designPreferences, InsertDesignPreference, accounts, InsertAccount, organizations, InsertOrganization, orgMemberships, InsertOrgMembership } from "../drizzle/schema";
+import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink, emailThreadSummaries, InsertEmailThreadSummary, emailMessages, pendingSuggestions, InsertPendingSuggestion, activityLog, InsertActivityLog, contactAliases, InsertContactAlias, companyAliases, InsertCompanyAlias, documents, InsertDocument, documentEntityLinks, InsertDocumentEntityLink, documentFolders, InsertDocumentFolder, documentAccess, InsertDocumentAccess, documentFavorites, InsertDocumentFavorite, documentTemplates, InsertDocumentTemplate, signingProviders, InsertSigningProvider, signingEnvelopes, InsertSigningEnvelope, documentNotes, integrations, InsertIntegration, featureToggles, InsertFeatureToggle, designPreferences, InsertDesignPreference, accounts, InsertAccount, organizations, InsertOrganization, orgMemberships, InsertOrgMembership, plans, InsertPlan, subscriptions, InsertSubscription, planFeatures, InsertPlanFeature } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -156,9 +156,10 @@ export async function getContactByName(name: string) {
   return result.length > 0 ? result[0] : null;
 }
 
-export async function getAllContacts() {
+export async function getAllContacts(orgId?: number) {
   const db = await getDb();
   if (!db) return [];
+  if (orgId) return await db.select().from(contacts).where(eq(contacts.orgId, orgId)).orderBy(asc(contacts.name));
   return await db.select().from(contacts).orderBy(asc(contacts.name));
 }
 
@@ -183,17 +184,17 @@ export async function deleteContact(id: number) {
   await db.delete(contacts).where(eq(contacts.id, id));
 }
 
-export async function searchContacts(searchTerm: string) {
+export async function searchContacts(searchTerm: string, orgId?: number) {
   const db = await getDb();
   if (!db) return [];
   const pattern = `%${searchTerm}%`;
-  return await db.select().from(contacts).where(
-    or(
-      like(contacts.name, pattern),
-      like(contacts.organization, pattern),
-      like(contacts.email, pattern),
-    )
-  ).orderBy(asc(contacts.name));
+  const searchCond = or(
+    like(contacts.name, pattern),
+    like(contacts.organization, pattern),
+    like(contacts.email, pattern),
+  );
+  const conditions = orgId ? and(searchCond, eq(contacts.orgId, orgId)) : searchCond;
+  return await db.select().from(contacts).where(conditions).orderBy(asc(contacts.name));
 }
 
 export async function getOrCreateContact(name: string, org?: string, email?: string, userId?: number) {
@@ -381,11 +382,13 @@ export async function getAllMeetings(filters?: {
   primaryLead?: string;
   limit?: number;
   offset?: number;
+  orgId?: number;
 }) {
   const db = await getDb();
   if (!db) return [];
   
   const conditions = [];
+  if (filters?.orgId) conditions.push(eq(meetings.orgId, filters.orgId));
   if (filters?.startDate) conditions.push(gte(meetings.meetingDate, filters.startDate));
   if (filters?.endDate) conditions.push(lte(meetings.meetingDate, filters.endDate));
   if (filters?.primaryLead) conditions.push(eq(meetings.primaryLead, filters.primaryLead));
@@ -408,25 +411,25 @@ export async function getAllMeetings(filters?: {
     .offset(filters?.offset ?? 0);
 }
 
-export async function searchMeetings(searchTerm: string, limit = 50) {
+export async function searchMeetings(searchTerm: string, limit = 50, orgId?: number) {
   const db = await getDb();
   if (!db) return [];
   const searchPattern = `%${searchTerm}%`;
+  const searchCond = or(
+    like(meetings.meetingTitle, searchPattern),
+    like(meetings.executiveSummary, searchPattern),
+    like(meetings.fullTranscript, searchPattern),
+    like(meetings.strategicHighlights, searchPattern),
+    like(meetings.opportunities, searchPattern),
+    like(meetings.risks, searchPattern),
+    like(meetings.participants, searchPattern),
+    like(meetings.organizations, searchPattern)
+  );
+  const conditions = orgId ? and(searchCond, eq(meetings.orgId, orgId)) : searchCond;
   return await db
     .select()
     .from(meetings)
-    .where(
-      or(
-        like(meetings.meetingTitle, searchPattern),
-        like(meetings.executiveSummary, searchPattern),
-        like(meetings.fullTranscript, searchPattern),
-        like(meetings.strategicHighlights, searchPattern),
-        like(meetings.opportunities, searchPattern),
-        like(meetings.risks, searchPattern),
-        like(meetings.participants, searchPattern),
-        like(meetings.organizations, searchPattern)
-      )
-    )
+    .where(conditions)
     .orderBy(desc(meetings.meetingDate))
     .limit(limit);
 }
@@ -560,11 +563,13 @@ export async function getAllTasks(filters?: {
   assignedName?: string;
   meetingId?: number;
   category?: string;
+  orgId?: number;
 }) {
   const db = await getDb();
   if (!db) return [];
   
   const conditions = [];
+  if (filters?.orgId) conditions.push(eq(tasks.orgId, filters.orgId));
   if (filters?.status) conditions.push(eq(tasks.status, filters.status));
   if (filters?.assignedTo) conditions.push(eq(tasks.assignedTo, filters.assignedTo));
   if (filters?.assignedName) conditions.push(eq(tasks.assignedName, filters.assignedName));
@@ -582,25 +587,29 @@ export async function getAllTasks(filters?: {
   return await db.select().from(tasks).orderBy(desc(tasks.createdAt));
 }
 
-export async function getTaskCategories() {
+export async function getTaskCategories(orgId?: number) {
   const db = await getDb();
   if (!db) return [];
+  const conditions = [sql`${tasks.category} IS NOT NULL AND ${tasks.category} != ''`];
+  if (orgId) conditions.push(eq(tasks.orgId, orgId));
   const result = await db
     .select({ category: tasks.category, count: sql<number>`count(*)`.as('count') })
     .from(tasks)
-    .where(sql`${tasks.category} IS NOT NULL AND ${tasks.category} != ''`)
+    .where(and(...conditions))
     .groupBy(tasks.category)
     .orderBy(desc(sql`count`));
   return result;
 }
 
-export async function getTaskAssignees() {
+export async function getTaskAssignees(orgId?: number) {
   const db = await getDb();
   if (!db) return [];
+  const conditions = [sql`${tasks.assignedName} IS NOT NULL AND ${tasks.assignedName} != ''`];
+  if (orgId) conditions.push(eq(tasks.orgId, orgId));
   const result = await db
     .select({ name: tasks.assignedName, count: sql<number>`count(*)`.as('count') })
     .from(tasks)
-    .where(sql`${tasks.assignedName} IS NOT NULL AND ${tasks.assignedName} != ''`)
+    .where(and(...conditions))
     .groupBy(tasks.assignedName)
     .orderBy(desc(sql`count`));
   return result;
@@ -763,10 +772,11 @@ export async function getEmployeeById(id: number) {
   return result.length > 0 ? result[0] : null;
 }
 
-export async function getAllEmployees(filters?: { status?: string; department?: string }) {
+export async function getAllEmployees(filters?: { status?: string; department?: string; orgId?: number }) {
   const db = await getDb();
   if (!db) return [];
   const conditions = [];
+  if (filters?.orgId) conditions.push(eq(employees.orgId, filters.orgId));
   if (filters?.status) conditions.push(eq(employees.status, filters.status as any));
   if (filters?.department) conditions.push(eq(employees.department, filters.department));
   if (conditions.length > 0) {
@@ -790,28 +800,30 @@ export async function deleteEmployee(id: number) {
   await db.delete(employees).where(eq(employees.id, id));
 }
 
-export async function searchEmployees(searchTerm: string) {
+export async function searchEmployees(searchTerm: string, orgId?: number) {
   const db = await getDb();
   if (!db) return [];
   const pattern = `%${searchTerm}%`;
-  return await db.select().from(employees).where(
-    or(
-      like(employees.firstName, pattern),
-      like(employees.lastName, pattern),
-      like(employees.email, pattern),
-      like(employees.jobTitle, pattern),
-      like(employees.department, pattern),
-    )
-  ).orderBy(asc(employees.firstName));
+  const searchCond = or(
+    like(employees.firstName, pattern),
+    like(employees.lastName, pattern),
+    like(employees.email, pattern),
+    like(employees.jobTitle, pattern),
+    like(employees.department, pattern),
+  );
+  const conditions = orgId ? and(searchCond, eq(employees.orgId, orgId)) : searchCond;
+  return await db.select().from(employees).where(conditions).orderBy(asc(employees.firstName));
 }
 
-export async function getEmployeeDepartments() {
+export async function getEmployeeDepartments(orgId?: number) {
   const db = await getDb();
   if (!db) return [];
+  const conditions = [sql`${employees.department} IS NOT NULL AND ${employees.department} != ''`];
+  if (orgId) conditions.push(eq(employees.orgId, orgId));
   const result = await db
     .select({ department: employees.department, count: sql<number>`count(*)`.as('count') })
     .from(employees)
-    .where(sql`${employees.department} IS NOT NULL AND ${employees.department} != ''`)
+    .where(and(...conditions))
     .groupBy(employees.department)
     .orderBy(desc(sql`count`));
   return result;
@@ -841,10 +853,11 @@ export async function getPayrollForEmployee(employeeId: number) {
     .orderBy(desc(payrollRecords.createdAt));
 }
 
-export async function getAllPayrollRecords(filters?: { status?: string; employeeId?: number }) {
+export async function getAllPayrollRecords(filters?: { status?: string; employeeId?: number; orgId?: number }) {
   const db = await getDb();
   if (!db) return [];
   const conditions = [];
+  if (filters?.orgId) conditions.push(eq(payrollRecords.orgId, filters.orgId));
   if (filters?.status) conditions.push(eq(payrollRecords.status, filters.status as any));
   if (filters?.employeeId) conditions.push(eq(payrollRecords.employeeId, filters.employeeId));
   if (conditions.length > 0) {
@@ -971,10 +984,11 @@ export async function getCompanyById(id: number) {
   return result.length > 0 ? result[0] : null;
 }
 
-export async function getAllCompanies(filters?: { status?: string; search?: string }) {
+export async function getAllCompanies(filters?: { status?: string; search?: string; orgId?: number }) {
   const db = await getDb();
   if (!db) return [];
   const conditions: any[] = [];
+  if (filters?.orgId) conditions.push(eq(companies.orgId, filters.orgId));
   if (filters?.status) conditions.push(eq(companies.status, filters.status as any));
   if (filters?.search) conditions.push(or(
     like(companies.name, `%${filters.search}%`),
@@ -1055,10 +1069,11 @@ export async function getInteractionsForCompany(companyId: number, limit = 50) {
     .limit(limit);
 }
 
-export async function getAllInteractions(filters?: { type?: string; contactId?: number; companyId?: number; limit?: number }) {
+export async function getAllInteractions(filters?: { type?: string; contactId?: number; companyId?: number; limit?: number; orgId?: number }) {
   const db = await getDb();
   if (!db) return [];
   const conditions: any[] = [];
+  if (filters?.orgId) conditions.push(eq(interactions.orgId, filters.orgId));
   if (filters?.type) conditions.push(eq(interactions.type, filters.type as any));
   if (filters?.contactId) conditions.push(eq(interactions.contactId, filters.contactId));
   if (filters?.companyId) conditions.push(eq(interactions.companyId, filters.companyId));
@@ -1091,15 +1106,16 @@ export async function getInteractionBySource(sourceType: string, sourceRecordId:
 
 // ENHANCED CONTACT OPERATIONS
 
-export async function getContactsWithCompany() {
+export async function getContactsWithCompany(orgId?: number) {
   const db = await getDb();
   if (!db) return [];
-  const result = await db.select({
+  let query = db.select({
     contact: contacts,
     companyName: companies.name,
   }).from(contacts)
-    .leftJoin(companies, eq(contacts.companyId, companies.id))
-    .orderBy(desc(contacts.updatedAt));
+    .leftJoin(companies, eq(contacts.companyId, companies.id));
+  if (orgId) query = query.where(eq(contacts.orgId, orgId)) as any;
+  const result = await query.orderBy(desc(contacts.updatedAt));
   return result.map(r => ({
     ...r.contact,
     companyName: r.companyName,
@@ -1119,33 +1135,21 @@ export async function getContactsByCompany(companyId: number) {
 }
 
 // Global search across people, companies, meetings, tasks
-export async function globalSearch(query: string) {
+export async function globalSearch(query: string, orgId?: number) {
   const db = await getDb();
   if (!db) return { people: [], companies: [], meetings: [], tasks: [] };
   const q = `%${query}%`;
   
+  const peopleSearch = or(like(contacts.name, q), like(contacts.email, q), like(contacts.organization, q), like(contacts.title, q));
+  const companySearch = or(like(companies.name, q), like(companies.domain, q), like(companies.industry, q));
+  const meetingSearch = or(like(meetings.meetingTitle, q), like(meetings.executiveSummary, q), like(meetings.participants, q));
+  const taskSearch = or(like(tasks.title, q), like(tasks.description, q), like(tasks.assignedName, q));
+  
   const [people, companiesResult, meetingsResult, tasksResult] = await Promise.all([
-    db.select().from(contacts).where(or(
-      like(contacts.name, q),
-      like(contacts.email, q),
-      like(contacts.organization, q),
-      like(contacts.title, q)
-    )).limit(20),
-    db.select().from(companies).where(or(
-      like(companies.name, q),
-      like(companies.domain, q),
-      like(companies.industry, q)
-    )).limit(20),
-    db.select().from(meetings).where(or(
-      like(meetings.meetingTitle, q),
-      like(meetings.executiveSummary, q),
-      like(meetings.participants, q)
-    )).orderBy(desc(meetings.meetingDate)).limit(20),
-    db.select().from(tasks).where(or(
-      like(tasks.title, q),
-      like(tasks.description, q),
-      like(tasks.assignedName, q)
-    )).orderBy(desc(tasks.createdAt)).limit(20),
+    db.select().from(contacts).where(orgId ? and(peopleSearch, eq(contacts.orgId, orgId)) : peopleSearch).limit(20),
+    db.select().from(companies).where(orgId ? and(companySearch, eq(companies.orgId, orgId)) : companySearch).limit(20),
+    db.select().from(meetings).where(orgId ? and(meetingSearch, eq(meetings.orgId, orgId)) : meetingSearch).orderBy(desc(meetings.meetingDate)).limit(20),
+    db.select().from(tasks).where(orgId ? and(taskSearch, eq(tasks.orgId, orgId)) : taskSearch).orderBy(desc(tasks.createdAt)).limit(20),
   ]);
   
   return { people, companies: companiesResult, meetings: meetingsResult, tasks: tasksResult };
@@ -1549,7 +1553,7 @@ export async function getEmailAnalytics(userId: number) {
 
 // UNIFIED DIRECTORY — search contacts, auto-detect company, person card
 
-export async function directorySearch(query: string, limit = 15) {
+export async function directorySearch(query: string, limit = 15, orgId?: number) {
   const db = await getDb();
   if (!db) return [];
   const pattern = `%${query}%`;
@@ -1564,11 +1568,10 @@ export async function directorySearch(query: string, limit = 15) {
     title: contacts.title,
     category: contacts.category,
   }).from(contacts).where(
-    or(
-      like(contacts.name, pattern),
-      like(contacts.email, pattern),
-      like(contacts.organization, pattern),
-    )
+    orgId ? and(
+      or(like(contacts.name, pattern), like(contacts.email, pattern), like(contacts.organization, pattern)),
+      eq(contacts.orgId, orgId)
+    ) : or(like(contacts.name, pattern), like(contacts.email, pattern), like(contacts.organization, pattern))
   ).orderBy(asc(contacts.name)).limit(limit);
   return results;
 }
@@ -1709,12 +1712,13 @@ export async function createPendingSuggestion(data: InsertPendingSuggestion) {
   return result[0].insertId;
 }
 
-export async function getPendingSuggestions(filters?: { type?: string; status?: string; contactId?: number; companyId?: number }) {
+export async function getPendingSuggestions(filters?: { type?: string; status?: string; contactId?: number; companyId?: number; orgId?: number }) {
   const db = await getDb();
   if (!db) return [];
   const conditions = [];
   if (filters?.type) conditions.push(eq(pendingSuggestions.type, filters.type as any));
   if (filters?.status) conditions.push(eq(pendingSuggestions.status, filters.status as any));
+  if (filters?.orgId) conditions.push(eq(pendingSuggestions.orgId, filters.orgId));
   if (filters?.contactId) conditions.push(eq(pendingSuggestions.contactId, filters.contactId));
   if (filters?.companyId) conditions.push(eq(pendingSuggestions.companyId, filters.companyId));
   
@@ -1737,10 +1741,12 @@ export async function updatePendingSuggestion(id: number, data: Partial<InsertPe
   await db.update(pendingSuggestions).set(data).where(eq(pendingSuggestions.id, id));
 }
 
-export async function getPendingSuggestionsCount() {
+export async function getPendingSuggestionsCount(orgId?: number) {
   const db = await getDb();
   if (!db) return { companyLink: 0, enrichment: 0, companyEnrichment: 0, total: 0 };
-  const all = await db.select().from(pendingSuggestions).where(eq(pendingSuggestions.status, "pending"));
+  const conditions = [eq(pendingSuggestions.status, "pending")];
+  if (orgId) conditions.push(eq(pendingSuggestions.orgId, orgId));
+  const all = await db.select().from(pendingSuggestions).where(and(...conditions));
   return {
     companyLink: all.filter(s => s.type === "company_link").length,
     enrichment: all.filter(s => s.type === "enrichment").length,
@@ -1801,11 +1807,13 @@ export async function getActivityLog(opts: {
   entityType?: string;
   startDate?: Date;
   endDate?: Date;
+  orgId?: number;
 }) {
   const db = await getDb();
   if (!db) return { items: [], total: 0 };
 
   const conditions: any[] = [];
+  if (opts.orgId) conditions.push(eq(activityLog.orgId, opts.orgId));
   if (opts.action) conditions.push(eq(activityLog.action, opts.action));
   if (opts.entityType) conditions.push(eq(activityLog.entityType, opts.entityType));
   if (opts.startDate) conditions.push(gte(activityLog.createdAt, opts.startDate));
@@ -1930,6 +1938,7 @@ export async function listDocuments(filters?: {
   search?: string;
   limit?: number;
   offset?: number;
+  orgId?: number;
 }) {
   const db = await getDb();
   if (!db) return { items: [], total: 0 };
@@ -1945,6 +1954,7 @@ export async function listDocuments(filters?: {
     }
   }
   if (filters?.ownerId) conditions.push(eq(documents.ownerId, filters.ownerId));
+  if (filters?.orgId) conditions.push(eq(documents.orgId, filters.orgId));
   if (filters?.isTemplate !== undefined) conditions.push(eq(documents.isTemplate, filters.isTemplate));
   if (filters?.search) conditions.push(like(documents.title, `%${filters.search}%`));
 
@@ -2379,9 +2389,10 @@ export async function getFolderBreadcrumbs(folderId: number): Promise<Array<{ id
 
 // INTEGRATIONS
 
-export async function listIntegrations() {
+export async function listIntegrations(orgId?: number) {
   const db = await getDb();
   if (!db) return [];
+  if (orgId) return db.select().from(integrations).where(eq(integrations.orgId, orgId)).orderBy(integrations.sortOrder, integrations.createdAt);
   return db.select().from(integrations).orderBy(integrations.sortOrder, integrations.createdAt);
 }
 
@@ -2507,16 +2518,19 @@ export async function updateIntegrationLastSync(slug: string) {
 
 // FEATURE TOGGLES
 
-export async function listFeatureToggles() {
+export async function listFeatureToggles(orgId?: number) {
   const db = await getDb();
   if (!db) return [];
+  if (orgId) return db.select().from(featureToggles).where(eq(featureToggles.orgId, orgId)).orderBy(featureToggles.sortOrder, featureToggles.featureKey);
   return db.select().from(featureToggles).orderBy(featureToggles.sortOrder, featureToggles.featureKey);
 }
 
-export async function getFeatureToggle(key: string) {
+export async function getFeatureToggle(key: string, orgId?: number) {
   const db = await getDb();
   if (!db) return null;
-  const [row] = await db.select().from(featureToggles).where(eq(featureToggles.featureKey, key)).limit(1);
+  const conditions = [eq(featureToggles.featureKey, key)];
+  if (orgId) conditions.push(eq(featureToggles.orgId, orgId));
+  const [row] = await db.select().from(featureToggles).where(and(...conditions)).limit(1);
   return row || null;
 }
 
@@ -2912,4 +2926,114 @@ export async function autoProvisionUserAccount(userId: number, userName: string)
   }
   
   return await getAccountById(accountId);
+}
+
+
+// ─── Plans & Subscriptions ──────────────────────────────────────────────────
+
+export async function getAllPlans() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(plans).orderBy(plans.sortOrder);
+}
+
+export async function getPlanByKey(key: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(plans).where(eq(plans.key, key)).limit(1);
+  return row || null;
+}
+
+export async function getPlanById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(plans).where(eq(plans.id, id)).limit(1);
+  return row || null;
+}
+
+export async function getPlanFeaturesForPlan(planId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(planFeatures).where(eq(planFeatures.planId, planId));
+}
+
+export async function getSubscriptionForAccount(accountId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db
+    .select()
+    .from(subscriptions)
+    .where(and(eq(subscriptions.accountId, accountId), eq(subscriptions.status, "active")))
+    .limit(1);
+  return row || null;
+}
+
+export async function createSubscription(data: {
+  accountId: number;
+  planId: number;
+  billingCycle?: "monthly" | "annual" | "custom";
+  status?: "active" | "trialing" | "past_due" | "cancelled" | "expired";
+  trialEndsAt?: Date;
+  notes?: string;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(subscriptions).values({
+    accountId: data.accountId,
+    planId: data.planId,
+    billingCycle: data.billingCycle || "monthly",
+    status: data.status || "active",
+    trialEndsAt: data.trialEndsAt,
+    notes: data.notes,
+  });
+  return result.insertId;
+}
+
+export async function updateSubscription(id: number, data: Partial<{
+  planId: number;
+  status: "active" | "trialing" | "past_due" | "cancelled" | "expired";
+  billingCycle: "monthly" | "annual" | "custom";
+  cancelledAt: Date;
+  endDate: Date;
+  overrideMaxOrgs: number;
+  overrideMaxUsersPerOrg: number;
+  overrideMaxContacts: number;
+  overrideMaxStorageGb: number;
+  notes: string;
+}>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(subscriptions).set(data).where(eq(subscriptions.id, id));
+}
+
+/**
+ * Get the effective limits for an account based on their subscription + plan.
+ * Override values on the subscription take precedence over plan defaults.
+ */
+export async function getEffectiveLimits(accountId: number) {
+  const sub = await getSubscriptionForAccount(accountId);
+  if (!sub) {
+    // No subscription — return starter defaults
+    const starterPlan = await getPlanByKey("starter");
+    return {
+      planKey: "starter",
+      planName: "Starter",
+      maxOrganizations: starterPlan?.maxOrganizations ?? 1,
+      maxUsersPerOrg: starterPlan?.maxUsersPerOrg ?? 5,
+      maxContacts: starterPlan?.maxContacts ?? 500,
+      maxMeetingsPerMonth: starterPlan?.maxMeetingsPerMonth ?? 50,
+      maxStorageGb: starterPlan?.maxStorageGb ?? 5,
+    };
+  }
+  const plan = await getPlanById(sub.planId);
+  if (!plan) return null;
+  return {
+    planKey: plan.key,
+    planName: plan.name,
+    maxOrganizations: sub.overrideMaxOrgs ?? plan.maxOrganizations,
+    maxUsersPerOrg: sub.overrideMaxUsersPerOrg ?? plan.maxUsersPerOrg,
+    maxContacts: sub.overrideMaxContacts ?? plan.maxContacts,
+    maxMeetingsPerMonth: plan.maxMeetingsPerMonth,
+    maxStorageGb: sub.overrideMaxStorageGb ?? plan.maxStorageGb,
+  };
 }

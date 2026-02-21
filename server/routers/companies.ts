@@ -1,17 +1,17 @@
 import * as db from "../db";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const companiesRouter = router({
-  list: protectedProcedure
+  list: orgScopedProcedure
     .input(z.object({ status: z.string().optional(), search: z.string().optional() }).optional())
-    .query(async ({ input }) => {
-      return await db.getAllCompanies(input ?? undefined);
+    .query(async ({ input, ctx }) => {
+      return await db.getAllCompanies(ctx.orgId ?? undefined);
     }),
 
-  getById: protectedProcedure
+  getById: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const company = await db.getCompanyById(input.id);
@@ -19,7 +19,7 @@ export const companiesRouter = router({
       return company;
     }),
 
-  getProfile: protectedProcedure
+  getProfile: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const company = await db.getCompanyById(input.id);
@@ -30,7 +30,7 @@ export const companiesRouter = router({
       return { ...company, people, interactions: companyInteractions, tasks: companyTasks };
     }),
 
-  create: protectedProcedure
+  create: orgScopedProcedure
     .input(z.object({
       name: z.string().min(1),
       domain: z.string().optional(),
@@ -51,7 +51,7 @@ export const companiesRouter = router({
       return { id };
     }),
 
-  update: protectedProcedure
+  update: orgScopedProcedure
     .input(z.object({
       id: z.number(),
       name: z.string().optional(),
@@ -88,7 +88,7 @@ export const companiesRouter = router({
       return { success: true };
     }),
 
-  approve: protectedProcedure
+  approve: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const company = await db.getCompanyById(input.id);
@@ -97,7 +97,7 @@ export const companiesRouter = router({
       return { success: true };
     }),
 
-  reject: protectedProcedure
+  reject: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const company = await db.getCompanyById(input.id);
@@ -106,14 +106,14 @@ export const companiesRouter = router({
       return { success: true };
     }),
 
-  delete: protectedProcedure
+  delete: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       await db.deleteCompany(input.id);
       return { success: true };
     }),
 
-  refreshAiMemory: protectedProcedure
+  refreshAiMemory: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const company = await db.getCompanyById(input.id);

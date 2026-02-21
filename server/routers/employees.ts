@@ -1,17 +1,17 @@
 import * as db from "../db";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
 import { z } from "zod";
 
 export const employeesRouter = router({
-  list: protectedProcedure
+  list: orgScopedProcedure
     .input(z.object({ status: z.string().optional(), department: z.string().optional() }).optional())
-    .query(async ({ input }) => {
-      return await db.getAllEmployees(input ?? undefined);
+    .query(async ({ input, ctx }) => {
+      return await db.getAllEmployees(input ? { ...input, orgId: ctx.orgId ?? undefined } : { orgId: ctx.orgId ?? undefined });
     }),
 
-  getById: protectedProcedure
+  getById: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const emp = await db.getEmployeeById(input.id);
@@ -22,17 +22,17 @@ export const employeesRouter = router({
       return { ...emp, payrollCount: payroll.length, documentCount: docs.length };
     }),
 
-  search: protectedProcedure
+  search: orgScopedProcedure
     .input(z.object({ query: z.string() }))
-    .query(async ({ input }) => {
-      return await db.searchEmployees(input.query);
+    .query(async ({ input, ctx }) => {
+      return await db.searchEmployees(input.query, ctx.orgId ?? undefined);
     }),
 
-  departments: protectedProcedure.query(async () => {
-    return await db.getEmployeeDepartments();
+  departments: orgScopedProcedure.query(async ({ ctx }) => {
+    return await db.getEmployeeDepartments(ctx.orgId ?? undefined);
   }),
 
-  create: protectedProcedure
+  create: orgScopedProcedure
     .input(z.object({
       firstName: z.string().min(1),
       lastName: z.string().min(1),
@@ -81,7 +81,7 @@ export const employeesRouter = router({
       return { id };
     }),
 
-  update: protectedProcedure
+  update: orgScopedProcedure
     .input(z.object({
       id: z.number(),
       firstName: z.string().optional(),
@@ -116,14 +116,14 @@ export const employeesRouter = router({
       return { success: true };
     }),
 
-  delete: protectedProcedure
+  delete: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       await db.deleteEmployee(input.id);
       return { success: true };
     }),
 
-  uploadPhoto: protectedProcedure
+  uploadPhoto: orgScopedProcedure
     .input(z.object({ id: z.number(), base64: z.string(), mimeType: z.string() }))
     .mutation(async ({ input }) => {
       const buffer = Buffer.from(input.base64, 'base64');

@@ -1,13 +1,13 @@
 import * as db from "../db";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
 import { z } from "zod";
 
 export const payrollRouter = router({
-  list: protectedProcedure
+  list: orgScopedProcedure
     .input(z.object({ employeeId: z.number().optional(), status: z.string().optional() }).optional())
-    .query(async ({ input }) => {
-      const records = await db.getAllPayrollRecords(input ?? undefined);
+    .query(async ({ input, ctx }) => {
+      const records = await db.getAllPayrollRecords(input ? { ...input, orgId: ctx.orgId ?? undefined } : { orgId: ctx.orgId ?? undefined });
       // Enrich with employee name
       const enriched = await Promise.all(records.map(async (r: any) => {
         const emp = await db.getEmployeeById(r.employeeId);
@@ -16,13 +16,13 @@ export const payrollRouter = router({
       return enriched;
     }),
 
-  getForEmployee: protectedProcedure
+  getForEmployee: orgScopedProcedure
     .input(z.object({ employeeId: z.number() }))
     .query(async ({ input }) => {
       return await db.getPayrollForEmployee(input.employeeId);
     }),
 
-  create: protectedProcedure
+  create: orgScopedProcedure
     .input(z.object({
       employeeId: z.number(),
       payPeriodStart: z.string(),
@@ -50,7 +50,7 @@ export const payrollRouter = router({
       return { id };
     }),
 
-  update: protectedProcedure
+  update: orgScopedProcedure
     .input(z.object({
       id: z.number(),
       payPeriodStart: z.string().optional(),
@@ -72,14 +72,14 @@ export const payrollRouter = router({
       return { success: true };
     }),
 
-  delete: protectedProcedure
+  delete: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       await db.deletePayrollRecord(input.id);
       return { success: true };
     }),
 
-  uploadReceipt: protectedProcedure
+  uploadReceipt: orgScopedProcedure
     .input(z.object({ id: z.number(), base64: z.string(), fileName: z.string(), mimeType: z.string() }))
     .mutation(async ({ input }) => {
       const buffer = Buffer.from(input.base64, 'base64');
@@ -89,7 +89,7 @@ export const payrollRouter = router({
       return { url };
     }),
 
-  uploadInvoice: protectedProcedure
+  uploadInvoice: orgScopedProcedure
     .input(z.object({ id: z.number(), base64: z.string(), fileName: z.string(), mimeType: z.string() }))
     .mutation(async ({ input }) => {
       const buffer = Buffer.from(input.base64, 'base64');

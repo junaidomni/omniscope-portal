@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { processIntelligenceData, validateIntelligenceData } from "../ingestion";
 import { processManualTranscript } from "../manualTranscriptProcessor";
 import { storagePut } from "../storage";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const ingestionRouter = router({
@@ -12,12 +12,13 @@ export const ingestionRouter = router({
     .mutation(async ({ input }) => {
       const data = validateIntelligenceData(input);
       if (!data) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid intelligence data format" });
+      // Webhook ingestion has no user context — orgId stays undefined
       const result = await processIntelligenceData(data);
       return result;
     }),
 
-  syncFathom: protectedProcedure
-    .mutation(async () => {
+  syncFathom: orgScopedProcedure
+    .mutation(async ({ ctx }) => {
       // Server-side cooldown: skip if last sync was < 5 minutes ago
       const now = Date.now();
       if ((globalThis as any).__lastFathomSync && now - (globalThis as any).__lastFathomSync < 5 * 60 * 1000) {
@@ -25,7 +26,7 @@ export const ingestionRouter = router({
       }
       try {
         (globalThis as any).__lastFathomSync = now;
-        const result = await fathomIntegration.importFathomMeetings({ limit: 10 });
+        const result = await fathomIntegration.importFathomMeetings({ limit: 10, orgId: ctx.orgId ?? undefined });
         return { success: true, imported: result.imported, skipped: result.skipped, errors: result.errors };
       } catch (error: any) {
         console.error("[Fathom Sync] Error:", error.message);
@@ -34,7 +35,7 @@ export const ingestionRouter = router({
     }),
 
   /** Upload a transcript (text, Plaud JSON, or audio URL) and process through LLM pipeline */
-  uploadTranscript: protectedProcedure
+  uploadTranscript: orgScopedProcedure
     .input(z.object({
       content: z.string().min(20, "Content must be at least 20 characters"),
       inputType: z.enum(["text", "plaud_json", "audio"]),
@@ -51,6 +52,7 @@ export const ingestionRouter = router({
           meetingDate: input.meetingDate,
           participants: input.participants,
           createdBy: ctx.user.id,
+          orgId: ctx.orgId ?? undefined,
         });
         return result;
       } catch (error: any) {
@@ -63,7 +65,7 @@ export const ingestionRouter = router({
     }),
 
   /** Upload an audio file to S3 and return the URL for transcription */
-  uploadAudioFile: protectedProcedure
+  uploadAudioFile: orgScopedProcedure
     .input(z.object({
       fileName: z.string(),
       fileData: z.string(), // base64 encoded

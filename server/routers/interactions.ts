@@ -1,32 +1,32 @@
 import * as db from "../db";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 
 export const interactionsRouter = router({
-  list: protectedProcedure
+  list: orgScopedProcedure
     .input(z.object({
       contactId: z.number().optional(),
       companyId: z.number().optional(),
       type: z.string().optional(),
       limit: z.number().optional(),
     }).optional())
-    .query(async ({ input }) => {
-      return await db.getAllInteractions(input ?? undefined);
+    .query(async ({ input, ctx }) => {
+      return await db.getAllInteractions(input ? { ...input, orgId: ctx.orgId ?? undefined } : { orgId: ctx.orgId ?? undefined });
     }),
 
-  forContact: protectedProcedure
+  forContact: orgScopedProcedure
     .input(z.object({ contactId: z.number(), limit: z.number().optional() }))
     .query(async ({ input }) => {
       return await db.getInteractionsForContact(input.contactId, input.limit ?? 50);
     }),
 
-  forCompany: protectedProcedure
+  forCompany: orgScopedProcedure
     .input(z.object({ companyId: z.number(), limit: z.number().optional() }))
     .query(async ({ input }) => {
       return await db.getInteractionsForCompany(input.companyId, input.limit ?? 50);
     }),
 
-  create: protectedProcedure
+  create: orgScopedProcedure
     .input(z.object({
       type: z.enum(["meeting", "note", "doc_shared", "task_update", "email", "intro", "call"]),
       timestamp: z.string(),
@@ -54,7 +54,7 @@ export const interactionsRouter = router({
       return { id };
     }),
 
-  delete: protectedProcedure
+  delete: orgScopedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       await db.deleteInteraction(input.id);
