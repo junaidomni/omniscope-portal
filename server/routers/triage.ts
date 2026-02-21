@@ -140,7 +140,7 @@ export const triageRouter = router({
       };
     }));
 
-    const totalPendingApprovals = pendingContacts.length + pendingCompanies.length + allSuggestions.length;
+    const totalPendingApprovals = pendingContacts.length + pendingCompanies.length;
 
     // Time-based greeting — note: server runs in UTC, frontend will override with local time
     const hour = now.getHours();

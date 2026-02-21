@@ -2489,3 +2489,8 @@
 - [x] Add select all / deselect all toggle
 - [x] Add bulk delete button with confirmation dialog
 - [x] Write tests for bulk delete (9 tests, all passing)
+
+## Triage Room Fixes
+- [ ] Investigate and remove/fix "data review" recommendation in Triage room
+- [ ] Fix X dismiss button not working on Triage recommendations
+- [x] Remove entire Data Review section from Triage feed (keep in Pending Review page only)
