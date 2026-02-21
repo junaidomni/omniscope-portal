@@ -1,0 +1,30 @@
+{
+  "query": "SELECT 'meetings' as tbl, COUNT(*) as total, SUM(CASE WHEN mtgOrgId IS NOT NULL AND mtgOrgId != '' THEN 1 ELSE 0 END) as has_org FROM meetings UNION ALL SELECT 'contacts', COUNT(*), SUM(CASE WHEN contactOrgId IS NOT NULL AND contactOrgId != '' THEN 1 ELSE 0 END) FROM contacts UNION ALL SELECT 'tasks', COUNT(*), SUM(CASE WHEN taskOrgId IS NOT NULL AND taskOrgId != '' THEN 1 ELSE 0 END) FROM tasks UNION ALL SELECT 'companies', COUNT(*), SUM(CASE WHEN orgId IS NOT NULL AND orgId != '' THEN 1 ELSE 0 END) FROM companies;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT 'meetings' as tbl, COUNT(*) as total, SUM(CASE WHEN mtgOrgId IS NOT NULL AND mtgOrgId != '' THEN 1 ELSE 0 END) as has_org FROM meetings UNION ALL SELECT 'contacts', COUNT(*), SUM(CASE WHEN contactOrgId IS NOT NULL AND contactOrgId != '' THEN 1 ELSE 0 END) FROM contacts UNION ALL SELECT 'tasks', COUNT(*), SUM(CASE WHEN taskOrgId IS NOT NULL AND taskOrgId != '' THEN 1 ELSE 0 END) FROM tasks UNION ALL SELECT 'companies', COUNT(*), SUM(CASE WHEN orgId IS NOT NULL AND orgId != '' THEN 1 ELSE 0 END) FROM companies;",
+  "rows": [
+    {
+      "tbl": "contacts",
+      "total": "58",
+      "has_org": "0"
+    },
+    {
+      "tbl": "tasks",
+      "total": "101",
+      "has_org": "0"
+    },
+    {
+      "tbl": "companies",
+      "total": "49",
+      "has_org": "0"
+    },
+    {
+      "tbl": "meetings",
+      "total": "15",
+      "has_org": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "tbl\ttotal\thas_org\ncontacts\t58\t0\ntasks\t101\t0\ncompanies\t49\t0\nmeetings\t15\t0\n",
+  "stderr": "",
+  "execution_time_ms": 375
+}

@@ -3,7 +3,7 @@ import { invokeLLM } from "../_core/llm";
 import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from "../_core/trpc";
 
 export const aiInsightsRouter = router({
-  followUpReminders: orgScopedProcedure.query(async () => {
+  followUpReminders: orgScopedProcedure.query(async ({ ctx }) => {
     const contacts = await db.getAllContacts(ctx.orgId);
     const reminders: any[] = [];
     
@@ -32,7 +32,7 @@ export const aiInsightsRouter = router({
     return reminders.sort((a, b) => b.daysSinceLastMeeting - a.daysSinceLastMeeting);
   }),
 
-  upcomingBirthdays: orgScopedProcedure.query(async () => {
+  upcomingBirthdays: orgScopedProcedure.query(async ({ ctx }) => {
     const contacts = await db.getAllContacts(ctx.orgId);
     const employees = await db.getAllEmployees({ orgId: ctx.orgId ?? undefined });
     const now = new Date();
@@ -59,7 +59,7 @@ export const aiInsightsRouter = router({
     return birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
   }),
 
-  dailyBriefing: orgScopedProcedure.query(async () => {
+  dailyBriefing: orgScopedProcedure.query(async ({ ctx }) => {
     const { invokeLLM } = await import("../_core/llm");
     
     // Gather data for AI analysis

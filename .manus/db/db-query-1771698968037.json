@@ -1,0 +1,26 @@
+{
+  "query": "SHOW COLUMNS FROM meetings LIKE '%org%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SHOW COLUMNS FROM meetings LIKE '%org%';",
+  "rows": [
+    {
+      "Field": "organizations",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "mtgOrgId",
+      "Type": "int",
+      "Null": "YES",
+      "Key": "MUL",
+      "Default": "NULL",
+      "Extra": ""
+    }
+  ],
+  "messages": [],
+  "stdout": "Field\tType\tNull\tKey\tDefault\tExtra\norganizations\ttext\tYES\t\tNULL\t\nmtgOrgId\tint\tYES\tMUL\tNULL\t\n",
+  "stderr": "",
+  "execution_time_ms": 360
+}

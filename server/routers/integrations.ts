@@ -4,7 +4,7 @@ import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from 
 import { z } from "zod";
 
 export const integrationsRouter = router({
-  list: orgScopedProcedure.query(async () => {
+  list: orgScopedProcedure.query(async ({ ctx }) => {
     return db.listIntegrations(ctx.orgId);
   }),
 
@@ -58,7 +58,7 @@ export const integrationsRouter = router({
     }),
 
   // Feature Toggles
-  listToggles: orgScopedProcedure.query(async () => {
+  listToggles: orgScopedProcedure.query(async ({ ctx }) => {
     return db.listFeatureToggles(ctx.orgId);
   }),
 

@@ -1,0 +1,34 @@
+{
+  "query": "SELECT 'meetings' as tbl, COUNT(*) as total, SUM(CASE WHEN mtgOrgId IS NOT NULL THEN 1 ELSE 0 END) as with_org, SUM(CASE WHEN mtgOrgId IS NULL THEN 1 ELSE 0 END) as null_org FROM meetings UNION ALL SELECT 'contacts', COUNT(*), SUM(CASE WHEN contactOrgId IS NOT NULL THEN 1 ELSE 0 END), SUM(CASE WHEN contactOrgId IS NULL THEN 1 ELSE 0 END) FROM contacts UNION ALL SELECT 'tasks', COUNT(*), SUM(CASE WHEN taskOrgId IS NOT NULL THEN 1 ELSE 0 END), SUM(CASE WHEN taskOrgId IS NULL THEN 1 ELSE 0 END) FROM tasks UNION ALL SELECT 'companies', COUNT(*), SUM(CASE WHEN orgId IS NOT NULL THEN 1 ELSE 0 END), SUM(CASE WHEN orgId IS NULL THEN 1 ELSE 0 END) FROM companies;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT 'meetings' as tbl, COUNT(*) as total, SUM(CASE WHEN mtgOrgId IS NOT NULL THEN 1 ELSE 0 END) as with_org, SUM(CASE WHEN mtgOrgId IS NULL THEN 1 ELSE 0 END) as null_org FROM meetings UNION ALL SELECT 'contacts', COUNT(*), SUM(CASE WHEN contactOrgId IS NOT NULL THEN 1 ELSE 0 END), SUM(CASE WHEN contactOrgId IS NULL THEN 1 ELSE 0 END) FROM contacts UNION ALL SELECT 'tasks', COUNT(*), SUM(CASE WHEN taskOrgId IS NOT NULL THEN 1 ELSE 0 END), SUM(CASE WHEN taskOrgId IS NULL THEN 1 ELSE 0 END) FROM tasks UNION ALL SELECT 'companies', COUNT(*), SUM(CASE WHEN orgId IS NOT NULL THEN 1 ELSE 0 END), SUM(CASE WHEN orgId IS NULL THEN 1 ELSE 0 END) FROM companies;",
+  "rows": [
+    {
+      "tbl": "companies",
+      "total": "49",
+      "with_org": "0",
+      "null_org": "49"
+    },
+    {
+      "tbl": "tasks",
+      "total": "101",
+      "with_org": "0",
+      "null_org": "101"
+    },
+    {
+      "tbl": "meetings",
+      "total": "15",
+      "with_org": "0",
+      "null_org": "15"
+    },
+    {
+      "tbl": "contacts",
+      "total": "58",
+      "with_org": "0",
+      "null_org": "58"
+    }
+  ],
+  "messages": [],
+  "stdout": "tbl\ttotal\twith_org\tnull_org\ncompanies\t49\t0\t49\ntasks\t101\t0\t101\nmeetings\t15\t0\t15\ncontacts\t58\t0\t58\n",
+  "stderr": "",
+  "execution_time_ms": 349
+}

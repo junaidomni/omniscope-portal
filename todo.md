@@ -2514,3 +2514,12 @@
 - [x] B-6: Add featureGatedProcedure factory + composite unique key (orgId + featureKey)
 - [x] B-7: Plans schema (plans, subscriptions, plan_features tables) + 4 tiers seeded + plans router + DB helpers
 - [x] B-8: 23 vitest tests for org scoping, feature gating, plans, and ingestion pipeline
+
+## Phase B Post-Check: Data Visibility Bug
+- [x] Investigate why Triage, Overview, Meetings, Tasks, Contacts show empty after org scoping
+- [x] Check if X-Org-Id header is being sent correctly from frontend
+- [x] Check if existing data has correct orgId values in the database
+- [x] Fix root cause: 16 broken tRPC procedure callbacks had `async () =>` instead of `async ({ ctx }) =>` — ctx was undefined at runtime
+- [x] Update 3 source-structure tests to accept orgScopedProcedure (was protectedProcedure)
+- [x] Verify all pages display data: Triage (37 tasks, 10 approvals, 5 meetings), Overview (56 contacts, 15 intel), Operations (37 open/101 total), Relationships (8 contacts), Intelligence (15 meetings)
+- [x] All 1,079 tests passing (45 test files, 0 failures)

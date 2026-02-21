@@ -6,7 +6,7 @@ import { storagePut } from "../storage";
 import { z } from "zod";
 
 export const contactsRouter = router({
-  list: orgScopedProcedure.query(async () => {
+  list: orgScopedProcedure.query(async ({ ctx }) => {
     const allContacts = await db.getContactsWithCompany(ctx.orgId);
     const enriched = await Promise.all(allContacts.map(async (c: any) => {
       const contactMeetings = await db.getMeetingsForContact(c.id);
@@ -26,7 +26,7 @@ export const contactsRouter = router({
 
   searchByName: orgScopedProcedure
     .input(z.object({ query: z.string().min(1), limit: z.number().min(1).max(50).default(10) }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const allContacts = await db.getAllContacts(ctx.orgId);
       const q = input.query.toLowerCase().trim();
       const matched = allContacts
@@ -187,7 +187,7 @@ export const contactsRouter = router({
 
   checkDuplicates: orgScopedProcedure
     .input(z.object({ name: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const allContacts = await db.getAllContacts(ctx.orgId);
       const nameLower = input.name.toLowerCase().trim();
       const duplicates = allContacts.filter(c => {
@@ -308,7 +308,7 @@ export const contactsRouter = router({
     }),
 
   pendingSuggestionsCount: orgScopedProcedure
-    .query(async () => {
+    .query(async ({ ctx }) => {
       return await db.getPendingSuggestionsCount(ctx.orgId);
     }),
 
@@ -419,7 +419,7 @@ export const contactsRouter = router({
     }),
 
   detectDuplicates: orgScopedProcedure
-    .query(async () => {
+    .query(async ({ ctx }) => {
       const contacts = await db.getAllContacts(ctx.orgId);
       const duplicates: { group: any[] }[] = [];
       const processed = new Set<number>();
@@ -462,7 +462,7 @@ export const contactsRouter = router({
 
   generateAiSummary: orgScopedProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const contact = await db.getContactById(input.id);
       if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
 
@@ -541,7 +541,7 @@ ${taskSummary || 'No tasks assigned'}`
   // AI Enrichment - extract contact info from meeting transcripts
   enrichWithAI: orgScopedProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const contact = await db.getContactById(input.id);
       if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
 
@@ -707,7 +707,7 @@ IMPORTANT: Only include fields where you have high confidence from the meeting d
 
   // Bulk AI enrichment for all contacts
   enrichAllWithAI: orgScopedProcedure
-    .mutation(async () => {
+    .mutation(async ({ ctx }) => {
       const allContacts = await db.getAllContacts(ctx.orgId);
       let enriched = 0;
       let errors = 0;

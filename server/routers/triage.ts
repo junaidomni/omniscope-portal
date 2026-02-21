@@ -257,7 +257,7 @@ export const triageRouter = router({
   // Find potential duplicates for a specific pending contact
   findDuplicatesFor: orgScopedProcedure
     .input(z.object({ contactId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const target = await db.getContactById(input.contactId);
       if (!target) throw new TRPCError({ code: 'NOT_FOUND' });
       const allContacts = await db.getAllContacts(ctx.orgId);
@@ -433,7 +433,7 @@ export const triageRouter = router({
   // Find potential duplicate companies for a pending company
   findCompanyDuplicatesFor: orgScopedProcedure
     .input(z.object({ companyId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const company = await db.getCompanyById(input.companyId);
       if (!company) return [];
       const allCompanies = await db.getAllCompanies(ctx.orgId);

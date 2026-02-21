@@ -1,0 +1,8 @@
+{
+  "query": "SELECT 'meetings' as tbl, COUNT(*) as total, SUM(CASE WHEN orgId IS NOT NULL THEN 1 ELSE 0 END) as with_org, SUM(CASE WHEN orgId IS NULL THEN 1 ELSE 0 END) as null_org FROM meetings;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2U3q1dt8GKGPLLB.root --database WN9ut9YEufdDjevBezkAVQ --execute SELECT 'meetings' as tbl, COUNT(*) as total, SUM(CASE WHEN orgId IS NOT NULL THEN 1 ELSE 0 END) as with_org, SUM(CASE WHEN orgId IS NULL THEN 1 ELSE 0 END) as null_org FROM meetings;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'orgid' in ''"
+  ]
+}

@@ -598,9 +598,9 @@ describe("Triage Router — Source Structure", () => {
       fs.readFileSync("server/routers/triage.ts", "utf-8")
     );
     expect(source).toMatch(/triageRouter.*=.*router/);
-    expect(source).toMatch(/feed:.*protectedProcedure/);
-    expect(source).toMatch(/completeTask:.*protectedProcedure/);
-    expect(source).toMatch(/snoozeTask:.*protectedProcedure/);
+    expect(source).toMatch(/feed:.*(protectedProcedure|orgScopedProcedure)/);
+    expect(source).toMatch(/completeTask:.*(protectedProcedure|orgScopedProcedure)/);
+    expect(source).toMatch(/snoozeTask:.*(protectedProcedure|orgScopedProcedure)/);
   });
 
   it("triage feed returns userName and greeting", async () => {
@@ -1132,19 +1132,19 @@ describe("Triage Feed — v41 Source Structure", () => {
     const source = await import("fs").then(fs =>
       fs.readFileSync("server/routers/triage.ts", "utf-8")
     );
-    expect(source).toMatch(/deleteTask:.*protectedProcedure/);
-    expect(source).toMatch(/updateTask:.*protectedProcedure/);
-    expect(source).toMatch(/approveContact:.*protectedProcedure/);
-    expect(source).toMatch(/rejectContact:.*protectedProcedure/);
-    expect(source).toMatch(/approveCompany:.*protectedProcedure/);
-    expect(source).toMatch(/rejectCompany:.*protectedProcedure/);
+    expect(source).toMatch(/deleteTask:.*(protectedProcedure|orgScopedProcedure)/);
+    expect(source).toMatch(/updateTask:.*(protectedProcedure|orgScopedProcedure)/);
+    expect(source).toMatch(/approveContact:.*(protectedProcedure|orgScopedProcedure)/);
+    expect(source).toMatch(/rejectContact:.*(protectedProcedure|orgScopedProcedure)/);
+    expect(source).toMatch(/approveCompany:.*(protectedProcedure|orgScopedProcedure)/);
+    expect(source).toMatch(/rejectCompany:.*(protectedProcedure|orgScopedProcedure)/);
   });
 
   it("Triage router has strategicInsights procedure with LLM", async () => {
     const source = await import("fs").then(fs =>
       fs.readFileSync("server/routers/triage.ts", "utf-8")
     );
-    expect(source).toMatch(/strategicInsights:.*protectedProcedure/);
+    expect(source).toMatch(/strategicInsights:.*(protectedProcedure|orgScopedProcedure)/);
     expect(source).toMatch(/invokeLLM/);
     expect(source).toMatch(/json_schema/);
   });

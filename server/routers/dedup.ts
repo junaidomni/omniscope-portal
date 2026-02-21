@@ -4,7 +4,7 @@ import { publicProcedure, orgScopedProcedure, protectedProcedure, router } from 
 import { z } from "zod";
 
 export const dedupRouter = router({
-  scan: orgScopedProcedure.mutation(async () => {
+  scan: orgScopedProcedure.mutation(async ({ ctx }) => {
     const allContacts = await db.getAllContacts(ctx.orgId);
     const approved = allContacts.filter((c: any) => c.approvalStatus === "approved");
     const clusters: Array<{ contacts: typeof approved; confidence: number; reason: string }> = [];
