@@ -936,7 +936,7 @@ function HeroGreeting({
   activeFilter: TriageFilter;
   onFilterChange: (f: TriageFilter) => void;
 }) {
-  const { omniMode, openChat } = useOmni();
+  const { omniMode, openChat, setOmniState } = useOmni();
   const { theme } = useDesign();
   const [omniHover, setOmniHover] = useState(false);
 
@@ -962,9 +962,14 @@ function HeroGreeting({
     if (summary.completedToday > 3 && summary.totalOverdue === 0) return "relaxed";
     // Light workload
     if (summary.totalOpen < 5 && summary.totalOverdue === 0) return "relaxed";
-    // Default: calm idle
-    return "idle";
+    // Default: calm and relaxed
+    return "relaxed";
   }, [summary]);
+
+  // Push emotional state to shared context so floating Omni avatar reflects it
+  useEffect(() => {
+    setOmniState(omniEmotionalState);
+  }, [omniEmotionalState, setOmniState]);
 
   const healthScore = useMemo(() => {
     const overdue = summary.totalOverdue;

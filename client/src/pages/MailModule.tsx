@@ -1099,6 +1099,25 @@ function ThreadView({
   const threadTasksQuery = trpc.mail.getThreadTasks.useQuery({ threadId });
   const linkedTasks = threadTasksQuery.data || [];
 
+  // Auto-mark unread messages as read when thread is opened
+  const toggleReadMutation = trpc.mail.toggleRead.useMutation();
+  const markedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data?.messages?.length || markedRef.current === threadId) return;
+    const unreadMsgs = data.messages.filter((m: ServerMessage) => m.isUnread);
+    if (unreadMsgs.length > 0) {
+      markedRef.current = threadId;
+      // Mark each unread message as read
+      Promise.all(
+        unreadMsgs.map((m: ServerMessage) => toggleReadMutation.mutateAsync({ messageId: m.id, read: true }).catch(() => {}))
+      ).then(() => {
+        // Refresh unread count and thread list
+        utils.mail.getUnreadCount.invalidate();
+        utils.mail.listThreads.invalidate();
+      });
+    }
+  }, [data?.messages, threadId]);
+
   const handleTrash = async (msgId: string) => {
     try {
       await trashMutation.mutateAsync({ messageId: msgId });

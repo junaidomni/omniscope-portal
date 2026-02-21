@@ -1540,10 +1540,13 @@ function DocumentList({
         const status = STATUS_BADGES[doc.status] || STATUS_BADGES.active;
         const category = CATEGORY_LABELS[doc.category]?.label || doc.category;
         return (
-          <button
+          <div
             key={doc.id}
+            role="button"
+            tabIndex={0}
             onClick={() => onViewDetail(doc.id)}
-            className="w-full flex items-center gap-4 px-4 py-3 rounded-lg hover:bg-zinc-900/80 transition-all group text-left"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewDetail(doc.id); } }}
+            className="w-full flex items-center gap-4 px-4 py-3 rounded-lg hover:bg-zinc-900/80 transition-all group text-left cursor-pointer"
           >
             <div className="h-9 w-9 rounded-lg bg-zinc-800/80 flex items-center justify-center shrink-0">
               <FileIcon className="h-4.5 w-4.5 text-zinc-400" />
@@ -1617,7 +1620,7 @@ function DocumentList({
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-          </button>
+          </div>
         );
       })}
     </div>

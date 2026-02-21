@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1260,16 +1261,31 @@ export default function ToDo() {
     onError: () => toast.error("Failed to update tasks"),
   });
 
-  // Keyboard shortcuts
+  // Unified keyboard shortcuts: S=select, /=search, Esc=cancel, A=all, Del=delete
+  useKeyboardShortcuts({
+    onToggleSelect: () => setSelectMode(p => !p),
+    onFocusSearch: () => document.querySelector<HTMLInputElement>('[placeholder*="Search"]')?.focus(),
+    onEscape: () => { setShowQuickAdd(false); setSelectMode(false); setSelectedIds(new Set()); },
+    onSelectAll: () => {
+      const allIds = (allTasks || []).map((t: any) => t.id);
+      setSelectedIds(new Set(allIds));
+    },
+    onDelete: () => {
+      if (selectedIds.size === 0) return;
+      if (confirm(`Delete ${selectedIds.size} task(s)? This cannot be undone.`)) {
+        bulkDeleteTask.mutate({ ids: Array.from(selectedIds) });
+      }
+    },
+    isSelectMode: selectMode,
+    hasSelection: selectedIds.size > 0,
+    enabled: true,
+  });
+  // Additional shortcut: N for quick add (page-specific)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
-
       if (e.key === "n" || e.key === "N") { e.preventDefault(); setShowQuickAdd(true); }
-      if (e.key === "/") { e.preventDefault(); document.querySelector<HTMLInputElement>('[placeholder*="Search"]')?.focus(); }
-      if (e.key === "s" || e.key === "S") { e.preventDefault(); setSelectMode(p => !p); }
-      if (e.key === "Escape") { setShowQuickAdd(false); setSelectMode(false); setSelectedIds(new Set()); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);

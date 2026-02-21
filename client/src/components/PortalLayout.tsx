@@ -20,7 +20,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useState, useEffect, createContext, useContext, useMemo, useCallback, useRef } from "react";
-import OmniAvatar, { OmniMode } from "./OmniAvatar";
+import OmniAvatar, { OmniMode, OmniState } from "./OmniAvatar";
 import OmniChatPanel from "./OmniChatPanel";
 import OrgSwitcher from "./OrgSwitcher";
 import { useOrg } from "@/contexts/OrgContext";
@@ -175,9 +175,11 @@ export const useSidebar = () => useContext(SidebarContext);
 
 interface OmniContextType {
   omniMode: OmniMode;
+  omniState: OmniState;
+  setOmniState: (state: OmniState) => void;
   openChat: () => void;
 }
-export const OmniContext = createContext<OmniContextType>({ omniMode: "sigil", openChat: () => {} });
+export const OmniContext = createContext<OmniContextType>({ omniMode: "sigil", omniState: "relaxed", setOmniState: () => {}, openChat: () => {} });
 export const useOmni = () => useContext(OmniContext);
 
 // Design context — lets child pages read the active design preferences
@@ -425,6 +427,9 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
     try { return localStorage.getItem(OMNI_SIDEBAR_KEY) !== "false"; } catch { return true; }
   });
 
+  // Omni emotional state — default to relaxed (happy), child pages can override
+  const [omniState, setOmniState] = useState<OmniState>("relaxed");
+
   // Hover state for sidebar items
   const [hoveredDomain, setHoveredDomain] = useState<string | null>(null);
 
@@ -463,7 +468,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
   };
 
   // Auto-provision account for authenticated users who don't have one yet
-  const { isProvisioned, provision, isLoading: orgLoading } = useOrg();
+  const { isProvisioned, provision, isLoading: orgLoading, switchOrg } = useOrg();
   const provisioningRef = useRef(false);
   useEffect(() => {
     if (isAuthenticated && user && !orgLoading && !isProvisioned && !provisioningRef.current) {
@@ -540,7 +545,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
 
   return (
     <SidebarContext.Provider value={{ collapsed, setCollapsed }}>
-    <OmniContext.Provider value={{ omniMode, openChat: () => setOmniChatOpen(true) }}>
+    <OmniContext.Provider value={{ omniMode, omniState, setOmniState, openChat: () => setOmniChatOpen(true) }}>
     <DesignContext.Provider value={{ 
       theme: activeTheme, 
       accentColor, 
@@ -626,7 +631,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
             isLightTheme={isLightTheme}
             sidebarBg={sidebarBg}
             onCreateOrg={() => setLocation('/org/new')}
-            onViewAllOrgs={() => setLocation('/admin-hub')}
+            onViewAllOrgs={() => { switchOrg(null); setLocation('/admin-hub'); }}
           />
 
           {/* ─── Navigation ─── */}
@@ -882,7 +887,7 @@ export default function PortalLayout({ children }: PortalLayoutProps) {
           <div className="fixed bottom-6 right-6 z-[80]">
             <OmniAvatar
               mode={omniMode}
-              state="idle"
+              state={omniState}
               size={56}
               onClick={() => setOmniChatOpen(true)}
               badge={false}

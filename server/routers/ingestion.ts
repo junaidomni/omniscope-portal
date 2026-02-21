@@ -18,7 +18,13 @@ export const ingestionRouter = router({
 
   syncFathom: protectedProcedure
     .mutation(async () => {
+      // Server-side cooldown: skip if last sync was < 5 minutes ago
+      const now = Date.now();
+      if ((globalThis as any).__lastFathomSync && now - (globalThis as any).__lastFathomSync < 5 * 60 * 1000) {
+        return { success: true, imported: 0, skipped: 0, errors: 0 };
+      }
       try {
+        (globalThis as any).__lastFathomSync = now;
         const result = await fathomIntegration.importFathomMeetings({ limit: 10 });
         return { success: true, imported: result.imported, skipped: result.skipped, errors: result.errors };
       } catch (error: any) {

@@ -2494,3 +2494,13 @@
 - [ ] Investigate and remove/fix "data review" recommendation in Triage room
 - [ ] Fix X dismiss button not working on Triage recommendations
 - [x] Remove entire Data Review section from Triage feed (keep in Pending Review page only)
+
+## Phase A: Bugs & Quick Wins
+- [x] A-1: Fix org switcher label not updating to "All Organizations"
+- [x] A-2: Auto-mark emails as read when opening thread
+- [x] A-3: Fix nested buttons in Vault document list
+- [x] A-4: Lift Omni mood to shared context, default to relaxed
+- [x] A-5: Add unified keyboard shortcuts (S, /, Esc, A) — Meetings + ToDo pages
+- [x] A-6: Make meeting row fully clickable in select mode
+- [x] A-7: Add server-side 60s cooldown to Fathom sync
+- [x] A-8: Add error handling and sync guard to calendar fetch

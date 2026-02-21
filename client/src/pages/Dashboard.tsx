@@ -660,7 +660,10 @@ export default function Dashboard() {
     }
   }, []);
 
+  const calSyncedRef = useRef(false);
   useEffect(() => {
+    if (calSyncedRef.current) return;
+    calSyncedRef.current = true;
     const syncAndFetch = async () => {
       try {
         await fetch('/api/calendar/sync', { method: 'POST' }).catch(() => {});

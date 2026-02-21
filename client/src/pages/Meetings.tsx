@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -142,6 +143,7 @@ function RecentMeetings() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
 
   const deleteMutation = trpc.meetings.delete.useMutation({
@@ -215,6 +217,24 @@ function RecentMeetings() {
     setSelectedIds(new Set());
   };
 
+  // Unified keyboard shortcuts: S=select, /=search, Esc=cancel, A=all, Del=delete
+  useKeyboardShortcuts({
+    onToggleSelect: () => {
+      if (isSelectMode) exitSelectMode();
+      else setIsSelectMode(true);
+    },
+    onFocusSearch: () => searchInputRef.current?.focus(),
+    onEscape: () => {
+      if (isSelectMode) exitSelectMode();
+      else setSearchTerm("");
+    },
+    onSelectAll: toggleSelectAll,
+    onDelete: handleBulkDelete,
+    isSelectMode,
+    hasSelection: someSelected,
+    enabled: true,
+  });
+
   const grouped = useMemo(() => {
     const groups: Record<string, typeof filteredMeetings> = {};
     for (const m of filteredMeetings) {
@@ -262,6 +282,7 @@ function RecentMeetings() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <Input
+            ref={searchInputRef}
             placeholder="Search meetings by title, name, org, or keyword..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -367,10 +388,21 @@ function MeetingRow({ meeting, onDelete, isSelectMode = false, isSelected = fals
   const tags = trpc.meetings.getTags.useQuery({ meetingId: meeting.id });
   const displayTitle = meeting.meetingTitle || participants.join(', ') || 'Untitled Meeting';
 
+  const handleRowClick = (e: React.MouseEvent) => {
+    if (isSelectMode) {
+      e.preventDefault();
+      e.stopPropagation();
+      onToggleSelect?.();
+    }
+  };
+
   return (
-    <div className={`group flex items-center gap-4 p-3 rounded-lg bg-zinc-900/50 border transition-all ${
-      isSelected ? 'border-yellow-600/50 bg-yellow-600/5' : 'border-zinc-800/60 hover:border-yellow-600/30'
-    }`}>
+    <div
+      className={`group flex items-center gap-4 p-3 rounded-lg bg-zinc-900/50 border transition-all ${
+        isSelected ? 'border-yellow-600/50 bg-yellow-600/5' : 'border-zinc-800/60 hover:border-yellow-600/30'
+      } ${isSelectMode ? 'cursor-pointer' : ''}`}
+      onClick={handleRowClick}
+    >
       {isSelectMode && (
         <div className="flex-shrink-0">
           <Checkbox
