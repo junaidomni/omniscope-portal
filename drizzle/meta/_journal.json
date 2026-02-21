@@ -232,6 +232,13 @@
       "when": 1771697895410,
       "tag": "0032_late_mephisto",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "5",
+      "when": 1771706700635,
+      "tag": "0033_outstanding_smasher",
+      "breakpoints": true
     }
   ]
 }

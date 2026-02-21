@@ -1623,3 +1623,54 @@ export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
 export const planFeaturesRelations = relations(planFeatures, ({ one }) => ({
   plan: one(plans, { fields: [planFeatures.planId], references: [plans.id] }),
 }));
+
+
+// ============================================================================
+// DIGEST & REPORTING PREFERENCES
+// ============================================================================
+
+/**
+ * Digest Preferences — per-user report delivery settings.
+ * Controls daily/weekly digest frequency, included sections, and delivery method.
+ * Account owners get cross-org consolidated digests; org members get single-org digests.
+ */
+export const digestPreferences = mysqlTable("digest_preferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("dgUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  accountId: int("dgAccountId").references(() => accounts.id, { onDelete: "cascade" }),
+  // Frequency
+  dailyDigestEnabled: boolean("dgDailyEnabled").default(true).notNull(),
+  weeklyDigestEnabled: boolean("dgWeeklyEnabled").default(true).notNull(),
+  dailyDigestTime: varchar("dgDailyTime", { length: 10 }).default("08:00").notNull(), // HH:mm in user's timezone
+  weeklyDigestDay: mysqlEnum("dgWeeklyDay", ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]).default("monday").notNull(),
+  weeklyDigestTime: varchar("dgWeeklyTime", { length: 10 }).default("09:00").notNull(),
+  timezone: varchar("dgTimezone", { length: 100 }).default("America/New_York").notNull(),
+  // Scope
+  crossOrgConsolidated: boolean("dgCrossOrg").default(true).notNull(), // true = one digest for all orgs; false = separate per org
+  // Included sections
+  includeMeetingSummaries: boolean("dgIncMeetings").default(true).notNull(),
+  includeTaskOverview: boolean("dgIncTasks").default(true).notNull(),
+  includeContactActivity: boolean("dgIncContacts").default(true).notNull(),
+  includeAiInsights: boolean("dgIncAi").default(true).notNull(),
+  includeUpcomingCalendar: boolean("dgIncCalendar").default(true).notNull(),
+  includeKpiMetrics: boolean("dgIncKpi").default(true).notNull(),
+  // Delivery
+  deliveryMethod: mysqlEnum("dgDelivery", ["in_app", "email", "both"]).default("both").notNull(),
+  // Last sent timestamps
+  lastDailyDigestAt: timestamp("dgLastDaily"),
+  lastWeeklyDigestAt: timestamp("dgLastWeekly"),
+  // Meta
+  createdAt: timestamp("dgCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("dgUpdatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userIdx: uniqueIndex("dg_user_idx").on(table.userId),
+  accountIdx: index("dg_account_idx").on(table.accountId),
+}));
+
+export type DigestPreference = typeof digestPreferences.$inferSelect;
+export type InsertDigestPreference = typeof digestPreferences.$inferInsert;
+
+export const digestPreferencesRelations = relations(digestPreferences, ({ one }) => ({
+  user: one(users, { fields: [digestPreferences.userId], references: [users.id] }),
+  account: one(accounts, { fields: [digestPreferences.accountId], references: [accounts.id] }),
+}));

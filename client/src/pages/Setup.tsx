@@ -21,7 +21,7 @@ import {
 import OmniAvatar, { OmniMode, OmniState, OmniPreferences, getOmniPreferences, setOmniPreferences, STATE_OVERLAYS, OMNI_THEME_PALETTES } from "@/components/OmniAvatar";
 import { useDesign } from "@/components/PortalLayout";
 
-type Tab = "profile" | "integrations" | "features" | "webhooks" | "omni" | "appearance" | "plan";
+type Tab = "profile" | "integrations" | "features" | "webhooks" | "omni" | "appearance" | "plan" | "digest";
 
 export default function Setup() {
   const search = useSearch();
@@ -51,6 +51,7 @@ export default function Setup() {
     { id: "omni", label: "Omni Assistant", icon: <Sparkles className="h-4 w-4" />, description: "AI companion" },
     { id: "appearance", label: "Appearance", icon: <Palette className="h-4 w-4" />, description: "Design & theme" },
     { id: "plan", label: "Plan & Usage", icon: <CreditCard className="h-4 w-4" />, description: "Subscription" },
+    { id: "digest", label: "Digests & Reports", icon: <Mail className="h-4 w-4" />, description: "Daily & weekly" },
   ];
 
   return (
@@ -103,6 +104,7 @@ export default function Setup() {
         {activeTab === "omni" && <OmniTab />}
         {activeTab === "appearance" && <AppearanceTab />}
         {activeTab === "plan" && <PlanUsageTab />}
+        {activeTab === "digest" && <DigestSettingsTab />}
       </div>
     </div>
   );
@@ -2259,6 +2261,295 @@ function PlanUsageTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+/* ─────────────────────── Digest Settings Tab ─────────────────────── */
+function DigestSettingsTab() {
+  const { data: prefs, isLoading } = trpc.digest.getPreferences.useQuery();
+  const updatePrefs = trpc.digest.updatePreferences.useMutation({
+    onSuccess: () => {
+      toast.success("Digest preferences updated");
+      utils.digest.getPreferences.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+  const previewDaily = trpc.digest.previewDaily.useMutation();
+  const previewWeekly = trpc.digest.previewWeekly.useMutation();
+  const utils = trpc.useUtils();
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="bg-zinc-900/60 border-zinc-800/60">
+            <CardContent className="p-6">
+              <Skeleton className="h-6 w-48 mb-4" />
+              <Skeleton className="h-4 w-full mb-2" />
+              <Skeleton className="h-4 w-3/4" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  const togglePref = (key: string, value: boolean) => {
+    updatePrefs.mutate({ [key]: value } as any);
+  };
+
+  const sections = [
+    { key: "includeMeetingSummaries", label: "Meeting Summaries", desc: "Intelligence briefings from recent meetings" },
+    { key: "includeTaskOverview", label: "Task Overview", desc: "Open tasks, priorities, and deadlines" },
+    { key: "includeContactActivity", label: "Contact Activity", desc: "New contacts, pending approvals, recent interactions" },
+    { key: "includeAiInsights", label: "AI Insights", desc: "Strategic analysis and recommendations" },
+    { key: "includeUpcomingCalendar", label: "Upcoming Calendar", desc: "Scheduled meetings and events" },
+    { key: "includeKpiMetrics", label: "KPI Metrics", desc: "Key performance indicators and trends" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Daily Digest */}
+      <Card className="bg-zinc-900/60 border-zinc-800/60">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-yellow-600/20 to-yellow-600/5 border border-yellow-600/20 flex items-center justify-center">
+                <Sun className="h-5 w-5 text-yellow-500" />
+              </div>
+              <div>
+                <CardTitle className="text-lg text-white">Daily Digest</CardTitle>
+                <p className="text-sm text-zinc-500 mt-0.5">Morning briefing delivered every day</p>
+              </div>
+            </div>
+            <button
+              onClick={() => togglePref("dailyDigestEnabled", !prefs?.dailyDigestEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                prefs?.dailyDigestEnabled ? "bg-yellow-600" : "bg-zinc-700"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                prefs?.dailyDigestEnabled ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <label className="text-sm text-zinc-400 block mb-1">Delivery Time</label>
+              <Input
+                type="time"
+                value={prefs?.dailyDigestTime || "08:00"}
+                onChange={(e) => updatePrefs.mutate({ dailyDigestTime: e.target.value })}
+                className="bg-zinc-800/60 border-zinc-700 text-white w-32"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-sm text-zinc-400 block mb-1">Timezone</label>
+              <Input
+                value={prefs?.timezone || "America/New_York"}
+                onChange={(e) => updatePrefs.mutate({ timezone: e.target.value })}
+                className="bg-zinc-800/60 border-zinc-700 text-white"
+              />
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => previewDaily.mutate({})}
+            disabled={previewDaily.isPending}
+            className="border-zinc-700 text-zinc-300 hover:text-white"
+          >
+            {previewDaily.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+            Preview Today's Digest
+          </Button>
+          {previewDaily.data && (
+            <div className="mt-4 p-4 rounded-lg bg-zinc-800/40 border border-zinc-700/50 max-h-96 overflow-y-auto">
+              <pre className="text-sm text-zinc-300 whitespace-pre-wrap font-mono">{previewDaily.data.markdown}</pre>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Weekly Digest */}
+      <Card className="bg-zinc-900/60 border-zinc-800/60">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600/20 to-blue-600/5 border border-blue-600/20 flex items-center justify-center">
+                <Calendar className="h-5 w-5 text-blue-400" />
+              </div>
+              <div>
+                <CardTitle className="text-lg text-white">Weekly Digest</CardTitle>
+                <p className="text-sm text-zinc-500 mt-0.5">Comprehensive weekly intelligence report</p>
+              </div>
+            </div>
+            <button
+              onClick={() => togglePref("weeklyDigestEnabled", !prefs?.weeklyDigestEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                prefs?.weeklyDigestEnabled ? "bg-blue-600" : "bg-zinc-700"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                prefs?.weeklyDigestEnabled ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <label className="text-sm text-zinc-400 block mb-1">Delivery Day</label>
+              <select
+                value={prefs?.weeklyDigestDay || "monday"}
+                onChange={(e) => updatePrefs.mutate({ weeklyDigestDay: e.target.value as any })}
+                className="w-full rounded-md bg-zinc-800/60 border border-zinc-700 text-white px-3 py-2 text-sm"
+              >
+                {["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => (
+                  <option key={day} value={day}>{day.charAt(0).toUpperCase() + day.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="text-sm text-zinc-400 block mb-1">Delivery Time</label>
+              <Input
+                type="time"
+                value={prefs?.weeklyDigestTime || "09:00"}
+                onChange={(e) => updatePrefs.mutate({ weeklyDigestTime: e.target.value })}
+                className="bg-zinc-800/60 border-zinc-700 text-white w-32"
+              />
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => previewWeekly.mutate({})}
+            disabled={previewWeekly.isPending}
+            className="border-zinc-700 text-zinc-300 hover:text-white"
+          >
+            {previewWeekly.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+            Preview This Week's Digest
+          </Button>
+          {previewWeekly.data && (
+            <div className="mt-4 p-4 rounded-lg bg-zinc-800/40 border border-zinc-700/50 max-h-96 overflow-y-auto">
+              <pre className="text-sm text-zinc-300 whitespace-pre-wrap font-mono">{previewWeekly.data.markdown}</pre>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Cross-Org Consolidation */}
+      <Card className="bg-zinc-900/60 border-zinc-800/60">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-600/20 to-emerald-600/5 border border-emerald-600/20 flex items-center justify-center">
+              <Briefcase className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div>
+              <CardTitle className="text-lg text-white">Multi-Company Consolidation</CardTitle>
+              <p className="text-sm text-zinc-500 mt-0.5">Combine data from all your organizations into one report</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/30">
+            <div>
+              <p className="text-sm font-medium text-white">Consolidated cross-org digest</p>
+              <p className="text-xs text-zinc-500 mt-0.5">See all companies in a single report with per-org sections</p>
+            </div>
+            <button
+              onClick={() => togglePref("crossOrgConsolidated", !prefs?.crossOrgConsolidated)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                prefs?.crossOrgConsolidated ? "bg-emerald-600" : "bg-zinc-700"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                prefs?.crossOrgConsolidated ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Report Sections */}
+      <Card className="bg-zinc-900/60 border-zinc-800/60">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-600/20 to-purple-600/5 border border-purple-600/20 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-purple-400" />
+            </div>
+            <div>
+              <CardTitle className="text-lg text-white">Report Sections</CardTitle>
+              <p className="text-sm text-zinc-500 mt-0.5">Choose what to include in your digests</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {sections.map((section) => (
+              <div
+                key={section.key}
+                className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/30 hover:border-zinc-600/40 transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-medium text-white">{section.label}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">{section.desc}</p>
+                </div>
+                <button
+                  onClick={() => togglePref(section.key, !(prefs as any)?.[section.key])}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    (prefs as any)?.[section.key] ? "bg-yellow-600" : "bg-zinc-700"
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    (prefs as any)?.[section.key] ? "translate-x-6" : "translate-x-1"
+                  }`} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Delivery Method */}
+      <Card className="bg-zinc-900/60 border-zinc-800/60">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-600/20 to-cyan-600/5 border border-cyan-600/20 flex items-center justify-center">
+              <Mail className="h-5 w-5 text-cyan-400" />
+            </div>
+            <div>
+              <CardTitle className="text-lg text-white">Delivery Method</CardTitle>
+              <p className="text-sm text-zinc-500 mt-0.5">How you receive your digests</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { value: "in_app", label: "In-App Only", icon: <Monitor className="h-5 w-5" /> },
+              { value: "email", label: "Email Only", icon: <Mail className="h-5 w-5" /> },
+              { value: "both", label: "Both", icon: <Zap className="h-5 w-5" /> },
+            ].map((method) => (
+              <button
+                key={method.value}
+                onClick={() => updatePrefs.mutate({ deliveryMethod: method.value as any })}
+                className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-all ${
+                  prefs?.deliveryMethod === method.value
+                    ? "bg-yellow-600/10 border-yellow-600/30 text-yellow-400"
+                    : "bg-zinc-800/30 border-zinc-700/30 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600/40"
+                }`}
+              >
+                {method.icon}
+                <span className="text-xs font-medium">{method.label}</span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
