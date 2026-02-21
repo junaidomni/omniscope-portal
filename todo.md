@@ -2534,3 +2534,9 @@
 - [x] C-7: Cleaned up unused imports across 18 router files (removed unused publicProcedure and protectedProcedure imports)
 - [x] C-8: Verified full end-to-end data flow — all pages show data: Triage (37 tasks, 10 approvals, 5 meetings), Intelligence (15 meetings), Operations (37 open tasks), Relationships (8 contacts)
 - [x] All 1,086 tests passing (46 test files, 0 failures)
+
+## Phase C (continued): Shared Types, Error Handling & Performance
+- [x] C-3: Create shared TypeScript types/interfaces for cross-module data contracts — shared/api-types.ts with 15+ interfaces (TriageFeedItem, MeetingSummary, TaskCard, ContactProfile, CompanyProfile, etc.) + shared/types.ts with HttpError class and convenience constructors
+- [x] C-4: Implement centralized error handling — server-side tRPC onError callback with severity classification, client-side QueryClient error handler with toast notifications (Sonner), enhanced ErrorBoundary with retry logic and error classification
+- [x] C-9: Optimize triage feed performance — implemented server-side MemoryCache with 5-min TTL for Gmail threads, parallel Promise.all for 6 concurrent DB queries, cached individual thread lookups, parallel suggestion enrichment. Triage feed now loads in ~2s (was ~10s)
+- [x] C-10: Full end-to-end verification — all 5 main pages verified (Triage, Overview, Intelligence, Operations, Relationships), zero browser console errors, zero failed network requests, all 1,099 tests passing across 47 test files

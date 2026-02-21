@@ -3,7 +3,16 @@ import * as gmailService from "../gmailService";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm";
 import { orgScopedProcedure, router } from "../_core/trpc";
+import { cache, CACHE_TTL } from "../cache";
 import { z } from "zod";
+
+// Helper: map a task row to a lightweight card shape
+function toTaskCard(t: any) {
+  return {
+    id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate,
+    assignedName: t.assignedName, category: t.category, status: t.status,
+  };
+}
 
 export const triageRouter = router({
   feed: orgScopedProcedure.query(async ({ ctx }) => {
@@ -13,123 +22,120 @@ export const triageRouter = router({
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfToday = new Date(startOfToday);
     endOfToday.setDate(endOfToday.getDate() + 1);
-
-    // 1. Overdue tasks
-    const allTasks = await db.getAllTasks({ orgId: ctx.orgId ?? undefined });
-    const overdueTasks = allTasks
-      .filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < startOfToday)
-      .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
-      .slice(0, 15);
-
-    // 2. Tasks due today
-    const todayTasks = allTasks
-      .filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) >= startOfToday && new Date(t.dueDate) < endOfToday)
-      .sort((a, b) => {
-        const prio = { high: 0, medium: 1, low: 2 };
-        return (prio[a.priority as keyof typeof prio] ?? 1) - (prio[b.priority as keyof typeof prio] ?? 1);
-      });
-
-    // 3. High priority open tasks (not due today, not overdue)
-    const highPriorityTasks = allTasks
-      .filter(t => t.status !== 'completed' && t.priority === 'high' && !overdueTasks.find(o => o.id === t.id) && !todayTasks.find(o => o.id === t.id))
-      .slice(0, 10);
-
-    // 4. Starred emails — enrich with thread metadata from Gmail
-    const rawStarredEmails = await db.getEmailStarsForUser(userId);
-    // Enrich each starred email by fetching its thread metadata individually
-    let starredEmails: { threadId: string; starLevel: number; subject?: string; fromName?: string; fromEmail?: string }[] = [];
-    try {
-      // First try bulk approach: fetch recent inbox threads to build a lookup map
-      const recentThreads = await gmailService.listGmailThreads(userId, { folder: 'all', maxResults: 100 });
-      const threadMap = new Map<string, { subject: string; fromName: string; fromEmail: string }>();
-      for (const t of recentThreads.threads || []) {
-        threadMap.set(t.threadId, { subject: t.subject, fromName: t.fromName, fromEmail: t.fromEmail });
-      }
-
-      // For any starred emails not found in the bulk fetch, look them up individually
-      starredEmails = await Promise.all(rawStarredEmails.map(async (s) => {
-        const bulkMeta = threadMap.get(s.threadId);
-        if (bulkMeta) {
-          return {
-            threadId: s.threadId,
-            starLevel: s.starLevel,
-            subject: bulkMeta.subject,
-            fromName: bulkMeta.fromName,
-            fromEmail: bulkMeta.fromEmail,
-          };
-        }
-        // Individual lookup for threads not in recent batch
-        try {
-          const threadDetail = await gmailService.getGmailThread(userId, s.threadId);
-          if (threadDetail.messages && threadDetail.messages.length > 0) {
-            const lastMsg = threadDetail.messages[threadDetail.messages.length - 1];
-            return {
-              threadId: s.threadId,
-              starLevel: s.starLevel,
-              subject: lastMsg.subject || undefined,
-              fromName: lastMsg.fromName || undefined,
-              fromEmail: lastMsg.fromEmail || undefined,
-            };
-          }
-        } catch {
-          // Individual thread fetch failed — skip enrichment
-        }
-        return { threadId: s.threadId, starLevel: s.starLevel };
-      }));
-    } catch {
-      // Gmail not connected or error — fall back to raw data
-      starredEmails = rawStarredEmails.map(s => ({ threadId: s.threadId, starLevel: s.starLevel }));
-    }
-
-    // 5. Pending contact approvals
-    const allContacts = await db.getAllContacts(ctx.orgId);
-    const pendingContacts = allContacts.filter(c => c.approvalStatus === 'pending').slice(0, 10);
-
-    // 6. Pending company approvals
-    const allCompanies = await db.getAllCompanies(ctx.orgId);
-    const pendingCompanies = allCompanies.filter(c => c.approvalStatus === 'pending').slice(0, 10);
-
-    // 7. Recent meetings (last 7 days)
     const sevenDaysAgo = new Date(startOfToday);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recentMeetings = await db.getAllMeetings({ startDate: sevenDaysAgo, endDate: endOfToday, limit: 6, orgId: ctx.orgId ?? undefined });
-
-    // 8. Tomorrow's tasks
     const startOfTomorrow = new Date(endOfToday);
     const endOfTomorrow = new Date(startOfTomorrow);
     endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
-    const tomorrowTasks = allTasks
-      .filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) >= startOfTomorrow && new Date(t.dueDate) < endOfTomorrow)
+    const endOfWeek = new Date(startOfToday);
+    endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+    // ── PARALLEL DATA FETCH ──────────────────────────────────────────
+    // Fire all independent DB/API calls concurrently instead of sequentially.
+    // Gmail threads are cached for 5 min to avoid the ~10s API call on every load.
+    const [
+      allTasks,
+      allContacts,
+      allCompanies,
+      recentMeetings,
+      rawStarredEmails,
+      allSuggestions,
+    ] = await Promise.all([
+      db.getAllTasks({ orgId: ctx.orgId ?? undefined }),
+      db.getAllContacts(ctx.orgId),
+      db.getAllCompanies(ctx.orgId),
+      db.getAllMeetings({ startDate: sevenDaysAgo, endDate: endOfToday, limit: 6, orgId: ctx.orgId ?? undefined }),
+      db.getEmailStarsForUser(userId),
+      db.getPendingSuggestions({ status: "pending", orgId: ctx.orgId ?? undefined }),
+    ]);
+
+    // ── TASK CLASSIFICATION (pure in-memory, fast) ───────────────────
+    const openTasks = allTasks.filter(t => t.status !== 'completed');
+    const overdueTasks = openTasks
+      .filter(t => t.dueDate && new Date(t.dueDate) < startOfToday)
+      .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
+      .slice(0, 15);
+    const overdueIds = new Set(overdueTasks.map(t => t.id));
+
+    const todayTasks = openTasks
+      .filter(t => t.dueDate && new Date(t.dueDate) >= startOfToday && new Date(t.dueDate) < endOfToday)
+      .sort((a, b) => {
+        const prio = { high: 0, medium: 1, low: 2 };
+        return (prio[a.priority as keyof typeof prio] ?? 1) - (prio[b.priority as keyof typeof prio] ?? 1);
+      });
+    const todayIds = new Set(todayTasks.map(t => t.id));
+
+    const highPriorityTasks = openTasks
+      .filter(t => t.priority === 'high' && !overdueIds.has(t.id) && !todayIds.has(t.id))
+      .slice(0, 10);
+
+    const tomorrowTasks = openTasks
+      .filter(t => t.dueDate && new Date(t.dueDate) >= startOfTomorrow && new Date(t.dueDate) < endOfTomorrow)
       .sort((a, b) => {
         const prio = { high: 0, medium: 1, low: 2 };
         return (prio[a.priority as keyof typeof prio] ?? 1) - (prio[b.priority as keyof typeof prio] ?? 1);
       });
 
-    // 9. This week's tasks (next 7 days, excluding today and tomorrow)
-    const endOfWeek = new Date(startOfToday);
-    endOfWeek.setDate(endOfWeek.getDate() + 7);
-    const weekTasks = allTasks
-      .filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) >= endOfTomorrow && new Date(t.dueDate) < endOfWeek)
+    const weekTasks = openTasks
+      .filter(t => t.dueDate && new Date(t.dueDate) >= endOfTomorrow && new Date(t.dueDate) < endOfWeek)
       .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
 
-    // 10. Completed today
     const completedTodayTasks = allTasks
       .filter(t => t.status === 'completed' && t.updatedAt && new Date(t.updatedAt) >= startOfToday)
       .sort((a, b) => new Date(b.updatedAt!).getTime() - new Date(a.updatedAt!).getTime())
       .slice(0, 10);
 
-    // 11. Summary counts
-    const totalOpen = allTasks.filter(t => t.status !== 'completed').length;
-    const totalOverdue = overdueTasks.length;
-    const totalHighPriority = allTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length;
-    const completedToday = completedTodayTasks.length;
-    const totalStarred = starredEmails.length;
-    // 8. Pending suggestions (company links, enrichment)
-    const allSuggestions = await db.getPendingSuggestions({ status: "pending", orgId: ctx.orgId ?? undefined });
+    // ── STARRED EMAILS (cached Gmail enrichment) ─────────────────────
+    let starredEmails: { threadId: string; starLevel: number; subject?: string; fromName?: string; fromEmail?: string }[] = [];
+    if (rawStarredEmails.length > 0) {
+      try {
+        // Cache Gmail thread list for 5 minutes — this is the expensive call
+        const recentThreads = await cache.getOrSet(
+          `gmail:threads:${userId}`,
+          CACHE_TTL.GMAIL_THREADS,
+          () => gmailService.listGmailThreads(userId, { folder: 'all', maxResults: 100 })
+        );
+
+        const threadMap = new Map<string, { subject: string; fromName: string; fromEmail: string }>();
+        for (const t of recentThreads.threads || []) {
+          threadMap.set(t.threadId, { subject: t.subject, fromName: t.fromName, fromEmail: t.fromEmail });
+        }
+
+        starredEmails = await Promise.all(rawStarredEmails.map(async (s) => {
+          const bulkMeta = threadMap.get(s.threadId);
+          if (bulkMeta) {
+            return { threadId: s.threadId, starLevel: s.starLevel, subject: bulkMeta.subject, fromName: bulkMeta.fromName, fromEmail: bulkMeta.fromEmail };
+          }
+          // Individual lookup — also cached per thread
+          try {
+            const threadDetail = await cache.getOrSet(
+              `gmail:thread:${userId}:${s.threadId}`,
+              CACHE_TTL.GMAIL_THREADS,
+              () => gmailService.getGmailThread(userId, s.threadId)
+            );
+            if (threadDetail.messages?.length) {
+              const lastMsg = threadDetail.messages[threadDetail.messages.length - 1];
+              return { threadId: s.threadId, starLevel: s.starLevel, subject: lastMsg.subject || undefined, fromName: lastMsg.fromName || undefined, fromEmail: lastMsg.fromEmail || undefined };
+            }
+          } catch { /* skip */ }
+          return { threadId: s.threadId, starLevel: s.starLevel };
+        }));
+      } catch {
+        starredEmails = rawStarredEmails.map(s => ({ threadId: s.threadId, starLevel: s.starLevel }));
+      }
+    }
+
+    // ── PENDING APPROVALS ─────────────────────────────────────────────
+    const pendingContacts = allContacts.filter(c => c.approvalStatus === 'pending').slice(0, 10);
+    const pendingCompanies = allCompanies.filter(c => c.approvalStatus === 'pending').slice(0, 10);
+
+    // ── PENDING SUGGESTIONS (parallel enrichment) ────────────────────
     const pendingSuggestionsData = await Promise.all(allSuggestions.slice(0, 10).map(async (s) => {
-      const contact = s.contactId ? await db.getContactById(s.contactId) : null;
-      const company = s.companyId ? await db.getCompanyById(s.companyId) : null;
-      const suggestedCompany = s.suggestedCompanyId ? await db.getCompanyById(s.suggestedCompanyId) : null;
+      const [contact, company, suggestedCompany] = await Promise.all([
+        s.contactId ? db.getContactById(s.contactId) : null,
+        s.companyId ? db.getCompanyById(s.companyId) : null,
+        s.suggestedCompanyId ? db.getCompanyById(s.suggestedCompanyId) : null,
+      ]);
       return {
         id: s.id, type: s.type, status: s.status,
         contactId: s.contactId, contactName: contact?.name || null,
@@ -140,40 +146,29 @@ export const triageRouter = router({
       };
     }));
 
+    // ── SUMMARY ───────────────────────────────────────────────────────
+    const totalOpen = openTasks.length;
     const totalPendingApprovals = pendingContacts.length + pendingCompanies.length;
-
-    // Time-based greeting — note: server runs in UTC, frontend will override with local time
     const hour = now.getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
     return {
-      userName: userName.split(' ')[0], // First name only
+      userName: userName.split(' ')[0],
       greeting,
       summary: {
         totalOpen,
-        totalOverdue,
-        totalHighPriority,
-        completedToday,
-        totalStarred,
+        totalOverdue: overdueTasks.length,
+        totalHighPriority: openTasks.filter(t => t.priority === 'high').length,
+        completedToday: completedTodayTasks.length,
+        totalStarred: starredEmails.length,
         totalPendingApprovals,
       },
-      overdueTasks: overdueTasks.map(t => ({
-        id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate,
-        assignedName: t.assignedName, category: t.category, status: t.status,
-      })),
-      todayTasks: todayTasks.map(t => ({
-        id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate,
-        assignedName: t.assignedName, category: t.category, status: t.status,
-      })),
-      highPriorityTasks: highPriorityTasks.map(t => ({
-        id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate,
-        assignedName: t.assignedName, category: t.category, status: t.status,
-      })),
+      overdueTasks: overdueTasks.map(toTaskCard),
+      todayTasks: todayTasks.map(toTaskCard),
+      highPriorityTasks: highPriorityTasks.map(toTaskCard),
       starredEmails: starredEmails.map(s => ({
         threadId: s.threadId, starLevel: s.starLevel,
-        subject: s.subject || null,
-        fromName: s.fromName || null,
-        fromEmail: s.fromEmail || null,
+        subject: s.subject || null, fromName: s.fromName || null, fromEmail: s.fromEmail || null,
       })),
       pendingContacts: pendingContacts.map(c => ({
         id: c.id, name: c.name, email: c.email, organization: c.organization,
@@ -186,14 +181,8 @@ export const triageRouter = router({
         id: m.id, title: m.meetingTitle, meetingDate: m.meetingDate,
         primaryLead: m.primaryLead, executiveSummary: m.executiveSummary,
       })),
-      tomorrowTasks: tomorrowTasks.map(t => ({
-        id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate,
-        assignedName: t.assignedName, category: t.category, status: t.status,
-      })),
-      weekTasks: weekTasks.map(t => ({
-        id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate,
-        assignedName: t.assignedName, category: t.category, status: t.status,
-      })),
+      tomorrowTasks: tomorrowTasks.map(toTaskCard),
+      weekTasks: weekTasks.map(toTaskCard),
       completedTodayTasks: completedTodayTasks.map(t => ({
         id: t.id, title: t.title, priority: t.priority, completedAt: t.updatedAt,
         assignedName: t.assignedName, category: t.category,

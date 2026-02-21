@@ -72,12 +72,23 @@ async function startServer() {
   });
   // Google Calendar API proxy
   app.use("/api", calendarRouter);
-  // tRPC API
+  // tRPC API with centralized error handling
   app.use(
     "/api/trpc",
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      onError({ error, path, type }) {
+        // Centralized server-side error logging for all tRPC procedures
+        const severity = error.code === "INTERNAL_SERVER_ERROR" ? "ERROR" : "WARN";
+        console[severity === "ERROR" ? "error" : "warn"](
+          `[tRPC ${severity}] ${type} ${path ?? "unknown"}: ${error.message}`
+        );
+        // Log stack trace for internal server errors only
+        if (error.code === "INTERNAL_SERVER_ERROR" && error.cause) {
+          console.error(`[tRPC] Stack:`, error.cause);
+        }
+      },
     })
   );
   // development mode uses Vite, production mode uses static files

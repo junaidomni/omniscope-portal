@@ -8,32 +8,96 @@ import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
 
-const queryClient = new QueryClient();
+import { toast } from "sonner";
 
-const redirectToLoginIfUnauthorized = (error: unknown) => {
-  if (!(error instanceof TRPCClientError)) return;
-  if (typeof window === "undefined") return;
+/**
+ * Centralized API error handler.
+ * Classifies tRPC errors and routes them to the appropriate recovery path:
+ *  - UNAUTHORIZED → redirect to login
+ *  - FORBIDDEN → toast warning
+ *  - NOT_FOUND → toast info
+ *  - BAD_REQUEST → toast with validation message
+ *  - INTERNAL_SERVER_ERROR → toast error + console.error
+ *  - Network errors → toast with retry hint
+ */
+function handleApiError(error: unknown, context: "query" | "mutation") {
+  if (!(error instanceof TRPCClientError)) {
+    console.error(`[API ${context} Error]`, error);
+    return;
+  }
 
-  const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
+  const msg = error.message;
 
-  if (!isUnauthorized) return;
+  // Auth redirect
+  if (msg === UNAUTHED_ERR_MSG) {
+    if (typeof window !== "undefined") {
+      window.location.href = getLoginUrl();
+    }
+    return;
+  }
 
-  window.location.href = getLoginUrl();
-};
+  // Classify by tRPC error code
+  const code = error.data?.code as string | undefined;
+
+  switch (code) {
+    case "FORBIDDEN":
+      toast.warning("Access Denied", { description: msg || "You don't have permission for this action." });
+      break;
+    case "NOT_FOUND":
+      toast.info("Not Found", { description: msg || "The requested resource was not found." });
+      break;
+    case "BAD_REQUEST":
+      toast.error("Invalid Request", { description: msg || "Please check your input and try again." });
+      break;
+    case "INTERNAL_SERVER_ERROR":
+      toast.error("Server Error", { description: "Something went wrong. Our team has been notified." });
+      console.error(`[API ${context} Error] INTERNAL:`, error);
+      break;
+    case "TIMEOUT":
+    case "CLIENT_CLOSED_REQUEST":
+      toast.warning("Request Timeout", { description: "The server took too long to respond. Please try again." });
+      break;
+    default:
+      // Network errors (fetch failures, etc.)
+      if (msg.includes("fetch") || msg.includes("network") || msg.includes("Failed to fetch")) {
+        toast.warning("Connection Issue", { description: "Unable to reach the server. Check your connection." });
+      } else if (context === "mutation") {
+        // Only show toasts for mutation errors by default (queries handle errors in UI)
+        toast.error("Action Failed", { description: msg || "Please try again." });
+      }
+      console.error(`[API ${context} Error]`, error);
+  }
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        // Don't retry auth or permission errors
+        if (error instanceof TRPCClientError) {
+          const code = error.data?.code;
+          if (code === "UNAUTHORIZED" || code === "FORBIDDEN" || code === "NOT_FOUND") return false;
+        }
+        return failureCount < 2;
+      },
+      staleTime: 30_000, // 30s — reduce unnecessary refetches
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: false, // Never auto-retry mutations
+    },
+  },
+});
 
 queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
-    const error = event.query.state.error;
-    redirectToLoginIfUnauthorized(error);
-    console.error("[API Query Error]", error);
+    handleApiError(event.query.state.error, "query");
   }
 });
 
 queryClient.getMutationCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
-    const error = event.mutation.state.error;
-    redirectToLoginIfUnauthorized(error);
-    console.error("[API Mutation Error]", error);
+    handleApiError(event.mutation.state.error, "mutation");
   }
 });
 
