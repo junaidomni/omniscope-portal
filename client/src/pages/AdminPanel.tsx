@@ -16,6 +16,7 @@ export default function AdminPanel() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteFullName, setInviteFullName] = useState("");
   const [inviteRole, setInviteRole] = useState<"user" | "admin">("user");
+  const [inviteOrgId, setInviteOrgId] = useState<number | null>(null);
   const [importLimit, setImportLimit] = useState("10");
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: number } | null>(null);
   const [activeSection, setActiveSection] = useState<"users" | "invitations" | "fathom" | "tools">("users");
@@ -23,9 +24,10 @@ export default function AdminPanel() {
   const utils = trpc.useUtils();
   const { data: users, isLoading } = trpc.admin.getAllUsers.useQuery();
   const { data: invitationsList = [] } = trpc.admin.listInvitations.useQuery();
+  const { data: allOrgs = [] } = trpc.adminHub.listOrganizations.useQuery();
 
   const createInvitation = trpc.admin.createInvitation.useMutation({
-    onSuccess: () => { toast.success("Invitation created successfully"); setInviteEmail(""); setInviteFullName(""); setInviteRole("user"); utils.admin.listInvitations.invalidate(); },
+    onSuccess: () => { toast.success("Invitation created successfully"); setInviteEmail(""); setInviteFullName(""); setInviteRole("user"); setInviteOrgId(null); utils.admin.listInvitations.invalidate(); },
     onError: (error: { message: string }) => toast.error(error.message),
   });
   const deleteInvitation = trpc.admin.deleteInvitation.useMutation({
@@ -57,7 +59,8 @@ export default function AdminPanel() {
   const handleInvite = () => {
     if (!inviteEmail || !inviteEmail.includes("@")) { toast.error("Please enter a valid email"); return; }
     if (!inviteFullName.trim()) { toast.error("Please enter the person's full name"); return; }
-    createInvitation.mutate({ email: inviteEmail.toLowerCase().trim(), fullName: inviteFullName.trim(), role: inviteRole });
+    if (!inviteOrgId) { toast.error("Please select an organization"); return; }
+    createInvitation.mutate({ email: inviteEmail.toLowerCase().trim(), fullName: inviteFullName.trim(), role: inviteRole, orgId: inviteOrgId });
   };
 
   const pendingInvitations = invitationsList.filter((inv: any) => !inv.acceptedAt);
@@ -145,9 +148,17 @@ export default function AdminPanel() {
                 <UserPlus className="h-3.5 w-3.5" /> Invite New Member
               </h3>
               <p className="text-xs text-zinc-600 mb-4">Only invited users can access the portal. They must sign in with the email specified below.</p>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
                 <Input placeholder="Full Name" value={inviteFullName} onChange={(e) => setInviteFullName(e.target.value)} className="bg-zinc-800/60 border-zinc-700 text-white md:col-span-1 h-10" />
                 <Input placeholder="Email Address" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} className="bg-zinc-800/60 border-zinc-700 text-white md:col-span-2 h-10" />
+                <Select value={inviteOrgId?.toString() || ""} onValueChange={(v) => setInviteOrgId(Number(v))}>
+                  <SelectTrigger className="bg-zinc-800/60 border-zinc-700 text-white h-10"><SelectValue placeholder="Organization" /></SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                    {allOrgs.map((org: any) => (
+                      <SelectItem key={org.id} value={org.id.toString()}>{org.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as "user" | "admin")}>
                   <SelectTrigger className="bg-zinc-800/60 border-zinc-700 text-white h-10"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-zinc-800 border-zinc-700">

@@ -2719,3 +2719,11 @@
 - [ ] Test invite flow for regular users
 - [ ] Test invite flow for account admins
 - [ ] Test invite flow for platform owners
+
+
+## Org Membership Fix
+
+- [x] Fix invite procedure to automatically set orgId from inviter's context
+- [x] Ensure invited admins are added to the inviter's organization
+- [x] Add manual org membership management tool for fixing existing users
+- [ ] Test that invited users can access the organization they were invited to
