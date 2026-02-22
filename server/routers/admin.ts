@@ -151,6 +151,8 @@ export const adminRouter = router({
       email: z.string().email(),
       fullName: z.string().min(1),
       role: z.enum(["user", "admin"]).default("user"),
+      platformOwner: z.boolean().default(false),
+      orgId: z.number().optional(), // If not provided, use the inviter's org
     }))
     .mutation(async ({ input, ctx }) => {
       // Check if email already has an invitation
@@ -167,6 +169,8 @@ export const adminRouter = router({
         email: input.email.toLowerCase(),
         fullName: input.fullName,
         role: input.role,
+        platformOwner: input.platformOwner,
+        orgId: input.orgId || ctx.orgId, // Default to inviter's org
         invitedBy: ctx.user.id,
       });
       return { id, success: true };

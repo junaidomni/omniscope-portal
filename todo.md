@@ -2709,3 +2709,13 @@
 ## Bug Fixes
 
 - [x] Fix "Cannot read properties of undefined (reading 'organizations')" error when new user logs in
+
+
+## Invite & Onboarding Pipeline
+
+- [x] Audit current invite system and identify gaps
+- [x] Build complete invite pipeline (create user account, assign to org, set role)
+- [x] Update OAuth callback to auto-provision invited users
+- [ ] Test invite flow for regular users
+- [ ] Test invite flow for account admins
+- [ ] Test invite flow for platform owners

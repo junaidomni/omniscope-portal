@@ -540,6 +540,7 @@ export const invitations = mysqlTable("invitations", {
   email: varchar("email", { length: 320 }).notNull().unique(),
   fullName: varchar("fullName", { length: 255 }).notNull(),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  platformOwner: boolean("platformOwner").default(false).notNull(), // Super-admin flag
   invitedBy: int("invitedBy").references(() => users.id),
   acceptedAt: timestamp("acceptedAt"),
   userId: int("userId").references(() => users.id), // linked after they sign up

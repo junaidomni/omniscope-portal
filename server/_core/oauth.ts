@@ -57,12 +57,19 @@ export function registerOAuthRoutes(app: Express) {
           email: userInfo.email ?? null,
           loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
           role: invitation.role,
+          platformOwner: invitation.platformOwner || false,
           lastSignedIn: new Date(),
         });
         
         // Link the invitation to the new user
         const newUser = await db.getUserByOpenId(userInfo.openId);
-        if (newUser) {
+        if (newUser && invitation.orgId) {
+          // Create org membership for the invited user
+          await db.addOrgMembership({
+            userId: newUser.id,
+            organizationId: invitation.orgId,
+            role: invitation.role === "admin" ? "account_owner" : "member",
+          });
           await db.acceptInvitation(invitation.id, newUser.id);
         }
       } else {

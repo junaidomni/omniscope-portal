@@ -1,0 +1,1 @@
+ALTER TABLE `invitations` ADD `platformOwner` boolean DEFAULT false NOT NULL;
