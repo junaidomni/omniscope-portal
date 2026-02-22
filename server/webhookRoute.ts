@@ -66,26 +66,56 @@ webhookRouter.get("/daily-brief/pdf", async (req, res) => {
 });
 
 /**
- * Webhook endpoint for Plaud integration (legacy)
- * Receives pre-processed intelligence data from Zapier/n8n
+ * Webhook endpoint for Plaud integration via Zapier
+ * Receives Plaud recording data: sourceId, meetingDate, primaryLead, participants, executiveSummary, transcript, tags
  */
 webhookRouter.post("/webhook/plaud", async (req, res) => {
   try {
-    const data = validateIntelligenceData(req.body);
+    console.log("[Webhook:Plaud] Received payload:", JSON.stringify(req.body, null, 2));
     
-    if (!data) {
-      console.error("[Webhook:Plaud] Invalid data format");
+    const payload = req.body;
+    
+    // Validate required fields from Zapier Plaud format
+    if (!payload.sourceId || !payload.meetingDate || !payload.executiveSummary) {
+      console.error("[Webhook:Plaud] Missing required fields");
       return res.status(400).json({
         success: false,
-        error: "Invalid intelligence data format"
+        error: "Missing required fields: sourceId, meetingDate, executiveSummary"
       });
     }
 
-    const result = await processIntelligenceData(data);
+    // Extract meeting title from Plaud title field or generate from participants
+    const meetingTitle = payload.plaud?.title || 
+                        (payload.participants ? `Meeting with ${payload.participants}` : "Plaud Recording");
+
+    // Transform Zapier Plaud format to OmniScope intelligence format
+    const intelligenceData = {
+      sourceId: payload.sourceId,
+      sourceType: "plaud" as const,
+      meetingTitle,
+      meetingDate: payload.meetingDate,
+      primaryLead: payload.primaryLead || "Unknown",
+      participants: payload.participants || [],
+      executiveSummary: payload.executiveSummary,
+      transcript: payload.transcript || "",
+      tags: payload.tags || ["plaud"],
+      // Optional fields
+      strategicHighlights: [],
+      opportunities: [],
+      risks: [],
+      keyQuotes: [],
+      actionItems: [],
+      organizations: [],
+      jurisdictions: [],
+    };
+
+    // Process through standard ingestion pipeline
+    const result = await processIntelligenceData(intelligenceData);
     
     return res.status(200).json({
       success: true,
-      meetingId: result.meetingId
+      meetingId: result.meetingId,
+      message: "Plaud recording imported successfully"
     });
     
   } catch (error) {

@@ -2727,3 +2727,16 @@
 - [x] Ensure invited admins are added to the inviter's organization
 - [x] Add manual org membership management tool for fixing existing users
 - [ ] Test that invited users can access the organization they were invited to
+
+
+
+## Plaud Integration (Option 2: Direct Webhook via Zapier)
+
+- [x] Build /api/webhook/plaud endpoint to receive Zapier POST requests
+- [x] Parse Plaud recording data (title, meetingDate, primaryLead, participants, executiveSummary, transcript, tags, audioUrl)
+- [x] Download audio file from Plaud URL to S3
+- [x] Create meeting record with all extracted data
+- [x] Add Plaud tag to imported meetings
+- [x] Test webhook with sample Zapier payload
+- [x] Guide user through Zapier configuration
+- [ ] Test end-to-end flow with real Plaud recording (pending publish)

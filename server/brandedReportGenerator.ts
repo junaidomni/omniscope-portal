@@ -10,7 +10,15 @@ export async function generateBrandedReport(meetingId: number): Promise<string> 
     throw new Error("Meeting not found");
   }
 
-  const participants = JSON.parse(meeting.participants || '[]');
+  // Handle participants as either string or array
+  let participants: string[];
+  try {
+    const parsed = JSON.parse(meeting.participants || '[]');
+    participants = Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    // If JSON.parse fails, treat as plain string
+    participants = meeting.participants ? [meeting.participants] : [];
+  }
   const organizations = JSON.parse(meeting.organizations || '[]');
   const jurisdictions = JSON.parse(meeting.jurisdictions || '[]');
   const highlights = JSON.parse(meeting.strategicHighlights || '[]');
