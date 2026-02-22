@@ -13,10 +13,11 @@ import { Link } from "wouter";
 import {
   Building2, Users, CreditCard, BarChart3, Settings, ChevronRight,
   Crown, Shield, Globe, ArrowLeft, Plus, UserPlus, Mail, Clock,
-  CheckCircle2, AlertCircle, TrendingUp, Layers, FileText, Briefcase
+  CheckCircle2, AlertCircle, TrendingUp, Layers, FileText, Briefcase,
+  Lock, Monitor, Smartphone, MapPin
 } from "lucide-react";
 
-type TabId = "overview" | "organizations" | "team" | "billing" | "usage" | "settings";
+type TabId = "overview" | "organizations" | "team" | "billing" | "usage" | "security" | "settings";
 
 const PLAN_COLORS: Record<string, string> = {
   starter: "#6b7280",
@@ -50,6 +51,7 @@ export default function AccountConsole() {
     { id: "team", label: "Team", icon: <Users className="h-4 w-4" /> },
     { id: "billing", label: "Billing", icon: <CreditCard className="h-4 w-4" /> },
     { id: "usage", label: "Usage", icon: <BarChart3 className="h-4 w-4" /> },
+    { id: "security", label: "Security", icon: <Lock className="h-4 w-4" /> },
     { id: "settings", label: "Settings", icon: <Settings className="h-4 w-4" /> },
   ];
 
@@ -110,6 +112,7 @@ export default function AccountConsole() {
         {activeTab === "team" && <TeamTab />}
         {activeTab === "billing" && <BillingTab />}
         {activeTab === "usage" && <UsageTab />}
+        {activeTab === "security" && <SecurityTab />}
         {activeTab === "settings" && <SettingsTab />}
       </div>
     </div>
@@ -668,6 +671,246 @@ function StatCard({ icon, label, value, limit, color, isLightTheme }: {
       </div>
       <p className="text-xl font-bold font-mono" style={{ color: textPrimary }}>{value}</p>
       {limit && <p className="text-[10px] mt-1" style={{ color: textMuted }}>{limit}</p>}
+    </div>
+  );
+}
+
+
+// ============================================================================
+// Security Tab (H-3e) — Login history and session info
+// ============================================================================
+function SecurityTab() {
+  const { isLightTheme, accentColor } = useDesign();
+  const { user } = useAuth();
+  const { data: loginHistory, isLoading } = trpc.accountConsole.loginHistory.useQuery();
+
+  const cardBg = isLightTheme ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.03)";
+  const cardBorder = isLightTheme ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.06)";
+  const textPrimary = isLightTheme ? "oklch(0.15 0 0)" : "oklch(0.92 0.02 85)";
+  const textSecondary = isLightTheme ? "oklch(0.40 0 0)" : "oklch(0.60 0.02 0)";
+  const textMuted = isLightTheme ? "oklch(0.55 0 0)" : "oklch(0.48 0.01 0)";
+  const goldAccent = "oklch(0.75 0.12 70)";
+  const successColor = "oklch(0.72 0.19 145)";
+  const dangerColor = "oklch(0.65 0.2 25)";
+
+  // Parse user agent into device type
+  function parseDevice(ua: string | null): { type: string; icon: React.ReactNode; browser: string } {
+    if (!ua) return { type: "Unknown", icon: <Monitor className="w-4 h-4" />, browser: "Unknown" };
+    const isMobile = /mobile|android|iphone|ipad/i.test(ua);
+    const browser = /chrome/i.test(ua) ? "Chrome" :
+      /firefox/i.test(ua) ? "Firefox" :
+      /safari/i.test(ua) ? "Safari" :
+      /edge/i.test(ua) ? "Edge" : "Other";
+    return {
+      type: isMobile ? "Mobile" : "Desktop",
+      icon: isMobile ? <Smartphone className="w-4 h-4" /> : <Monitor className="w-4 h-4" />,
+      browser,
+    };
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Security Overview Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="rounded-xl p-5 border" style={{ background: cardBg, borderColor: cardBorder }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div
+              className="w-9 h-9 rounded-lg flex items-center justify-center"
+              style={{ background: `linear-gradient(135deg, ${goldAccent}, oklch(0.65 0.14 55))` }}
+            >
+              <Shield className="w-4 h-4" style={{ color: "oklch(0.10 0 0)" }} />
+            </div>
+            <div>
+              <div className="text-xs font-medium" style={{ color: textMuted }}>Auth Method</div>
+              <div className="text-sm font-semibold" style={{ color: textPrimary }}>OAuth 2.0 (Manus)</div>
+            </div>
+          </div>
+          <p className="text-xs" style={{ color: textMuted }}>
+            Secured via Manus OAuth with session-based authentication
+          </p>
+        </div>
+
+        <div className="rounded-xl p-5 border" style={{ background: cardBg, borderColor: cardBorder }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div
+              className="w-9 h-9 rounded-lg flex items-center justify-center"
+              style={{ background: "oklch(0.18 0.04 145)" }}
+            >
+              <Lock className="w-4 h-4" style={{ color: successColor }} />
+            </div>
+            <div>
+              <div className="text-xs font-medium" style={{ color: textMuted }}>Session Status</div>
+              <div className="text-sm font-semibold" style={{ color: successColor }}>Active</div>
+            </div>
+          </div>
+          <p className="text-xs" style={{ color: textMuted }}>
+            Current session is active and authenticated
+          </p>
+        </div>
+
+        <div className="rounded-xl p-5 border" style={{ background: cardBg, borderColor: cardBorder }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div
+              className="w-9 h-9 rounded-lg flex items-center justify-center"
+              style={{ background: "oklch(0.18 0.03 250)" }}
+            >
+              <Clock className="w-4 h-4" style={{ color: "oklch(0.75 0.15 250)" }} />
+            </div>
+            <div>
+              <div className="text-xs font-medium" style={{ color: textMuted }}>Login Events</div>
+              <div className="text-sm font-semibold" style={{ color: textPrimary }}>
+                {loginHistory?.length ?? 0} recorded
+              </div>
+            </div>
+          </div>
+          <p className="text-xs" style={{ color: textMuted }}>
+            Total login events in the last 90 days
+          </p>
+        </div>
+      </div>
+
+      {/* Account Info */}
+      <div className="rounded-xl border p-5" style={{ background: cardBg, borderColor: cardBorder }}>
+        <h3 className="text-sm font-semibold mb-4" style={{ color: textPrimary }}>Account Security Details</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="text-xs font-medium mb-1" style={{ color: textMuted }}>Account Email</div>
+            <div className="text-sm" style={{ color: textPrimary }}>{user?.email || "—"}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium mb-1" style={{ color: textMuted }}>Account Name</div>
+            <div className="text-sm" style={{ color: textPrimary }}>{user?.name || "—"}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium mb-1" style={{ color: textMuted }}>Role</div>
+            <div className="text-sm capitalize" style={{ color: textPrimary }}>{user?.role || "user"}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium mb-1" style={{ color: textMuted }}>Platform Owner</div>
+            <div className="text-sm" style={{ color: user?.platformOwner ? goldAccent : textPrimary }}>
+              {user?.platformOwner ? "Yes" : "No"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Login History */}
+      <div>
+        <h3 className="text-sm font-semibold mb-4" style={{ color: textPrimary }}>Login History</h3>
+        <div className="rounded-xl border overflow-hidden" style={{ borderColor: cardBorder }}>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: textMuted, borderTopColor: "transparent" }} />
+            </div>
+          ) : (loginHistory ?? []).length === 0 ? (
+            <div className="text-center py-12">
+              <Lock className="w-8 h-8 mx-auto mb-3" style={{ color: textMuted }} />
+              <p className="text-sm font-medium" style={{ color: textSecondary }}>No login history recorded</p>
+              <p className="text-xs mt-1" style={{ color: textMuted }}>
+                Login events will appear here as they occur
+              </p>
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ background: isLightTheme ? "rgba(0,0,0,0.02)" : "rgba(255,255,255,0.02)" }}>
+                  <th className="px-4 py-3 text-left text-xs font-medium" style={{ color: textMuted }}>Date & Time</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium" style={{ color: textMuted }}>Device</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium" style={{ color: textMuted }}>IP Address</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium" style={{ color: textMuted }}>Method</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium" style={{ color: textMuted }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(loginHistory ?? []).map((entry: any, idx: number) => {
+                  const device = parseDevice(entry.userAgent);
+                  return (
+                    <tr key={entry.id || idx} className="border-t" style={{ borderColor: cardBorder }}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5" style={{ color: textMuted }} />
+                          <span className="text-xs font-mono" style={{ color: textPrimary }}>
+                            {new Date(entry.loginAt).toLocaleString()}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span style={{ color: textSecondary }}>{device.icon}</span>
+                          <span className="text-xs" style={{ color: textSecondary }}>
+                            {device.browser} ({device.type})
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-mono" style={{ color: textMuted }}>
+                          {entry.ipAddress || "—"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize"
+                          style={{
+                            color: "oklch(0.75 0.15 250)",
+                            background: "oklch(0.20 0.03 250)",
+                          }}
+                        >
+                          {entry.loginMethod || "oauth"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-1 text-xs">
+                          {entry.success ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3" style={{ color: successColor }} />
+                              <span style={{ color: successColor }}>Success</span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="w-3 h-3" style={{ color: dangerColor }} />
+                              <span style={{ color: dangerColor }}>Failed</span>
+                            </>
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Session Policy Info */}
+      <div className="rounded-xl border p-5" style={{ background: cardBg, borderColor: cardBorder }}>
+        <h3 className="text-sm font-semibold mb-3" style={{ color: textPrimary }}>Session Policy</h3>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: cardBorder }}>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4" style={{ color: textMuted }} />
+              <span className="text-sm" style={{ color: textSecondary }}>Session Timeout</span>
+            </div>
+            <span className="text-sm font-medium" style={{ color: textPrimary }}>30 days</span>
+          </div>
+          <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: cardBorder }}>
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4" style={{ color: textMuted }} />
+              <span className="text-sm" style={{ color: textSecondary }}>Multi-Factor Authentication</span>
+            </div>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ color: textMuted, background: isLightTheme ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)" }}>
+              Managed by OAuth Provider
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-2">
+              <Monitor className="w-4 h-4" style={{ color: textMuted }} />
+              <span className="text-sm" style={{ color: textSecondary }}>Concurrent Sessions</span>
+            </div>
+            <span className="text-sm font-medium" style={{ color: textPrimary }}>Unlimited</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -9,6 +9,9 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import * as db from "../db";
+import { loginHistory as loginHistoryTable } from "../../drizzle/schema";
+import { eq, desc } from "drizzle-orm";
+import { getDb } from "../db";
 
 export const accountConsoleRouter = router({
   /**
@@ -252,6 +255,46 @@ export const accountConsoleRouter = router({
         await dbConn!.update(schema.accounts).set(updates).where(orm.eq(schema.accounts.id, account.id));
       }
 
+      return { success: true };
+    }),
+
+  /**
+   * Security tab — login history for the account owner
+   */
+  loginHistory: protectedProcedure.query(async ({ ctx }) => {
+    const dbConn = await db.getDb();
+    if (!dbConn) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    
+    const history = await dbConn.select()
+      .from(loginHistoryTable)
+      .where(eq(loginHistoryTable.userId, ctx.user!.id))
+      .orderBy(desc(loginHistoryTable.loginAt))
+      .limit(50);
+    
+    return history;
+  }),
+
+  /**
+   * Record a login event
+   */
+  recordLogin: protectedProcedure
+    .input(z.object({
+      ipAddress: z.string().optional(),
+      userAgent: z.string().optional(),
+      method: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const dbConn = await getDb();
+      if (!dbConn) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      
+      await dbConn.insert(loginHistoryTable).values({
+        userId: ctx.user!.id,
+        ipAddress: input.ipAddress || null,
+        userAgent: input.userAgent || null,
+        loginMethod: input.method || "oauth",
+        success: true,
+      });
+      
       return { success: true };
     }),
 });

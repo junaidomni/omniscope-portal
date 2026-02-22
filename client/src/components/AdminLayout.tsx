@@ -28,6 +28,7 @@ import {
   ArrowLeft,
   Wallet,
   TrendingUp,
+  Crown,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -89,6 +90,7 @@ const adminSections: AdminNavSection[] = [
   {
     label: "Governance",
     items: [
+      { id: "super-admins", icon: Crown, label: "Super-Admins", path: "/admin-hub/super-admins", matchPaths: ["/admin-hub/super-admins"] },
       { id: "audit", icon: ScrollText, label: "Audit Log", path: "/admin-hub/audit", matchPaths: ["/admin-hub/audit"] },
     ],
   },

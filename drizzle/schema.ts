@@ -1741,3 +1741,28 @@ export const billingEventsRelations = relations(billingEvents, ({ one }) => ({
   account: one(accounts, { fields: [billingEvents.accountId], references: [accounts.id] }),
   performer: one(users, { fields: [billingEvents.performedBy], references: [users.id] }),
 }));
+
+// ============================================================================
+// LOGIN HISTORY — tracks user sign-in events for security auditing
+// ============================================================================
+export const loginHistory = mysqlTable("login_history", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  loginAt: timestamp("loginAt").defaultNow().notNull(),
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  userAgent: text("userAgent"),
+  loginMethod: varchar("loginMethod", { length: 64 }),
+  success: boolean("success").default(true).notNull(),
+  failureReason: varchar("failureReason", { length: 255 }),
+  country: varchar("country", { length: 100 }),
+  city: varchar("city", { length: 100 }),
+  deviceType: varchar("deviceType", { length: 50 }),
+}, (table) => ({
+  userIdx: index("lh_user_idx").on(table.userId),
+  loginAtIdx: index("lh_login_at_idx").on(table.loginAt),
+}));
+export type LoginHistoryEntry = typeof loginHistory.$inferSelect;
+export type InsertLoginHistory = typeof loginHistory.$inferInsert;
+export const loginHistoryRelations = relations(loginHistory, ({ one }) => ({
+  user: one(users, { fields: [loginHistory.userId], references: [users.id] }),
+}));

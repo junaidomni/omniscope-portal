@@ -260,6 +260,13 @@
       "when": 1771719118731,
       "tag": "0036_condemned_ma_gnuci",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "5",
+      "when": 1771722431352,
+      "tag": "0037_skinny_karnak",
+      "breakpoints": true
     }
   ]
 }

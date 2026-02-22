@@ -24,8 +24,15 @@ import {
   subscriptions,
   plans,
   billingEvents,
+  loginHistory,
+  planFeatures,
+  invitations,
+  platformAuditLog,
 } from "../../drizzle/schema";
 import { eq, count, desc, and, gte, like, sql, asc } from "drizzle-orm";
+import { logAuditEvent } from "../auditLog";
+import { notifyOwner } from "../_core/notification";
+import * as dbHelpers from "../db";
 
 // Gate: only super_admin or account_owner can access
 const hubProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -956,4 +963,139 @@ export const adminHubRouter = router({
       billingCycles: Object.fromEntries(cycleMap),
     };
   }),
+
+  // ============================================================================
+  // H-8: ACCOUNT PROVISIONING
+  // ============================================================================
+  provisionAccount: hubProcedure
+    .input(z.object({
+      accountName: z.string().min(1).max(500),
+      ownerEmail: z.string().email().optional(),
+      plan: z.enum(["starter", "professional", "enterprise", "sovereign"]).default("starter"),
+      billingEmail: z.string().email().optional(),
+      billingCycle: z.enum(["monthly", "annual", "custom"]).default("monthly"),
+      orgName: z.string().min(1).max(500).optional(),
+      orgSlug: z.string().min(1).max(100).optional(),
+      industry: z.string().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const database = await getDb();
+      if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      let ownerUserId = ctx.user.id;
+      if (input.ownerEmail) {
+        const [found] = await database.select().from(users).where(eq(users.email, input.ownerEmail)).limit(1);
+        if (!found) throw new TRPCError({ code: "NOT_FOUND", message: `No user found with email ${input.ownerEmail}. They must sign in first.` });
+        ownerUserId = found.id;
+      }
+      const existingAccount = await dbHelpers.getAccountByOwner(ownerUserId);
+      if (existingAccount) throw new TRPCError({ code: "CONFLICT", message: "This user already owns an account." });
+      const accountId = await dbHelpers.createAccount({ name: input.accountName, ownerUserId, plan: input.plan, billingEmail: input.billingEmail });
+      if (!accountId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create account" });
+      const orgName = input.orgName || `${input.accountName} Workspace`;
+      let slug = input.orgSlug || input.accountName.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+      let attempt = 0;
+      while (!(await dbHelpers.isOrgSlugAvailable(slug))) { attempt++; slug = attempt > 10 ? `${slug}-${Date.now().toString(36)}` : `${slug}-${attempt}`; }
+      const orgId = await dbHelpers.createOrganization({ accountId, name: orgName, slug, industry: input.industry });
+      if (orgId) await dbHelpers.addOrgMembership({ userId: ownerUserId, organizationId: orgId, role: "account_owner", isDefault: true });
+      const plan = await dbHelpers.getPlanByKey(input.plan);
+      if (plan) await dbHelpers.createSubscription({ accountId, planId: plan.id, billingCycle: input.billingCycle, status: "active", notes: input.notes });
+      await logAuditEvent(
+        { userId: ctx.user.id, userName: ctx.user.name ?? undefined, userEmail: ctx.user.email ?? undefined },
+        { action: "create", entityType: "account", entityId: accountId, details: { accountName: input.accountName, plan: input.plan, ownerEmail: input.ownerEmail } }
+      );
+      await notifyOwner({ title: "New Account Provisioned", content: `Account "${input.accountName}" created on ${input.plan} plan by ${ctx.user.name || ctx.user.email}.` });
+      return { accountId, orgId, slug, success: true };
+    }),
+
+  // ============================================================================
+  // H-6: SUPER-ADMIN MANAGEMENT
+  // ============================================================================
+  listPlatformOwners: hubProcedure.query(async ({ ctx: _ctx }) => {
+    const database = await getDb();
+    if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    return await database.select({ id: users.id, name: users.name, email: users.email, role: users.role, platformOwner: users.platformOwner, profilePhotoUrl: users.profilePhotoUrl, createdAt: users.createdAt, lastSignedIn: users.lastSignedIn }).from(users).where(eq(users.platformOwner, true)).orderBy(users.createdAt);
+  }),
+
+  listAllUsersForAdmin: hubProcedure
+    .input(z.object({ search: z.string().optional() }).optional())
+    .query(async ({ input, ctx: _ctx }) => {
+      const database = await getDb();
+      if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const conditions = [];
+      if (input?.search) { const p = `%${input.search}%`; conditions.push(sql`(${users.name} LIKE ${p} OR ${users.email} LIKE ${p})`); }
+      return await database.select({ id: users.id, name: users.name, email: users.email, role: users.role, platformOwner: users.platformOwner, profilePhotoUrl: users.profilePhotoUrl, createdAt: users.createdAt, lastSignedIn: users.lastSignedIn }).from(users).where(conditions.length > 0 ? and(...conditions) : undefined).orderBy(desc(users.createdAt)).limit(100);
+    }),
+
+  hubGrantPlatformOwner: hubProcedure
+    .input(z.object({ userId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.user.platformOwner) throw new TRPCError({ code: "FORBIDDEN", message: "Only platform owners can grant this access" });
+      const target = await dbHelpers.getUserById(input.userId);
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      await dbHelpers.updateUser(input.userId, { platformOwner: true });
+      await logAuditEvent({ userId: ctx.user.id, userName: ctx.user.name ?? undefined, userEmail: ctx.user.email ?? undefined }, { action: "platform_owner_grant", entityType: "user", entityId: input.userId, details: { targetName: target.name, targetEmail: target.email } });
+      await notifyOwner({ title: "Platform Owner Access Granted", content: `${ctx.user.name || ctx.user.email} granted platform owner access to ${target.name || target.email}.` });
+      return { success: true };
+    }),
+
+  hubRevokePlatformOwner: hubProcedure
+    .input(z.object({ userId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.user.platformOwner) throw new TRPCError({ code: "FORBIDDEN", message: "Only platform owners can revoke this access" });
+      if (input.userId === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "You cannot revoke your own platform owner access" });
+      const target = await dbHelpers.getUserById(input.userId);
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      await dbHelpers.updateUser(input.userId, { platformOwner: false });
+      await logAuditEvent({ userId: ctx.user.id, userName: ctx.user.name ?? undefined, userEmail: ctx.user.email ?? undefined }, { action: "platform_owner_revoke", entityType: "user", entityId: input.userId, details: { targetName: target.name, targetEmail: target.email } });
+      await notifyOwner({ title: "Platform Owner Access Revoked", content: `${ctx.user.name || ctx.user.email} revoked platform owner access from ${target.name || target.email}.` });
+      return { success: true };
+    }),
+
+  getPlatformOwnerAuditTrail: hubProcedure.query(async ({ ctx: _ctx }) => {
+    const database = await getDb();
+    if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    return await database.select().from(platformAuditLog).where(sql`${platformAuditLog.action} IN ('platform_owner_grant', 'platform_owner_revoke')`).orderBy(desc(platformAuditLog.timestamp)).limit(100);
+  }),
+
+  // ============================================================================
+  // H-3e: ACCOUNT SECURITY — LOGIN HISTORY
+  // ============================================================================
+  getLoginHistory: hubProcedure
+    .input(z.object({ userId: z.number().optional(), limit: z.number().min(1).max(200).default(50), offset: z.number().min(0).default(0) }).optional())
+    .query(async ({ input, ctx }) => {
+      const database = await getDb();
+      if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const targetUserId = input?.userId ?? ctx.user.id;
+      const entries = await database.select().from(loginHistory).where(eq(loginHistory.userId, targetUserId)).orderBy(desc(loginHistory.loginAt)).limit(input?.limit ?? 50).offset(input?.offset ?? 0);
+      const [totalResult] = await database.select({ count: count() }).from(loginHistory).where(eq(loginHistory.userId, targetUserId));
+      return { entries, total: totalResult?.count ?? 0 };
+    }),
+
+  getAccountLoginHistory: hubProcedure
+    .input(z.object({ limit: z.number().min(1).max(200).default(50), offset: z.number().min(0).default(0) }).optional())
+    .query(async ({ input, ctx }) => {
+      const database = await getDb();
+      if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const account = await dbHelpers.getAccountByOwner(ctx.user.id);
+      if (!account) return { entries: [], total: 0 };
+      const orgs = await database.select({ id: organizations.id }).from(organizations).where(eq(organizations.accountId, account.id));
+      const orgIds = orgs.map(o => o.id);
+      if (orgIds.length === 0) return { entries: [], total: 0 };
+      const members = await database.select({ userId: orgMemberships.userId }).from(orgMemberships).where(sql`${orgMemberships.organizationId} IN (${sql.join(orgIds.map(id => sql`${id}`), sql`, `)})`);
+      const userIds = [...new Set(members.map(m => m.userId))];
+      if (userIds.length === 0) return { entries: [], total: 0 };
+      const entries = await database.select({ id: loginHistory.id, userId: loginHistory.userId, loginAt: loginHistory.loginAt, ipAddress: loginHistory.ipAddress, userAgent: loginHistory.userAgent, loginMethod: loginHistory.loginMethod, success: loginHistory.success, failureReason: loginHistory.failureReason, country: loginHistory.country, city: loginHistory.city, deviceType: loginHistory.deviceType, userName: users.name, userEmail: users.email }).from(loginHistory).innerJoin(users, eq(loginHistory.userId, users.id)).where(sql`${loginHistory.userId} IN (${sql.join(userIds.map(id => sql`${id}`), sql`, `)})`).orderBy(desc(loginHistory.loginAt)).limit(input?.limit ?? 50).offset(input?.offset ?? 0);
+      const [totalResult] = await database.select({ count: count() }).from(loginHistory).where(sql`${loginHistory.userId} IN (${sql.join(userIds.map(id => sql`${id}`), sql`, `)})`);
+      return { entries, total: totalResult?.count ?? 0 };
+    }),
+
+  recordLogin: hubProcedure
+    .input(z.object({ userId: z.number(), ipAddress: z.string().optional(), userAgent: z.string().optional(), loginMethod: z.string().optional(), success: z.boolean().default(true), failureReason: z.string().optional(), deviceType: z.string().optional() }))
+    .mutation(async ({ input }) => {
+      const database = await getDb();
+      if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await database.insert(loginHistory).values({ userId: input.userId, ipAddress: input.ipAddress || null, userAgent: input.userAgent || null, loginMethod: input.loginMethod || null, success: input.success, failureReason: input.failureReason || null, deviceType: input.deviceType || null });
+      return { success: true };
+    }),
 });

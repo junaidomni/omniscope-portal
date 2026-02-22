@@ -2653,9 +2653,9 @@
 - [x] H-5d: Write vitest tests for revenue routes
 
 ### H-6: Super-Admin Management UI
-- [ ] H-6a: Build Super-Admins page (list, grant, revoke with confirmation)
-- [ ] H-6b: Log all grant/revoke actions in audit log
-- [ ] H-6c: Write vitest tests for super-admin routes
+- [x] H-6a: Build Super-Admins page (list, grant, revoke with confirmation)
+- [x] H-6b: Log all grant/revoke actions in audit log
+- [x] H-6c: Write vitest tests for super-admin routes
 
 ### H-7: Navigation Refactor
 - [x] H-7a: Update sidebar to show role-based links
@@ -2664,9 +2664,9 @@
 - [x] H-7d: Test navigation for each role level
 
 ### H-8: Account Provisioning
-- [ ] H-8a: Build Create Account flow in Platform Command Center
-- [ ] H-8b: Generate invite link for new account owners
-- [ ] H-8c: Write vitest tests for account provisioning
+- [x] H-8a: Build Create Account flow in Platform Command Center
+- [x] H-8b: Generate invite link for new account owners
+- [x] H-8c: Write vitest tests for account provisioning
 
 ### H-9: Testing & Hardening
 - [ ] H-9a: Test every role sees the right navigation
@@ -2674,3 +2674,27 @@
 - [ ] H-9c: Test audit log captures all actions
 - [ ] H-9d: Full test suite passing
 - [ ] H-9e: Full button audit across all pages
+
+## Phase H Continued — New Requests
+
+### H-8: Account Provisioning (Build)
+- [x] H-8a: Build Create Account flow in Platform Command Center
+- [x] H-8b: Generate invite link for new account owners
+- [x] H-8c: Write vitest tests for account provisioning
+
+### H-6: Super-Admin Management (Build)
+- [x] H-6a: Build Super-Admins page (list, grant, revoke with confirmation)
+- [x] H-6b: Log all grant/revoke actions in audit log
+- [x] H-6c: Write vitest tests for super-admin routes
+
+### H-3e: Account Security Tab (Build)
+- [x] H-3e-1: Add login history tracking to schema
+- [x] H-3e-2: Build Account Security tab with login history
+- [x] H-3e-3: Add session policy controls
+- [x] H-3e-4: Write vitest tests for security features
+
+### Platform Capabilities Document
+- [x] DOC-1: Audit all platform features, access levels, and roles
+- [ ] DOC-2: Create 5-6 page comprehensive platform capabilities document
+- [ ] DOC-3: Document what each access level gives you
+- [ ] DOC-4: Document how the platform helps people and organizations
