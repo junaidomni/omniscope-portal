@@ -14,6 +14,8 @@ import {
   Briefcase,
   ChevronDown,
   ChevronRight,
+  Phone,
+  Video,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { trpc } from "@/lib/trpc";
@@ -42,6 +44,23 @@ export function ChannelSidebar({
   
   // Fetch deal rooms
   const { data: dealRooms } = trpc.communications.listDealRooms.useQuery();
+  
+  // Fetch active calls for all user's channels
+  const { data: activeCalls } = trpc.communications.getActiveCallsForUser.useQuery(
+    undefined,
+    { refetchInterval: 5000 } // Poll every 5 seconds
+  );
+  
+  // Helper to check if channel has active call
+  const hasActiveCall = (channelId: number) => {
+    return activeCalls?.some((call) => call.channelId === channelId) || false;
+  };
+  
+  // Helper to get call type for channel
+  const getCallType = (channelId: number): "voice" | "video" | null => {
+    const call = activeCalls?.find((call) => call.channelId === channelId);
+    return call ? (call.callType as "voice" | "video") : null;
+  };
   
   // Find parent deal room of selected channel (if it's a sub-channel)
   const selectedChannel = channels?.find((c) => c.id === selectedChannelId);
@@ -121,9 +140,21 @@ export function ChannelSidebar({
         {indent && <Hash className="h-4 w-4 text-muted-foreground mt-1" />}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <span className={`font-medium truncate ${indent ? "text-sm" : ""}`}>
-              {channel.name || "Unnamed Channel"}
-            </span>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className={`font-medium truncate ${indent ? "text-sm" : ""}`}>
+                {channel.name || "Unnamed Channel"}
+              </span>
+              {hasActiveCall(channel.id) && (
+                <div className="relative flex items-center">
+                  {getCallType(channel.id) === "video" ? (
+                    <Video className="h-4 w-4 text-amber-500 animate-pulse" />
+                  ) : (
+                    <Phone className="h-4 w-4 text-amber-500 animate-pulse" />
+                  )}
+                  <span className="absolute inset-0 h-4 w-4 rounded-full bg-amber-500/30 animate-ping" />
+                </div>
+              )}
+            </div>
             {channel.unreadCount > 0 && (
               <Badge variant="default" className="h-5 min-w-[20px] flex items-center justify-center">
                 {channel.unreadCount}

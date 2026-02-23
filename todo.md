@@ -292,3 +292,24 @@
 - [ ] Test call notifications appear for all channel members
 - [ ] Verify WebSocket signaling works across multiple users
 - [ ] Test call controls (mute, camera, screen share)
+
+
+## Final Week 5 Polish (Feb 23, 2026)
+
+### Sound Notifications for Calls
+- [x] Request browser notification permissions on app load
+- [x] Add notification sound file (call-ring.mp3)
+- [x] Create useCallNotifications hook
+- [x] Trigger browser notification when call starts in channel
+- [x] Play sound effect when call notification appears
+- [ ] Add notification settings toggle in user preferences
+- [x] Handle notification permission denied gracefully
+
+### Active Call Indicators in Sidebar
+- [x] Add pulsing phone/video icon next to channels with active calls
+- [x] Query active calls for all user's channels
+- [x] Update indicators in real-time via polling (5s interval)
+- [x] Use amber/gold color for call indicators
+- [x] Add animation (pulse + ping effect) to call icons
+- [x] Show call type (voice vs video) with different icons
+- [ ] Make indicator clickable to jump to call

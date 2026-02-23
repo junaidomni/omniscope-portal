@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { MentionAutocomplete } from "@/components/MentionAutocomplete";
 import { useMentions, renderMentions } from "@/hooks/useMentions";
 import { useChannelSocket } from "@/hooks/useSocket";
+import { useCallNotifications } from "@/hooks/useCallNotifications";
 import { EmojiPicker } from "@/components/EmojiPicker";
 import { CreateChannelDialog } from "@/components/CreateChannelDialog";
 import { InviteLinkDialog } from "@/components/InviteLinkDialog";
@@ -82,6 +83,23 @@ export default function ChatModule() {
   
   // WebSocket for real-time updates
   const { isConnected, newMessage, userTyping, emitTyping } = useChannelSocket(selectedChannelId);
+  
+  // Call notifications
+  const { showCallNotification } = useCallNotifications();
+  
+  // Listen for call-started events
+  useEffect(() => {
+    if (activeCallData && !inCall) {
+      // Show notification when a new call starts
+      const channelName = channels?.find(c => c.id === selectedChannelId)?.name || "Unknown Channel";
+      showCallNotification({
+        channelId: activeCallData.channelId,
+        channelName,
+        callType: activeCallData.callType,
+        startedBy: user?.name || "Someone",
+      });
+    }
+  }, [activeCallData?.id]);
   
   // tRPC utils for invalidation
   const utils = trpc.useUtils();

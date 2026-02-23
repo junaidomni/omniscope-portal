@@ -1890,4 +1890,31 @@ export const communicationsRouter = router({
         return { audioUrl, transcriptUrl: null, success: true };
       }
     }),
+
+  /**
+   * Get all active calls in user's channels
+   */
+  getActiveCallsForUser: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.id;
+
+    // Get all channels user is member of
+    const userChannels = await db.getChannelsForUser(userId);
+    const channelIds = userChannels.map((uc) => uc.channel.id);
+
+    // Get active calls for these channels
+    const activeCalls: Array<{ channelId: number; callId: number; callType: string }> = [];
+
+    for (const channelId of channelIds) {
+      const activeCall = await db.getActiveCall(channelId);
+      if (activeCall) {
+        activeCalls.push({
+          channelId,
+          callId: activeCall.id,
+          callType: activeCall.callType,
+        });
+      }
+    }
+
+    return activeCalls;
+  }),
 });
