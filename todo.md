@@ -4,8 +4,10 @@
 
 ### DM Name Generation Fix
 - [x] Fix createDirectMessage backend to auto-generate names (e.g., "Junaid Qureshi & K Jack")
-- [ ] Test DM creation with proper name display
-- [ ] Verify DM appears in sidebar with correct name
+- [x] Add DM name personalization - show other person's name only (e.g., Junaid sees "K Jack")
+- [x] Fix group chat badge to show "Group" instead of "Channel"
+- [x] Test DM creation with proper name display
+- [x] Verify DM appears in sidebar with correct name
 
 ### Comprehensive Testing
 - [x] Test DM creation (1-on-1) - Backend verified, name generation fixed

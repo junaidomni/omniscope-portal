@@ -24,12 +24,25 @@ export const communicationsRouter = router({
       ? await db.getAllChannels(ctx.orgId)
       : await db.getChannelsForUser(userId);
     
-    // Enrich with unread counts
+    // Enrich with unread counts and personalize DM names
     const enriched = await Promise.all(
       userChannels.map(async (uc) => {
         const unreadCount = await db.getUnreadCount(uc.channel.id, userId);
+        
+        // Personalize DM names: show the other person's name
+        let displayName = uc.channel.name;
+        if (uc.channel.type === "dm") {
+          // Get the other user in this DM
+          const members = await db.getChannelMembers(uc.channel.id);
+          const otherMember = members.find(m => m.user.id !== userId);
+          if (otherMember) {
+            displayName = otherMember.user.name || "Unknown User";
+          }
+        }
+        
         return {
           ...uc.channel,
+          name: displayName, // Override with personalized name
           membership: uc.membership,
           unreadCount,
         };
@@ -71,8 +84,18 @@ export const communicationsRouter = router({
       // Get all members
       const members = await db.getChannelMembers(input.channelId);
 
+      // Personalize DM names: show the other person's name
+      let displayName = channel.name;
+      if (channel.type === "dm") {
+        const otherMember = members.find(m => m.user.id !== userId);
+        if (otherMember) {
+          displayName = otherMember.user.name || "Unknown User";
+        }
+      }
+
       return {
         ...channel,
+        name: displayName, // Override with personalized name
         members: members.map((m) => ({
           ...m.membership,
           user: m.user,

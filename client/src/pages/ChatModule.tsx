@@ -258,6 +258,11 @@ export default function ChatModule() {
                         Channel
                       </Badge>
                     )}
+                    {selectedChannel?.type === "group" && (
+                      <Badge variant="outline" className="text-xs border-blue-500 text-blue-500">
+                        Group
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {channelDetails?.members.length || 0} members
