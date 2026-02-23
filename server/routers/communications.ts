@@ -1543,4 +1543,202 @@ export const communicationsRouter = router({
 
       return { success: true };
     }),
+
+  // ============================================================================
+  // CALLS & VOICE/VIDEO
+  // ============================================================================
+
+  /**
+   * Start a voice/video call in a channel
+   */
+  startCall: protectedProcedure
+    .input(
+      z.object({
+        channelId: z.number(),
+        type: z.enum(["voice", "video"]),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const userId = ctx.user.id;
+
+      // Check if user is member of channel
+      const isMember = await db.isChannelMember(input.channelId, userId);
+      if (!isMember) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You must be a channel member to start a call",
+        });
+      }
+
+      // Check if there's already an active call
+      const activeCall = await db.getActiveCall(input.channelId);
+      if (activeCall) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "There is already an active call in this channel",
+        });
+      }
+
+      // Create call
+      const call = await db.createCall({
+        channelId: input.channelId,
+        initiatorId: userId,
+        type: input.type,
+        status: "ongoing",
+      });
+
+      // Add initiator as first participant
+      await db.addCallParticipant({
+        callId: call.id,
+        userId,
+        role: "host",
+        audioEnabled: true,
+        videoEnabled: input.type === "video",
+      });
+
+      return { call };
+    }),
+
+  /**
+   * Join an active call
+   */
+  joinCall: protectedProcedure
+    .input(
+      z.object({
+        callId: z.number(),
+        audioEnabled: z.boolean().default(true),
+        videoEnabled: z.boolean().default(false),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const userId = ctx.user.id;
+
+      // Get call
+      const call = await db.getCallById(input.callId);
+      if (!call) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Call not found",
+        });
+      }
+
+      // Check if call is still active
+      if (call.status !== "ongoing") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This call has ended",
+        });
+      }
+
+      // Check if user is member of channel
+      const isMember = await db.isChannelMember(call.channelId, userId);
+      if (!isMember) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You must be a channel member to join this call",
+        });
+      }
+
+      // Check if already in call
+      const existingParticipant = await db.getCallParticipant(input.callId, userId);
+      if (existingParticipant && !existingParticipant.leftAt) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You are already in this call",
+        });
+      }
+
+      // Add participant
+      await db.addCallParticipant({
+        callId: input.callId,
+        userId,
+        role: "participant",
+        audioEnabled: input.audioEnabled,
+        videoEnabled: input.videoEnabled,
+      });
+
+      return { success: true };
+    }),
+
+  /**
+   * Leave a call
+   */
+  leaveCall: protectedProcedure
+    .input(z.object({ callId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const userId = ctx.user.id;
+
+      // Get call
+      const call = await db.getCallById(input.callId);
+      if (!call) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Call not found",
+        });
+      }
+
+      // Mark participant as left
+      await db.leaveCall(input.callId, userId);
+
+      // Check if call is now empty
+      const activeParticipants = await db.getActiveCallParticipants(input.callId);
+      if (activeParticipants.length === 0) {
+        // End the call
+        await db.endCall(input.callId);
+      }
+
+      return { success: true };
+    }),
+
+  /**
+   * Get active call in a channel
+   */
+  getActiveCall: protectedProcedure
+    .input(z.object({ channelId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const userId = ctx.user.id;
+
+      // Check if user is member of channel
+      const isMember = await db.isChannelMember(input.channelId, userId);
+      if (!isMember) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You must be a channel member to view calls",
+        });
+      }
+
+      const call = await db.getActiveCall(input.channelId);
+      if (!call) {
+        return null;
+      }
+
+      // Get participants
+      const participants = await db.getActiveCallParticipants(call.id);
+
+      return {
+        ...call,
+        participants,
+      };
+    }),
+
+  /**
+   * Get call history for a channel
+   */
+  getCallHistory: protectedProcedure
+    .input(z.object({ channelId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const userId = ctx.user.id;
+
+      // Check if user is member of channel
+      const isMember = await db.isChannelMember(input.channelId, userId);
+      if (!isMember) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You must be a channel member to view call history",
+        });
+      }
+
+      const calls = await db.getCallHistory(input.channelId);
+      return calls;
+    }),
 });

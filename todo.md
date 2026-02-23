@@ -120,3 +120,45 @@
 - [x] Frontend: Search results modal with message previews already exists
 - [x] Frontend: Click result to jump to message in channel already exists
 - [x] Frontend: Sender, channel, and date range filters already exist
+
+## Week 5: Voice/Video Calling (Feb 23, 2026)
+
+### Call Infrastructure & Database Schema
+- [x] Add calls table (channelId, startedAt, endedAt, duration, participants) - Used existing callLogs table
+- [x] Add call_participants table (callId, userId, joinedAt, leftAt, role)
+- [x] Add call_recordings table (callId, audioUrl, transcriptUrl, summaryUrl) - Fields in callLogs
+- [ ] Add WebSocket events for call signaling (offer, answer, ice-candidate)
+
+### WebRTC Signaling Backend
+- [x] Add startCall procedure to create call and broadcast to channel
+- [x] Add joinCall procedure to add participant to call
+- [x] Add leaveCall procedure to remove participant and end call if empty
+- [ ] Add WebRTC signaling via WebSocket (offer/answer/ICE candidates)
+- [x] Add getActiveCall procedure to check if channel has active call
+- [x] Add getCallHistory procedure to fetch past calls
+- [x] Database helpers: createCall, getCallById, addCallParticipant, leaveCall, endCall
+
+### Call UI & Controls
+- [x] Create CallInterface component with video tiles grid
+- [x] Add call controls (mute/unmute, camera on/off, leave call)
+- [x] Add "Start Call" button in channel header (Phone and Video icons)
+- [x] Add call notification banner when call is active (full-screen interface)
+- [x] Add participant list with audio/video status indicators
+- [x] Add screen sharing support
+- [x] Local media initialization with getUserMedia
+- [x] Participant avatars when video is off
+
+### Call History & Recording
+- [ ] Add getCallHistory procedure to fetch past calls
+- [ ] Create CallHistory component showing past calls
+- [ ] Add call duration tracking
+- [ ] Add participant tracking (who joined/left when)
+- [ ] Store call metadata for future transcription
+
+### Transcription & AI Summaries
+- [ ] Integrate Whisper API for call transcription
+- [ ] Add transcribeCall procedure to process audio
+- [ ] Integrate LLM for call summary generation
+- [ ] Add generateCallSummary procedure
+- [ ] Display transcripts and summaries in call history
+- [ ] Add action items extraction from call summaries

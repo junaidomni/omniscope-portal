@@ -25,7 +25,9 @@ import {
   Shield,
   UserPlus,
   Edit2,
-  Trash2
+  Trash2,
+  Phone,
+  Video
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -45,6 +47,7 @@ import { NotificationListener } from "@/components/NotificationListener";
 import { DeleteChannelDialog } from "@/components/DeleteChannelDialog";
 import { MessageSearch } from "@/components/MessageSearch";
 import { MessageReactions } from "@/components/MessageReactions";
+import { CallInterface } from "@/components/CallInterface";
 
 export default function ChatModule() {
   // Get current user
@@ -67,6 +70,8 @@ export default function ChatModule() {
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [threadParentMessageId, setThreadParentMessageId] = useState<number | null>(null);
+  const [activeCallId, setActiveCallId] = useState<number | null>(null);
+  const [inCall, setInCall] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -163,6 +168,37 @@ export default function ChatModule() {
       utils.communications.getPinnedMessages.invalidate();
     },
   });
+
+  const startCallMutation = trpc.communications.startCall.useMutation({
+    onSuccess: (data) => {
+      setActiveCallId(data.call.id);
+      setInCall(true);
+      toast.success("Call started");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const joinCallMutation = trpc.communications.joinCall.useMutation({
+    onSuccess: () => {
+      setInCall(true);
+      toast.success("Joined call");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const handleStartCall = (type: "voice" | "video") => {
+    if (!selectedChannelId) return;
+    startCallMutation.mutate({ channelId: selectedChannelId, type });
+  };
+
+  const handleLeaveCall = () => {
+    setInCall(false);
+    setActiveCallId(null);
+  };
 
   const handleSendMessage = () => {
     if ((!messageInput.trim() && attachments.length === 0) || !selectedChannelId) return;
@@ -301,6 +337,22 @@ export default function ChatModule() {
                     </Button>
                   </>
                 )}
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  onClick={() => handleStartCall("voice")}
+                  title="Start Voice Call"
+                >
+                  <Phone className="h-4 w-4" />
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  onClick={() => handleStartCall("video")}
+                  title="Start Video Call"
+                >
+                  <Video className="h-4 w-4" />
+                </Button>
                 <Button 
                   size="sm" 
                   variant="ghost"
@@ -737,6 +789,15 @@ export default function ChatModule() {
           parentMessageId={threadParentMessageId}
           channelId={selectedChannelId}
           onClose={() => setThreadParentMessageId(null)}
+        />
+      )}
+
+      {/* Call Interface */}
+      {inCall && activeCallId && selectedChannelId && (
+        <CallInterface
+          channelId={selectedChannelId}
+          callId={activeCallId}
+          onLeave={handleLeaveCall}
         />
       )}
     </div>

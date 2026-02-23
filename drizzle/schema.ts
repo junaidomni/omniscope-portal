@@ -1958,14 +1958,17 @@ export type CallLog = typeof callLogs.$inferSelect;
 export type InsertCallLog = typeof callLogs.$inferInsert;
 
 /**
- * Call participants - who was on the call
+ * Call participants - tracks who joined/left calls
  */
 export const callParticipants = mysqlTable("call_participants", {
   id: int("id").autoincrement().primaryKey(),
   callId: int("cpCallId").notNull().references(() => callLogs.id, { onDelete: "cascade" }),
-  userId: int("cpUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: int("cpUserId").notNull().references(() => users.id),
   joinedAt: timestamp("cpJoinedAt").defaultNow().notNull(),
   leftAt: timestamp("cpLeftAt"),
+  role: mysqlEnum("cpRole", ["host", "participant"]).default("participant").notNull(),
+  audioEnabled: boolean("cpAudioEnabled").default(true).notNull(),
+  videoEnabled: boolean("cpVideoEnabled").default(false).notNull(),
 }, (table) => ({
   callIdx: index("cp_call_idx").on(table.callId),
   userIdx: index("cp_user_idx").on(table.userId),

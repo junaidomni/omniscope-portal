@@ -4318,3 +4318,221 @@ export async function deleteMessage(messageId: number) {
     })
     .where(eq(messages.id, messageId));
 }
+
+
+// ============================================================================
+// CALLS & VOICE/VIDEO
+// ============================================================================
+
+/**
+ * Create a new call
+ */
+export async function createCall(data: {
+  channelId: number;
+  initiatorId: number;
+  type: "voice" | "video";
+  status: "ringing" | "ongoing" | "ended" | "missed" | "declined";
+}) {
+  if (!db) throw new Error("Database not initialized");
+  
+  const [call] = await db
+    .insert(callLogs)
+    .values({
+      channelId: data.channelId,
+      initiatorId: data.initiatorId,
+      type: data.type,
+      status: data.status,
+      startedAt: new Date(),
+    })
+    .returning();
+  
+  return call;
+}
+
+/**
+ * Get call by ID
+ */
+export async function getCallById(callId: number) {
+  if (!db) throw new Error("Database not initialized");
+  
+  const call = await db
+    .select()
+    .from(callLogs)
+    .where(eq(callLogs.id, callId))
+    .limit(1);
+  
+  return call[0] || null;
+}
+
+/**
+ * Get active call in a channel
+ */
+export async function getActiveCall(channelId: number) {
+  if (!db) throw new Error("Database not initialized");
+  
+  const call = await db
+    .select()
+    .from(callLogs)
+    .where(
+      and(
+        eq(callLogs.channelId, channelId),
+        eq(callLogs.status, "ongoing")
+      )
+    )
+    .limit(1);
+  
+  return call[0] || null;
+}
+
+/**
+ * Add participant to call
+ */
+export async function addCallParticipant(data: {
+  callId: number;
+  userId: number;
+  role: "host" | "participant";
+  audioEnabled: boolean;
+  videoEnabled: boolean;
+}) {
+  if (!db) throw new Error("Database not initialized");
+  
+  const [participant] = await db
+    .insert(callParticipants)
+    .values({
+      callId: data.callId,
+      userId: data.userId,
+      role: data.role,
+      audioEnabled: data.audioEnabled,
+      videoEnabled: data.videoEnabled,
+      joinedAt: new Date(),
+    })
+    .returning();
+  
+  return participant;
+}
+
+/**
+ * Get call participant
+ */
+export async function getCallParticipant(callId: number, userId: number) {
+  if (!db) throw new Error("Database not initialized");
+  
+  const participant = await db
+    .select()
+    .from(callParticipants)
+    .where(
+      and(
+        eq(callParticipants.callId, callId),
+        eq(callParticipants.userId, userId)
+      )
+    )
+    .orderBy(desc(callParticipants.joinedAt))
+    .limit(1);
+  
+  return participant[0] || null;
+}
+
+/**
+ * Get active participants in a call
+ */
+export async function getActiveCallParticipants(callId: number) {
+  if (!db) throw new Error("Database not initialized");
+  
+  const participants = await db
+    .select({
+      id: callParticipants.id,
+      userId: callParticipants.userId,
+      role: callParticipants.role,
+      audioEnabled: callParticipants.audioEnabled,
+      videoEnabled: callParticipants.videoEnabled,
+      joinedAt: callParticipants.joinedAt,
+      user: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        profilePhotoUrl: users.profilePhotoUrl,
+      },
+    })
+    .from(callParticipants)
+    .leftJoin(users, eq(callParticipants.userId, users.id))
+    .where(
+      and(
+        eq(callParticipants.callId, callId),
+        isNull(callParticipants.leftAt)
+      )
+    );
+  
+  return participants;
+}
+
+/**
+ * Mark participant as left
+ */
+export async function leaveCall(callId: number, userId: number) {
+  if (!db) throw new Error("Database not initialized");
+  
+  await db
+    .update(callParticipants)
+    .set({ leftAt: new Date() })
+    .where(
+      and(
+        eq(callParticipants.callId, callId),
+        eq(callParticipants.userId, userId),
+        isNull(callParticipants.leftAt)
+      )
+    );
+}
+
+/**
+ * End a call
+ */
+export async function endCall(callId: number) {
+  if (!db) throw new Error("Database not initialized");
+  
+  const call = await getCallById(callId);
+  if (!call) return;
+  
+  const duration = call.startedAt 
+    ? Math.floor((Date.now() - new Date(call.startedAt).getTime()) / 1000)
+    : 0;
+  
+  await db
+    .update(callLogs)
+    .set({
+      status: "ended",
+      endedAt: new Date(),
+      duration,
+    })
+    .where(eq(callLogs.id, callId));
+}
+
+/**
+ * Get call history for a channel
+ */
+export async function getCallHistory(channelId: number) {
+  if (!db) throw new Error("Database not initialized");
+  
+  const calls = await db
+    .select({
+      id: callLogs.id,
+      type: callLogs.type,
+      status: callLogs.status,
+      startedAt: callLogs.startedAt,
+      endedAt: callLogs.endedAt,
+      duration: callLogs.duration,
+      recordingUrl: callLogs.recordingUrl,
+      transcriptUrl: callLogs.transcriptUrl,
+      initiator: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        profilePhotoUrl: users.profilePhotoUrl,
+      },
+    })
+    .from(callLogs)
+    .leftJoin(users, eq(callLogs.initiatorId, users.id))
+    .where(eq(callLogs.channelId, channelId))
+    .orderBy(desc(callLogs.startedAt));
+  
+  return calls;
+}
