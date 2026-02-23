@@ -632,3 +632,14 @@
 - [x] Update InstallBanner component
 - [x] Update InstallQRCode component in settings
 - [ ] Test QR code scan → login → install flow
+
+
+## Make /install Page Public (Feb 23, 2026)
+
+### Remove Authentication Requirement
+- [x] Make /install route public (no PortalLayout wrapper)
+- [x] Update InstallPage to not require user authentication
+- [x] Remove trpc.auth.me.useQuery() dependency
+- [x] Show installation instructions without login
+- [x] Add "Sign In to Get Started" button after PWA installation
+- [ ] Test QR code → /install → install app → login flow

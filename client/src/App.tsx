@@ -97,7 +97,6 @@ function WorkspaceRouter() {
         <Route path="/pending-review" component={Relationships} />
 
         {/* Standalone pages */}
-        <Route path="/install" component={InstallPage} />
         <Route path="/ask" component={AskOmniScope} />
         <Route path="/setup" component={Setup} />
         <Route path="/integrations">{() => { window.location.href = "/setup?tab=integrations"; return null; }}</Route>
@@ -163,6 +162,11 @@ function ShellSwitcher() {
 
   // While org context is loading, show nothing to prevent flash
   if (isLoading) return null;
+
+  // /install route is PUBLIC — no authentication required
+  if (location === "/install") {
+    return <InstallPage />;
+  }
 
   // /admin-hub/* routes ALWAYS render the AdminLayout regardless of org context.
   // The admin hub is a standalone shell — you can view it while an org is selected.
