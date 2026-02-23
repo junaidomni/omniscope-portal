@@ -2030,3 +2030,21 @@ export const callLogsRelations = relations(callLogs, ({ one, many }) => ({
   meeting: one(meetings, { fields: [callLogs.meetingId], references: [meetings.id] }),
   participants: many(callParticipants),
 }));
+
+// ============================================================================
+// PWA PUSH NOTIFICATIONS
+// ============================================================================
+
+export const pushSubscriptions = mysqlTable("push_subscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("psUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  endpoint: text("psEndpoint").notNull(),
+  p256dh: text("psP256dh").notNull(),
+  auth: text("psAuth").notNull(),
+  createdAt: bigint("psCreatedAt", { mode: "number" }).notNull(),
+}, (table) => ({
+  userIdx: index("ps_user_idx").on(table.userId),
+}));
+
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;

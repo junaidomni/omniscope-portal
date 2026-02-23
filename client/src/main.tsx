@@ -7,6 +7,7 @@ import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
+import { registerServiceWorker, checkInstallPrompt, shouldShowInstallPrompt } from "./pwa-register";
 
 import { toast } from "sonner";
 
@@ -127,3 +128,13 @@ createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </trpc.Provider>
 );
+
+// Register PWA service worker
+if (import.meta.env.PROD) {
+  registerServiceWorker();
+  
+  // Show install prompt if not dismissed
+  if (shouldShowInstallPrompt()) {
+    checkInstallPrompt();
+  }
+};

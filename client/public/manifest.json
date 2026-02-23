@@ -1,0 +1,69 @@
+{
+  "name": "OmniScope Intelligence Portal",
+  "short_name": "OmniScope",
+  "description": "Sovereign-grade intelligence and communications platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#D4AF37",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://files.manuscdn.com/user_upload_by_module/session_file/310519663324311854/ENVnbimBljnDbZJY.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "description": "View command center dashboard",
+      "url": "/",
+      "icons": [{ "src": "/icon-mark.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Communications",
+      "short_name": "Chat",
+      "description": "Open communications",
+      "url": "/communications",
+      "icons": [{ "src": "/icon-mark.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Intelligence",
+      "short_name": "Intel",
+      "description": "View intelligence reports",
+      "url": "/intelligence",
+      "icons": [{ "src": "/icon-mark.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Relationships",
+      "short_name": "Contacts",
+      "description": "Manage relationships",
+      "url": "/relationships",
+      "icons": [{ "src": "/icon-mark.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ],
+  "categories": ["business", "productivity", "communication"],
+  "screenshots": [
+    {
+      "src": "/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/screenshot-narrow.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ]
+}

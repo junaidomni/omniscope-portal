@@ -46,6 +46,7 @@ import { digestRouter } from "./digest";
 import { accountConsoleRouter } from "./account-console";
 import { communicationsRouter } from "./communications";
 import { fileUploadRouter } from "./fileUpload";
+import { notificationsRouter } from "./notifications";
 
 export const appRouter = router({
   system: systemRouter,
@@ -114,6 +115,7 @@ export const appRouter = router({
   accountConsole: accountConsoleRouter,
   communications: communicationsRouter,
   fileUpload: fileUploadRouter,
+  notifications: notificationsRouter,
 });
 
 export type AppRouter = typeof appRouter;

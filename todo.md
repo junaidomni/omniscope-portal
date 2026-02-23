@@ -434,3 +434,104 @@
 - [x] Display results grouped by module
 - [x] Add navigation to search results
 - [x] Highlight search terms in results
+
+
+## Week 7: PWA & Mobile Optimization (Feb 23, 2026)
+
+### PWA Manifest & Branding
+- [ ] Create manifest.json with OmniScope branding
+- [ ] Design and generate app icons (192x192, 512x512)
+- [ ] Add splash screen configuration
+- [ ] Set theme colors (black/gold Tesla/Apple aesthetic)
+- [ ] Configure display mode (standalone)
+- [ ] Add shortcuts for quick actions
+
+### Service Worker & Offline Mode
+- [ ] Create service worker with caching strategy
+- [ ] Cache static assets (HTML, CSS, JS, fonts)
+- [ ] Cache API responses (intelligence reports, contacts)
+- [ ] Implement background sync for queued messages
+- [ ] Add offline indicator UI
+- [ ] Handle offline/online transitions gracefully
+
+### Install Prompt & Push Notifications
+- [ ] Add PWA install prompt banner
+- [ ] Create "Add to Home Screen" modal
+- [ ] Implement push notification permission request
+- [ ] Set up push notification service worker
+- [ ] Add notification types (messages, calls, tasks, meetings)
+- [ ] Test notifications on iOS and Android
+
+### Mobile Responsiveness Polish
+- [ ] Audit all pages for mobile breakpoints
+- [ ] Add bottom navigation for mobile
+- [ ] Optimize touch targets (44px minimum)
+- [ ] Add swipe gestures where appropriate
+- [ ] Improve mobile header/navigation
+- [ ] Test on iPhone and Android devices
+
+### Performance Optimization
+- [ ] Lazy load images and components
+- [ ] Compress and optimize assets
+- [ ] Add loading skeletons for better perceived performance
+- [ ] Implement infinite scroll pagination
+- [ ] Optimize WebSocket reconnection logic
+- [ ] Add haptic feedback for mobile interactions
+
+
+## Week 7: PWA & Mobile Optimization (Feb 23, 2026)
+
+### PWA Manifest & Icons
+- [x] Create manifest.json with OmniScope branding
+- [x] Add app icons (official SVG logos)
+- [x] Configure display mode (standalone)
+- [x] Set theme colors (black/gold #D4AF37)
+- [x] Add app shortcuts (Dashboard, Communications, Intelligence, Relationships)
+- [x] Add meta tags for iOS/Android
+- [x] Link manifest in index.html
+
+### Service Worker & Offline Mode
+- [x] Create service-worker.js
+- [x] Implement precaching strategy
+- [x] Add runtime caching for API calls
+- [x] Handle offline fallbacks
+- [x] Add background sync for messages
+- [x] Register service worker in main.tsx
+- [x] Handle service worker updates
+
+### Install Prompt
+- [x] Create pwa-register.ts utility
+- [x] Listen for beforeinstallprompt event
+- [x] Show custom install banner (gold gradient)
+- [x] Add install and dismiss buttons
+- [x] Store dismissal preference (7 days)
+- [x] Handle appinstalled event
+- [x] Auto-dismiss after 10 seconds
+
+### Push Notifications Infrastructure
+- [x] Add pushSubscriptions table to schema
+- [x] Create notifications router (subscribe/unsubscribe)
+- [x] Add push notification handler in service worker
+- [x] Implement notification click handler
+- [x] Add notification permission request in pwa-register
+- [ ] Create frontend push notification component
+
+### Mobile Responsiveness
+- [ ] Audit all pages for mobile layout
+- [ ] Fix sidebar on mobile (collapsible hamburger menu)
+- [ ] Optimize chat interface for mobile
+- [ ] Ensure call interface works on mobile
+- [ ] Test touch interactions (swipe, tap, long-press)
+- [ ] Add mobile-specific gestures (swipe to reply, swipe to delete)
+- [ ] Optimize font sizes for mobile readability
+- [ ] Test on iOS Safari and Android Chrome
+
+### PWA Testing
+- [ ] Test PWA installation on iOS
+- [ ] Test PWA installation on Android
+- [ ] Test offline mode (cache working)
+- [ ] Test background sync (messages queued when offline)
+- [ ] Test push notifications
+- [ ] Test app shortcuts from home screen
+- [ ] Verify splash screen appears correctly
+- [ ] Test app updates (service worker update flow)
