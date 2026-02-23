@@ -1,17 +1,25 @@
 import { useState } from "react";
-import { Search, Plus, MessageSquare, Users, Hash, Trash2 } from "lucide-react";
+import { Search, Plus, MessageSquare, Users, Hash, Trash2, RefreshCw } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
+import { NewDMDialog } from "@/components/mobile/NewDMDialog";
+import { NewGroupDialog } from "@/components/mobile/NewGroupDialog";
+import { NewChannelDialog } from "@/components/mobile/NewChannelDialog";
 
 type TabType = "dms" | "groups" | "channels";
 
 export default function MobileMessages() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("dms");
+  const [showNewDM, setShowNewDM] = useState(false);
+  const [showNewGroup, setShowNewGroup] = useState(false);
+  const [showNewChannel, setShowNewChannel] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [, setLocation] = useLocation();
   const { data: user } = trpc.auth.me.useQuery();
   
+  const utils = trpc.useUtils();
   const { data: channelsData, isLoading } = trpc.communications.listChannels.useQuery();
   
   const channels = channelsData?.channels || [];
@@ -34,6 +42,7 @@ export default function MobileMessages() {
   const deleteChannelMutation = trpc.communications.deleteChannel.useMutation({
     onSuccess: () => {
       toast.success("Channel deleted");
+      utils.communications.listChannels.invalidate();
     },
     onError: (error) => {
       toast.error(error.message || "Failed to delete channel");
@@ -48,12 +57,18 @@ export default function MobileMessages() {
   
   const handleNewChannel = () => {
     if (activeTab === "dms") {
-      toast.info("New DM: Select a contact to start messaging");
+      setShowNewDM(true);
     } else if (activeTab === "groups") {
-      toast.info("New Group: Coming soon");
+      setShowNewGroup(true);
     } else {
-      toast.info("New Channel: Coming soon");
+      setShowNewChannel(true);
     }
+  };
+  
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await utils.communications.listChannels.invalidate();
+    setTimeout(() => setIsRefreshing(false), 500);
   };
   
   if (isLoading) {
@@ -66,18 +81,33 @@ export default function MobileMessages() {
   
   return (
     <div className="h-full flex flex-col bg-black">
+      {/* Dialogs */}
+      <NewDMDialog open={showNewDM} onOpenChange={setShowNewDM} />
+      <NewGroupDialog open={showNewGroup} onOpenChange={setShowNewGroup} />
+      <NewChannelDialog open={showNewChannel} onOpenChange={setShowNewChannel} />
+      
       {/* Header */}
       <div className="flex-none border-b border-[#D4AF37]/30 bg-black/95 backdrop-blur-sm">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-xl font-semibold text-[#D4AF37]">Messages</h1>
-            <button
-              onClick={handleNewChannel}
-              className="p-2 rounded-full bg-[#D4AF37] text-black hover:bg-[#F4D03F] active:bg-[#C9A428] transition-colors"
-              title="New message"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="p-2 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37]/30 active:bg-[#D4AF37]/40 transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={handleNewChannel}
+                className="p-2 rounded-full bg-[#D4AF37] text-black hover:bg-[#F4D03F] active:bg-[#C9A428] transition-colors"
+                title="New message"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            </div>
           </div>
           
           {/* Tabs */}
@@ -156,11 +186,19 @@ export default function MobileMessages() {
             <p className="text-gray-400 mb-2">
               {searchQuery ? "No results found" : `No ${activeTab} yet`}
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 mb-4">
               {activeTab === "dms" && "Start a conversation with someone"}
               {activeTab === "groups" && "Create a group to get started"}
               {activeTab === "channels" && "Join or create a channel"}
             </p>
+            <button
+              onClick={handleNewChannel}
+              className="px-4 py-2 bg-[#D4AF37] text-black rounded-lg font-medium hover:bg-[#F4D03F] transition-colors"
+            >
+              {activeTab === "dms" && "New DM"}
+              {activeTab === "groups" && "New Group"}
+              {activeTab === "channels" && "New Channel"}
+            </button>
           </div>
         ) : (
           <div className="divide-y divide-[#D4AF37]/10">

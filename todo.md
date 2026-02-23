@@ -766,3 +766,57 @@
 - [ ] Test channel deletion on mobile → removed from desktop
 - [ ] Test channel deletion on desktop → removed from mobile
 - [ ] Verify message sync works bidirectionally
+
+
+## Complete Mobile Channel Creation System (Feb 23, 2026)
+
+### Audit Existing Backend
+- [ ] Check what tRPC procedures exist for contacts
+- [ ] Check what tRPC procedures exist for channel creation
+- [ ] Check desktop Communications implementation
+- [ ] Identify any missing backend procedures
+
+### New DM Dialog
+- [x] Create NewDMDialog component
+- [x] Load contacts list using contacts.list tRPC procedure
+- [x] Add contact search functionality
+- [x] Handle DM creation with communications.createDM
+- [x] Navigate to new DM after creation
+- [x] Show loading states and error handling
+
+### New Group Dialog
+- [x] Create NewGroupDialog component
+- [x] Multi-select contacts interface with checkboxes
+- [x] Group name input field
+- [x] Description textarea
+- [x] Create group channel using communications.createGroupChat
+- [x] Show member count during selection
+- [x] Validate group name and member selection
+
+### New Channel Dialog
+- [x] Create NewChannelDialog component
+- [x] Channel name input with # prefix
+- [x] Description textarea
+- [x] Create channel using communications.createChannel with type="announcement"
+- [x] Show helper text about public channels
+- [x] Validate channel name
+
+### Channel Discovery
+- [ ] Add "Browse Channels" option (future enhancement)
+- [ ] List all available public channels
+- [ ] Show join/leave buttons
+- [ ] Filter joined vs available channels
+- [ ] Search public channels
+
+### Pull-to-Refresh
+- [x] Add refresh button in Messages header
+- [x] Invalidate channels query on refresh
+- [x] Show loading spinner during refresh
+- [ ] Add swipe-down gesture detection (future enhancement)
+
+### Integration
+- [x] Wire up + button to show correct dialog based on active tab
+- [x] DM creation syncs with desktop via shared tRPC backend
+- [x] Group creation syncs with desktop via shared tRPC backend
+- [x] Channel creation syncs with desktop via shared tRPC backend
+- [x] All dialogs close properly after success and navigate to new channel
