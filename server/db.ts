@@ -3980,3 +3980,28 @@ export async function createSubChannel(data: {
     createdBy: data.createdBy,
   });
 }
+
+/**
+ * Delete a channel and all its sub-channels, members, and messages
+ */
+export async function deleteChannel(channelId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  
+  // Delete all sub-channels first
+  const subChannels = await getSubChannels(channelId);
+  for (const subChannel of subChannels) {
+    await deleteChannel(subChannel.id);
+  }
+  
+  // Delete channel members
+  await db.delete(channelMembers).where(eq(channelMembers.channelId, channelId));
+  
+  // Delete channel messages
+  await db.delete(messages).where(eq(messages.channelId, channelId));
+  
+  // Delete the channel itself
+  await db.delete(channels).where(eq(channels.id, channelId));
+  
+  return true;
+}

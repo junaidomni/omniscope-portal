@@ -37,6 +37,7 @@ import { AddSubChannelDialog } from "@/components/AddSubChannelDialog";
 import { DirectInviteDialog } from "@/components/DirectInviteDialog";
 import { MemberManagementDialog } from "@/components/MemberManagementDialog";
 import { NotificationListener } from "@/components/NotificationListener";
+import { DeleteChannelDialog } from "@/components/DeleteChannelDialog";
 
 export default function ChatModule() {
   // Get current user
@@ -54,6 +55,7 @@ export default function ChatModule() {
   const [showAddSubChannelDialog, setShowAddSubChannelDialog] = useState(false);
   const [showDirectInviteDialog, setShowDirectInviteDialog] = useState(false);
   const [showMemberManagementDialog, setShowMemberManagementDialog] = useState(false);
+  const [showDeleteChannelDialog, setShowDeleteChannelDialog] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -247,9 +249,17 @@ export default function ChatModule() {
                 <Button size="sm" variant="ghost">
                   <Pin className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="ghost">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
+                {channelDetails && (channelDetails.members.find(m => m.userId === user?.id)?.role === "owner" || channelDetails.members.find(m => m.userId === user?.id)?.role === "admin") && (
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={() => setShowDeleteChannelDialog(true)}
+                    title="Delete Channel"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Archive className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -501,6 +511,17 @@ export default function ChatModule() {
           channelName={selectedChannel?.name || "Unnamed Channel"}
           members={channelDetails.members}
           currentUserRole={channelDetails.members.find((m) => m.userId === user?.id)?.role || "member"}
+        />
+      )}
+
+      {/* Delete Channel Dialog */}
+      {selectedChannelId && selectedChannel && (
+        <DeleteChannelDialog
+          open={showDeleteChannelDialog}
+          onOpenChange={setShowDeleteChannelDialog}
+          channelId={selectedChannelId}
+          channelName={selectedChannel.name || "Unnamed Channel"}
+          onDeleted={() => setSelectedChannelId(null)}
         />
       )}
     </div>

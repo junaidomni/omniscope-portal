@@ -2985,3 +2985,9 @@
 - [x] Build platform owner oversight dashboard (separate admin interface)
 - [x] Platform owners can view all communications across workspaces
 - [x] Add compliance/audit logging for oversight access
+
+### Bug Fixes & New Features
+- [x] Fix user search in DirectInviteDialog (was using wrong router - changed from trpc.team.listMembers to trpc.users.list)
+- [x] Add delete channel functionality for owners and admins
+- [x] Add delete sub-channel functionality (handled by deleteChannel - recursively deletes sub-channels)
+- [x] Add confirmation dialog before deleting channels

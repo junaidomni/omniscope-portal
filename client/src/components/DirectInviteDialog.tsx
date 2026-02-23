@@ -29,7 +29,7 @@ export function DirectInviteDialog({
   const utils = trpc.useUtils();
 
   // Fetch all users in the organization
-  const { data: users, isLoading: usersLoading } = trpc.team.listMembers.useQuery(
+  const { data: users, isLoading: usersLoading } = trpc.users.list.useQuery(
     undefined,
     { enabled: open }
   );

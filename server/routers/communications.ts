@@ -984,4 +984,42 @@ export const communicationsRouter = router({
         message: "Member removed successfully",
       };
     }),
+
+  /**
+   * Delete a channel (owners and admins only)
+   */
+  deleteChannel: protectedProcedure
+    .input(
+      z.object({
+        channelId: z.number(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const userId = ctx.user.id;
+
+      // Check if user is member
+      const membership = await db.getChannelMembership(input.channelId, userId);
+      if (!membership) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not a member of this channel",
+        });
+      }
+
+      // Only owners and admins can delete channels
+      if (membership.role !== "owner" && membership.role !== "admin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only owners and admins can delete channels",
+        });
+      }
+
+      // Delete the channel (will cascade delete members, messages, etc.)
+      await db.deleteChannel(input.channelId);
+
+      return {
+        success: true,
+        message: "Channel deleted successfully",
+      };
+    }),
 });
