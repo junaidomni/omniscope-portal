@@ -13,6 +13,7 @@ import {
   MonitorOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWebRTC } from "@/hooks/useWebRTC";
 
 interface CallInterfaceProps {
   channelId: number;
@@ -39,9 +40,30 @@ export function CallInterface({ channelId, callId, onLeave }: CallInterfaceProps
   const [videoEnabled, setVideoEnabled] = useState(false);
   const [screenSharing, setScreenSharing] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [remoteStreams, setRemoteStreams] = useState<Map<number, MediaStream>>(new Map());
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteVideoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
+
+  // WebRTC peer connection management
+  const { isConnected } = useWebRTC({
+    callId,
+    channelId,
+    localStream: localStreamRef.current,
+    onRemoteStream: (userId, stream) => {
+      console.log(`[CallInterface] Received remote stream from user ${userId}`);
+      setRemoteStreams((prev) => new Map(prev).set(userId, stream));
+    },
+    onParticipantLeft: (userId) => {
+      console.log(`[CallInterface] Participant ${userId} left`);
+      setRemoteStreams((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(userId);
+        return newMap;
+      });
+    },
+  });
 
   // Get active call data
   const { data: callData } = trpc.communications.getActiveCall.useQuery(
@@ -188,39 +210,58 @@ export function CallInterface({ channelId, callId, onLeave }: CallInterfaceProps
         </div>
 
         {/* Remote Participants */}
-        {participants.map((participant) => (
-          <div
-            key={participant.id}
-            className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video"
-          >
-            <div className="w-full h-full flex items-center justify-center">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={participant.user.profilePhotoUrl || undefined} />
-                <AvatarFallback className="text-2xl">
-                  {participant.user.name?.[0]?.toUpperCase() || "?"}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-              <Badge variant="secondary" className="bg-black/50">
-                {participant.user.name}
-                {participant.role === "host" && " (Host)"}
-              </Badge>
-              <div className="flex gap-1">
-                {!participant.audioEnabled && (
-                  <div className="bg-red-500 rounded-full p-1">
-                    <MicOff className="h-3 w-3 text-white" />
-                  </div>
-                )}
-                {!participant.videoEnabled && (
-                  <div className="bg-red-500 rounded-full p-1">
-                    <VideoOff className="h-3 w-3 text-white" />
-                  </div>
-                )}
+        {participants.map((participant) => {
+          const remoteStream = remoteStreams.get(participant.userId);
+          const hasVideo = remoteStream && remoteStream.getVideoTracks().length > 0;
+          
+          return (
+            <div
+              key={participant.id}
+              className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video"
+            >
+              {hasVideo ? (
+                <video
+                  ref={(el) => {
+                    if (el && remoteStream) {
+                      el.srcObject = remoteStream;
+                      remoteVideoRefs.current.set(participant.userId, el);
+                    }
+                  }}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={participant.user.profilePhotoUrl || undefined} />
+                    <AvatarFallback className="text-2xl">
+                      {participant.user.name?.[0]?.toUpperCase() || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              )}
+              <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                <Badge variant="secondary" className="bg-black/50">
+                  {participant.user.name}
+                  {participant.role === "host" && " (Host)"}
+                </Badge>
+                <div className="flex gap-1">
+                  {!participant.audioEnabled && (
+                    <div className="bg-red-500 rounded-full p-1">
+                      <MicOff className="h-3 w-3 text-white" />
+                    </div>
+                  )}
+                  {!participant.videoEnabled && (
+                    <div className="bg-red-500 rounded-full p-1">
+                      <VideoOff className="h-3 w-3 text-white" />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Call Controls */}

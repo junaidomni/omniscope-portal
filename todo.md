@@ -214,11 +214,14 @@
 - [x] Add WebSocket events: webrtc_offer, webrtc_answer, webrtc_ice_candidate
 - [x] Update WebSocket server to handle WebRTC signaling
 - [x] Add call-joined and call-left events for participant notifications
-- [ ] Add peer connection management in CallInterface (IN PROGRESS)
-- [ ] Handle ICE candidate exchange between participants
-- [ ] Handle SDP offer/answer exchange
-- [ ] Add connection state management (connecting, connected, disconnected)
-- [ ] Handle participant join/leave during active call
+- [x] Create useWebRTC hook with peer connection management
+- [x] Handle ICE candidate exchange between participants
+- [x] Handle SDP offer/answer exchange
+- [x] Add connection state management (connecting, connected, disconnected)
+- [x] Handle participant join/leave during active call
+- [x] Integrate useWebRTC hook into CallInterface component
+- [x] Add remote video stream rendering with video tiles
+- [x] Connect local media stream to peer connections
 
 ### Automatic Call Recording
 - [ ] Integrate MediaRecorder API in CallInterface
@@ -236,3 +239,9 @@
 - [ ] Show participant count in real-time
 - [ ] Add sound notification for incoming calls
 - [ ] Add notification in sidebar for active calls
+
+## Fix Calls Tab 404 Error (Feb 23, 2026)
+
+- [x] Fix route matching for /calls path - Added to App.tsx WorkspaceRouter
+- [x] Ensure AllCallsView component is properly exported
+- [x] Test navigation to Calls tab

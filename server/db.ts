@@ -4329,22 +4329,27 @@ export async function deleteMessage(messageId: number) {
  */
 export async function createCall(data: {
   channelId: number;
-  initiatorId: number;
-  type: "voice" | "video";
-  status: "ringing" | "ongoing" | "ended" | "missed" | "declined";
+  startedBy: number;
+  callType: "voice" | "video";
 }) {
-  if (!db) throw new Error("Database not initialized");
+  const dbConn = await getDb();
+  if (!dbConn) throw new Error("Database not initialized");
   
-  const [call] = await db
+  const result = await dbConn
     .insert(callLogs)
     .values({
       channelId: data.channelId,
-      initiatorId: data.initiatorId,
-      type: data.type,
-      status: data.status,
+      startedBy: data.startedBy,
+      callType: data.callType,
+      status: "ongoing",
       startedAt: new Date(),
-    })
-    .returning();
+    });
+  
+  // Get the created call
+  const [call] = await dbConn
+    .select()
+    .from(callLogs)
+    .where(eq(callLogs.id, Number(result[0].insertId)));
   
   return call;
 }
