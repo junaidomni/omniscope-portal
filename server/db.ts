@@ -4005,3 +4005,74 @@ export async function deleteChannel(channelId: number) {
   
   return true;
 }
+
+/**
+ * Search messages across all channels with filters
+ */
+export async function searchMessages(params: {
+  query: string;
+  userId: number;
+  senderId?: number;
+  channelId?: number;
+  startDate?: string;
+  endDate?: string;
+}) {
+  const db = await getDb();
+  if (!db) return [];
+
+  // Get channels user is a member of
+  const userChannels = await db
+    .select({ channelId: channelMembers.channelId })
+    .from(channelMembers)
+    .where(eq(channelMembers.userId, params.userId));
+
+  const channelIds = userChannels.map((c) => c.channelId);
+
+  if (channelIds.length === 0) return [];
+
+  // Build search conditions
+  const conditions = [
+    sql`${messages.channelId} IN ${channelIds}`,
+    sql`LOWER(${messages.content}) LIKE LOWER(${"%" + params.query + "%"})`,
+  ];
+
+  if (params.senderId) {
+    conditions.push(eq(messages.userId, params.senderId));
+  }
+
+  if (params.channelId) {
+    conditions.push(eq(messages.channelId, params.channelId));
+  }
+
+  if (params.startDate) {
+    conditions.push(sql`${messages.createdAt} >= ${params.startDate}`);
+  }
+
+  if (params.endDate) {
+    conditions.push(sql`${messages.createdAt} <= ${params.endDate}`);
+  }
+
+  // Search messages
+  const results = await db
+    .select({
+      id: messages.id,
+      content: messages.content,
+      channelId: messages.channelId,
+      channelName: channels.name,
+      createdAt: messages.createdAt,
+      user: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        profilePhotoUrl: users.profilePhotoUrl,
+      },
+    })
+    .from(messages)
+    .innerJoin(users, eq(messages.userId, users.id))
+    .innerJoin(channels, eq(messages.channelId, channels.id))
+    .where(and(...conditions))
+    .orderBy(desc(messages.createdAt))
+    .limit(50);
+
+  return results;
+}

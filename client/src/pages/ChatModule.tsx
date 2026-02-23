@@ -38,6 +38,7 @@ import { DirectInviteDialog } from "@/components/DirectInviteDialog";
 import { MemberManagementDialog } from "@/components/MemberManagementDialog";
 import { NotificationListener } from "@/components/NotificationListener";
 import { DeleteChannelDialog } from "@/components/DeleteChannelDialog";
+import { MessageSearch } from "@/components/MessageSearch";
 
 export default function ChatModule() {
   // Get current user
@@ -56,6 +57,7 @@ export default function ChatModule() {
   const [showDirectInviteDialog, setShowDirectInviteDialog] = useState(false);
   const [showMemberManagementDialog, setShowMemberManagementDialog] = useState(false);
   const [showDeleteChannelDialog, setShowDeleteChannelDialog] = useState(false);
+  const [showMessageSearch, setShowMessageSearch] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -151,6 +153,7 @@ export default function ChatModule() {
         selectedChannelId={selectedChannelId}
         onChannelSelect={handleChannelSelect}
         onCreateChannel={() => setShowCreateChannelDialog(true)}
+        onSearchMessages={() => setShowMessageSearch(true)}
       />
 
       {/* Center Column: Message Thread */}
@@ -249,7 +252,7 @@ export default function ChatModule() {
                 <Button size="sm" variant="ghost">
                   <Pin className="h-4 w-4" />
                 </Button>
-                {channelDetails && (channelDetails.members.find(m => m.userId === user?.id)?.role === "owner" || channelDetails.members.find(m => m.userId === user?.id)?.role === "admin") && (
+                {(user?.role === "admin" || (channelDetails && (channelDetails.members.find(m => m.userId === user?.id)?.role === "owner" || channelDetails.members.find(m => m.userId === user?.id)?.role === "admin"))) && (
                   <Button 
                     size="sm" 
                     variant="ghost"
@@ -524,6 +527,16 @@ export default function ChatModule() {
           onDeleted={() => setSelectedChannelId(null)}
         />
       )}
+
+      {/* Message Search Dialog */}
+      <MessageSearch
+        open={showMessageSearch}
+        onOpenChange={setShowMessageSearch}
+        onMessageClick={(channelId, messageId) => {
+          setSelectedChannelId(channelId);
+          // TODO: Scroll to message
+        }}
+      />
     </div>
   );
 }

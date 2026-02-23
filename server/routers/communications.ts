@@ -996,22 +996,26 @@ export const communicationsRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const userId = ctx.user.id;
+      const isPlatformOwner = ctx.user.role === "admin";
 
-      // Check if user is member
-      const membership = await db.getChannelMembership(input.channelId, userId);
-      if (!membership) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You are not a member of this channel",
-        });
-      }
+      // Platform owners can delete any channel
+      if (!isPlatformOwner) {
+        // Check if user is member
+        const membership = await db.getChannelMembership(input.channelId, userId);
+        if (!membership) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You are not a member of this channel",
+          });
+        }
 
-      // Only owners and admins can delete channels
-      if (membership.role !== "owner" && membership.role !== "admin") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only owners and admins can delete channels",
-        });
+        // Only owners and admins can delete channels
+        if (membership.role !== "owner" && membership.role !== "admin") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Only owners and admins can delete channels",
+          });
+        }
       }
 
       // Delete the channel (will cascade delete members, messages, etc.)
@@ -1021,5 +1025,34 @@ export const communicationsRouter = router({
         success: true,
         message: "Channel deleted successfully",
       };
+    }),
+
+  /**
+   * Search messages across all channels with filters
+   */
+  searchMessages: protectedProcedure
+    .input(
+      z.object({
+        query: z.string(),
+        senderId: z.number().optional(),
+        channelId: z.number().optional(),
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const userId = ctx.user.id;
+
+      // Search messages (only in channels user is a member of)
+      const results = await db.searchMessages({
+        query: input.query,
+        userId,
+        senderId: input.senderId,
+        channelId: input.channelId,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      });
+
+      return results;
     }),
 });

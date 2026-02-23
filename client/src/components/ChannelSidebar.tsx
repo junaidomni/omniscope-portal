@@ -22,6 +22,7 @@ interface ChannelSidebarProps {
   selectedChannelId: number | null;
   onChannelSelect: (channelId: number) => void;
   onCreateChannel: () => void;
+  onSearchMessages: () => void;
 }
 
 type FilterType = "all" | "messages" | "channels";
@@ -30,6 +31,7 @@ export function ChannelSidebar({
   selectedChannelId,
   onChannelSelect,
   onCreateChannel,
+  onSearchMessages,
 }: ChannelSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedDealRooms, setExpandedDealRooms] = useState<Set<number>>(new Set());
@@ -137,9 +139,14 @@ export function ChannelSidebar({
       <div className="p-4 border-b space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Messages</h2>
-          <Button size="sm" variant="ghost" onClick={onCreateChannel}>
-            <Plus className="h-4 w-4" />
-          </Button>
+          <div className="flex gap-1">
+            <Button size="sm" variant="ghost" onClick={onSearchMessages} title="Search Messages">
+              <Search className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onCreateChannel} title="Create Channel">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
