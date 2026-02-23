@@ -1801,6 +1801,7 @@ export const channels = mysqlTable("channels", {
   id: int("id").autoincrement().primaryKey(),
   orgId: int("channelOrgId").references(() => organizations.id, { onDelete: "cascade" }), // NULL for cross-org DMs
   workspaceId: int("channelWorkspaceId").references(() => workspaces.id, { onDelete: "cascade" }), // NULL for DMs
+  parentChannelId: int("channelParentId").references(() => channels.id, { onDelete: "cascade" }), // NULL for top-level, set for sub-channels
   type: mysqlEnum("channelType", ["dm", "group", "deal_room", "announcement"]).notNull(),
   name: varchar("channelName", { length: 500 }),
   description: text("channelDescription"),

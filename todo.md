@@ -2911,3 +2911,16 @@
 - [ ] Add conversation export for compliance
 - [ ] Test workspace creation and channel invites
 - [ ] Test owner visibility without joining conversations
+
+### Phase 3: Hybrid Workspace + Deal Room Architecture
+- [x] Update schema: Deal rooms as containers (parentChannelId for sub-channels)
+- [x] Add default #general channel creation when deal room is created
+- [x] Build createSubChannel procedure (add channel inside deal room)
+- [x] Build listDealRooms procedure (get all deal rooms with sub-channel counts)
+- [x] Build getDealRoomChannels procedure (get all channels inside a deal room)
+- [x] Create new Plus button dialog with 3 options (DM, Group Chat, Deal Room)
+- [x] Create AddSubChannelDialog component for creating sub-channels
+- [ ] Add "Add Channel" button inside deal room view
+- [ ] Restructure sidebar to show: Workspace → Channels, Deal Rooms → Sub-channels, DMs
+- [ ] Add collapsible sections for workspace and each deal room
+- [ ] Test: Create deal room → Add sub-channels → Invite users → Send messages

@@ -1,0 +1,2 @@
+ALTER TABLE `channels` ADD `channelParentId` int;--> statement-breakpoint
+ALTER TABLE `channels` ADD CONSTRAINT `channels_channelParentId_channels_id_fk` FOREIGN KEY (`channelParentId`) REFERENCES `channels`(`id`) ON DELETE cascade ON UPDATE no action;

@@ -288,6 +288,13 @@
       "when": 1771820271999,
       "tag": "0040_thick_northstar",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "5",
+      "when": 1771820967046,
+      "tag": "0041_normal_christian_walker",
+      "breakpoints": true
     }
   ]
 }

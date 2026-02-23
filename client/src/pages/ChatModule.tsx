@@ -29,7 +29,7 @@ import { MentionAutocomplete } from "@/components/MentionAutocomplete";
 import { useMentions, renderMentions } from "@/hooks/useMentions";
 import { useChannelSocket } from "@/hooks/useSocket";
 import { EmojiPicker } from "@/components/EmojiPicker";
-import { DealRoomDialog } from "@/components/DealRoomDialog";
+import { CreateChannelDialog } from "@/components/CreateChannelDialog";
 import { InviteLinkDialog } from "@/components/InviteLinkDialog";
 
 export default function ChatModule() {
@@ -38,7 +38,7 @@ export default function ChatModule() {
   const [searchQuery, setSearchQuery] = useState("");
   const [attachments, setAttachments] = useState<Array<{ id: number; url: string; fileName: string; mimeType: string; fileSize: number }>>([]);
   const [showFileUpload, setShowFileUpload] = useState(false);
-  const [showDealRoomDialog, setShowDealRoomDialog] = useState(false);
+  const [showCreateChannelDialog, setShowCreateChannelDialog] = useState(false);
   const [showInviteLinkDialog, setShowInviteLinkDialog] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -130,7 +130,7 @@ export default function ChatModule() {
         <div className="p-4 border-b space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Messages</h2>
-            <Button size="sm" variant="ghost" onClick={() => setShowDealRoomDialog(true)}>
+            <Button size="sm" variant="ghost" onClick={() => setShowCreateChannelDialog(true)}>
               <Plus className="h-4 w-4" />
             </Button>
           </div>
@@ -468,11 +468,11 @@ export default function ChatModule() {
         />
       )}
 
-      {/* Deal Room Dialog */}
-      <DealRoomDialog
-        open={showDealRoomDialog}
-        onOpenChange={setShowDealRoomDialog}
-        onSuccess={(channelId) => {
+      {/* Create Channel Dialog */}
+      <CreateChannelDialog
+        open={showCreateChannelDialog}
+        onOpenChange={setShowCreateChannelDialog}
+        onChannelCreated={(channelId) => {
           setSelectedChannelId(channelId);
         }}
       />

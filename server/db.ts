@@ -3307,6 +3307,7 @@ export async function getChannelMembership(channelId: number, userId: number) {
 export async function createChannel(data: {
   orgId: number;
   workspaceId?: number;
+  parentChannelId?: number;
   type: "dm" | "group" | "deal_room" | "announcement";
   name?: string;
   description?: string;
@@ -3319,6 +3320,7 @@ export async function createChannel(data: {
   const [result] = await db.insert(channels).values({
     orgId: data.orgId,
     workspaceId: data.workspaceId ?? null,
+    parentChannelId: data.parentChannelId ?? null,
     type: data.type,
     name: data.name ?? null,
     description: data.description ?? null,
@@ -3918,4 +3920,63 @@ export async function updateWorkspace(workspaceId: number, data: {
     .update(workspaces)
     .set(data)
     .where(eq(workspaces.id, workspaceId));
+}
+
+
+/**
+ * Get sub-channels for a deal room (parent channel)
+ */
+export async function getSubChannels(parentChannelId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db
+    .select()
+    .from(channels)
+    .where(eq(channels.parentChannelId, parentChannelId))
+    .orderBy(asc(channels.name));
+}
+
+/**
+ * Get all deal rooms for an organization
+ */
+export async function getDealRooms(orgId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db
+    .select()
+    .from(channels)
+    .where(and(
+      eq(channels.orgId, orgId),
+      eq(channels.type, "deal_room"),
+      sql`${channels.parentChannelId} IS NULL` // Only top-level deal rooms
+    ))
+    .orderBy(desc(channels.createdAt));
+}
+
+/**
+ * Create a sub-channel inside a deal room
+ */
+export async function createSubChannel(data: {
+  parentChannelId: number;
+  name: string;
+  description?: string;
+  createdBy: number;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  // Get parent channel to inherit orgId
+  const parent = await getChannelById(data.parentChannelId);
+  if (!parent) return null;
+  
+  return await createChannel({
+    orgId: parent.orgId!,
+    parentChannelId: data.parentChannelId,
+    type: "group", // Sub-channels are group type
+    name: data.name,
+    description: data.description,
+    createdBy: data.createdBy,
+  });
 }

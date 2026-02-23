@@ -497,24 +497,50 @@ export const communicationsRouter = router({
       const userId = ctx.user.id;
       const orgId = ctx.user.orgId;
 
-      // Create deal room channel
-      const channelId = await db.createChannel({
+      // Create deal room container (top-level)
+      const dealRoomId = await db.createChannel({
         orgId,
         type: "deal_room",
         name: input.name,
-        description: input.description || `${input.vertical} deal room`,
+        description: input.description,
         createdBy: userId,
       });
 
-      // Add creator as owner
+      if (!dealRoomId) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create deal room",
+        });
+      }
+
+      // Auto-create #general sub-channel
+      const generalChannelId = await db.createChannel({
+        orgId,
+        parentChannelId: dealRoomId,
+        type: "group",
+        name: "general",
+        description: "Main discussion channel",
+        createdBy: userId,
+      });
+
+      // Add creator as owner of both deal room and #general channel
       await db.addChannelMember({
-        channelId,
+        channelId: dealRoomId,
         userId,
         role: "owner",
         isGuest: false,
       });
 
-      return { channelId };
+      if (generalChannelId) {
+        await db.addChannelMember({
+          channelId: generalChannelId,
+          userId,
+          role: "owner",
+          isGuest: false,
+        });
+      }
+
+      return { dealRoomId, generalChannelId };
     }),
 
   /**
@@ -674,5 +700,93 @@ export const communicationsRouter = router({
       await db.removeChannelMember(input.channelId, input.userId);
 
       return { success: true };
+    }),
+
+  /**
+   * Create sub-channel inside a deal room
+   */
+  createSubChannel: protectedProcedure
+    .input(z.object({
+      parentChannelId: z.number(),
+      name: z.string(),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const userId = ctx.user.id;
+
+      // Check if user is member of parent deal room
+      const isMember = await db.isChannelMember(input.parentChannelId, userId);
+      if (!isMember) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You must be a member of the deal room to create sub-channels",
+        });
+      }
+
+      // Create sub-channel
+      const channelId = await db.createSubChannel({
+        parentChannelId: input.parentChannelId,
+        name: input.name,
+        description: input.description,
+        createdBy: userId,
+      });
+
+      if (!channelId) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create sub-channel",
+        });
+      }
+
+      // Add creator as member of sub-channel
+      await db.addChannelMember({
+        channelId,
+        userId,
+        role: "owner",
+        isGuest: false,
+      });
+
+      return { channelId };
+    }),
+
+  /**
+   * Get all deal rooms for current user's org
+   */
+  listDealRooms: protectedProcedure.query(async ({ ctx }) => {
+    const orgId = ctx.user.orgId;
+    const dealRooms = await db.getDealRooms(orgId);
+
+    // Enrich with sub-channel counts
+    const enriched = await Promise.all(
+      dealRooms.map(async (room) => {
+        const subChannels = await db.getSubChannels(room.id);
+        return {
+          ...room,
+          subChannelCount: subChannels.length,
+        };
+      })
+    );
+
+    return enriched;
+  }),
+
+  /**
+   * Get sub-channels for a deal room
+   */
+  getDealRoomChannels: protectedProcedure
+    .input(z.object({ dealRoomId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const userId = ctx.user.id;
+
+      // Check if user is member of deal room
+      const isMember = await db.isChannelMember(input.dealRoomId, userId);
+      if (!isMember) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not a member of this deal room",
+        });
+      }
+
+      return await db.getSubChannels(input.dealRoomId);
     }),
 });
