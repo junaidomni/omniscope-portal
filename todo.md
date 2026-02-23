@@ -820,3 +820,23 @@
 - [x] Group creation syncs with desktop via shared tRPC backend
 - [x] Channel creation syncs with desktop via shared tRPC backend
 - [x] All dialogs close properly after success and navigate to new channel
+
+
+## Mobile Dialog & Sync Fixes (Feb 23, 2026)
+
+### Dialog Keyboard Overlap
+- [x] Fix dialog positioning to avoid mobile keyboard overlap
+- [x] Make dialog content scrollable when keyboard is open
+- [x] Set max-height to 80-85vh to leave room for keyboard
+- [x] Fixed layout with header, scrollable content, and sticky button
+- [ ] Test on iOS and Android keyboard behavior (requires device testing)
+
+### Message Sync Issue
+- [x] Investigate why desktop shows 3 messages but mobile shows none
+- [x] Confirmed both use same tRPC query: listChannels
+- [x] Query filters by user membership (getChannelsForUser)
+- [x] Added debug logging to show current user ID and channel count
+- [ ] User needs to check browser console logs to verify which user is logged in
+- [ ] If different users, need to log out and log in with same account
+- [ ] Test message creation from desktop → verify appears on mobile
+- [ ] Test message creation from mobile → verify appears on desktop

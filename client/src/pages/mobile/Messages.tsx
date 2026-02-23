@@ -19,8 +19,14 @@ export default function MobileMessages() {
   const [, setLocation] = useLocation();
   const { data: user } = trpc.auth.me.useQuery();
   
+  // Debug: Log current user
+  console.log('[Mobile Messages] Current user:', user?.id, user?.name, user?.email);
+  
   const utils = trpc.useUtils();
   const { data: channelsData, isLoading } = trpc.communications.listChannels.useQuery();
+  
+  // Debug: Log channels data
+  console.log('[Mobile Messages] Channels loaded:', channelsData?.channels?.length || 0, 'channels');
   
   const channels = channelsData?.channels || [];
   

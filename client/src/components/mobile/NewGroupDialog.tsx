@@ -70,12 +70,12 @@ export function NewGroupDialog({ open, onOpenChange }: NewGroupDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 flex-none">
           <DialogTitle>New Group Chat</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-y-auto px-6 space-y-4">
           {/* Group Name */}
           <Input
             placeholder="Group name *"
@@ -110,7 +110,7 @@ export function NewGroupDialog({ open, onOpenChange }: NewGroupDialogProps) {
           )}
 
           {/* Contact List */}
-          <div className="flex-1 overflow-y-auto space-y-1">
+          <div className="flex-1 min-h-[200px] space-y-1">
             {isLoading && (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -153,7 +153,10 @@ export function NewGroupDialog({ open, onOpenChange }: NewGroupDialogProps) {
             })}
           </div>
 
-          {/* Create Button */}
+        </div>
+        
+        {/* Create Button - Fixed at bottom */}
+        <div className="px-6 pb-6 pt-4 flex-none border-t">
           <Button
             onClick={handleCreate}
             disabled={createGroup.isPending || !groupName.trim() || selectedIds.size === 0}

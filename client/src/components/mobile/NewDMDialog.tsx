@@ -42,12 +42,12 @@ export function NewDMDialog({ open, onOpenChange }: NewDMDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-w-md max-h-[80vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 flex-none">
           <DialogTitle>New Direct Message</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
           {/* Search Input */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -60,7 +60,7 @@ export function NewDMDialog({ open, onOpenChange }: NewDMDialogProps) {
           </div>
 
           {/* Contact List */}
-          <div className="max-h-[400px] overflow-y-auto space-y-1">
+          <div className="flex-1 min-h-0 space-y-1">
             {isLoading && (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

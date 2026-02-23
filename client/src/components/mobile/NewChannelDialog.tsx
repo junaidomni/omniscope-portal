@@ -48,12 +48,12 @@ export function NewChannelDialog({ open, onOpenChange }: NewChannelDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-w-md max-h-[80vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 flex-none">
           <DialogTitle>New Channel</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 space-y-4">
           {/* Channel Name */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Channel Name *</label>
@@ -82,7 +82,10 @@ export function NewChannelDialog({ open, onOpenChange }: NewChannelDialogProps) 
             />
           </div>
 
-          {/* Create Button */}
+        </div>
+        
+        {/* Create Button - Fixed at bottom */}
+        <div className="px-6 pb-6 pt-4 flex-none border-t">
           <Button
             onClick={handleCreate}
             disabled={createChannel.isPending || !channelName.trim()}
