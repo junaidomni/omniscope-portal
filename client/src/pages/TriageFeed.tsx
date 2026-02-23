@@ -1440,27 +1440,29 @@ export default function TriageFeed() {
         </Section>
       )}
 
-      {activeFilter === "high" && (
+      {activeFilter === "high" && (() => {
+        const highPriorityFiltered = [...data.overdueTasks.filter(t => t.priority === 'high'), ...data.todayTasks.filter(t => t.priority === 'high'), ...data.highPriorityTasks]
+          .filter((t, i, arr) => arr.findIndex(x => x.id === t.id) === i);
+        return (
         <Section
           icon={<Flame className="h-4 w-4 text-orange-400" />}
           title="High Priority Tasks"
-          count={summary.totalHighPriority}
+          count={highPriorityFiltered.length}
           accentColor="bg-orange-950/40"
           linkTo="/operations"
         >
-          {data.highPriorityTasks.length === 0 ? (
+          {highPriorityFiltered.length === 0 ? (
             <p className="text-sm text-zinc-500 py-4 text-center">No high priority tasks.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {[...data.overdueTasks.filter(t => t.priority === 'high'), ...data.todayTasks.filter(t => t.priority === 'high'), ...data.highPriorityTasks]
-                .filter((t, i, arr) => arr.findIndex(x => x.id === t.id) === i)
-                .map((t) => (
+              {highPriorityFiltered.map((t) => (
                   <TaskCard key={t.id} task={t} showOverdue={data.overdueTasks.some(o => o.id === t.id)} onClick={() => setSelectedTask(t)} onQuickComplete={(id) => completeMutation.mutate({ taskId: id })} isActing={actingIds.has(t.id)} />
                 ))}
             </div>
           )}
         </Section>
-      )}
+        );
+      })()}
 
       {activeFilter === "done" && (
         <Section icon={<Trophy className="h-4 w-4 text-emerald-400" />} title="Completed Today" count={data.completedTodayTasks?.length || 0} accentColor="bg-emerald-950/40">

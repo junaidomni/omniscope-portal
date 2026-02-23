@@ -933,3 +933,22 @@
 - [ ] Test: User clicks invite link → Onboarding flow
 - [ ] Test: After onboarding → User appears in messaging
 - [ ] Test: Create DM with onboarded user → Messages sync
+
+
+## Triage Room High Priority Tasks Bug (Feb 23, 2026)
+
+- [ ] Find Triage room component
+- [ ] Check where "5 high priority tasks" count comes from
+- [ ] Investigate why task list shows empty
+- [ ] Check tRPC query for high priority tasks
+- [ ] Fix data access or filtering bug (similar to mobile Messages issue)
+- [ ] Test that high priority tasks display correctly
+
+
+## Triage Room High Priority Tasks Bug (Feb 23, 2026)
+
+- [x] Investigate why count shows 5 but list is empty
+- [x] ROOT CAUSE: Count showed ALL high priority tasks (5), but display only showed non-overdue/non-today high priority tasks (0)
+- [x] Fixed: Changed count to match actual filtered tasks displayed
+- [x] Wrapped filter logic in IIFE to calculate highPriorityFiltered once and use for both count and display
+- [x] Test that high priority tasks show correctly
