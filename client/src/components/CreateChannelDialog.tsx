@@ -93,7 +93,8 @@ export function CreateChannelDialog({ open, onOpenChange, onChannelCreated }: Cr
   };
 
   const handleCreate = () => {
-    if (!name.trim()) {
+    // Only require name for deal rooms and group chats (DMs auto-generate names)
+    if (selectedType !== "dm" && !name.trim()) {
       toast.error("Please enter a name");
       return;
     }

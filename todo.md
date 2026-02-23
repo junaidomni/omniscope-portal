@@ -3083,3 +3083,8 @@
 - [x] Fix DM user list to be clickable (added type="button", cursor-pointer, preventDefault)
 - [x] Update ROADMAP.md to clarify all channel types are complete
 - [ ] Test DM creation end-to-end after fix
+
+### DM Creation Validation Bug
+- [x] Fix DM validation to not require "name" field (DMs auto-generate names)
+- [x] Update handleCreate to skip name validation for DM type
+- [ ] Test DM creation end-to-end
