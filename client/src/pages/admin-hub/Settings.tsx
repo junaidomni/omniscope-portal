@@ -14,7 +14,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { NotificationSettings as NotificationSettingsPanel } from "@/components/settings/NotificationSettings";
 
-type SettingsView = "main" | "appearance" | "general" | "security" | "notifications" | "domains" | "data";
+type SettingsView = "main" | "appearance" | "general" | "security" | "notifications" | "pwa" | "domains" | "data";
 
 const THEME_OPTIONS = [
   { id: "obsidian", label: "Obsidian", desc: "Black & Gold", bg: "#0a0a0a", accent: "#d4af37", icon: Moon },
@@ -62,6 +62,7 @@ export default function AdminHubSettings() {
     { id: "general", title: "General", description: "Platform name, branding, and default configuration", icon: Settings, ready: false },
     { id: "security", title: "Security & Access", description: "Authentication policies, session management, and access controls", icon: Shield, ready: false },
     { id: "notifications", title: "Notifications", description: "Call notifications, sound preferences, and delivery methods", icon: Bell, ready: true },
+    { id: "pwa", title: "Mobile App (PWA)", description: "Install on mobile devices and manage push notifications", icon: Monitor, ready: true },
     { id: "domains", title: "Domains & DNS", description: "Custom domain configuration and SSL management", icon: Globe, ready: false },
     { id: "data", title: "Data & Storage", description: "Database management, backups, and storage quotas", icon: Database, ready: false },
   ];
@@ -84,6 +85,10 @@ export default function AdminHubSettings() {
         <NotificationSettingsPanel />
       </div>
     );
+  }
+
+  if (view === "pwa") {
+    return <PWASettings tokens={tokens} onBack={() => setView("main")} />;
   }
 
   return (
@@ -497,6 +502,40 @@ function PreviewMockup({
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ─── PWA Settings ─── */
+import { InstallQRCode } from "@/components/InstallQRCode";
+import { PushNotificationSetup } from "@/components/PushNotificationSetup";
+
+function PWASettings({ tokens, onBack }: { tokens: any; onBack: () => void }) {
+  return (
+    <div className="p-8">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-2 mb-6 transition-colors"
+        style={{ color: tokens.textSecondary }}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to Settings
+      </button>
+
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: tokens.textPrimary }}>
+            Mobile App (PWA)
+          </h1>
+          <p className="text-sm mt-1" style={{ color: tokens.textSecondary }}>
+            Install OmniScope on your mobile device and manage push notifications
+          </p>
+        </div>
+
+        <InstallQRCode />
+        <PushNotificationSetup />
       </div>
     </div>
   );

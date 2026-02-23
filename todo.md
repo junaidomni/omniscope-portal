@@ -535,3 +535,52 @@
 - [ ] Test app shortcuts from home screen
 - [ ] Verify splash screen appears correctly
 - [ ] Test app updates (service worker update flow)
+
+
+## Week 7 Final Implementation (Feb 23, 2026)
+
+### Mobile Responsiveness
+- [x] Add collapsible sidebar with hamburger menu for mobile (shadcn Sidebar has built-in mobile support)
+- [x] Implement touch gestures (swipe to open/close sidebar)
+- [ ] Add swipe-to-reply gesture in chat
+- [ ] Add swipe-to-delete gesture in chat
+- [x] Optimize all pages for mobile viewport (320px-768px)
+- [x] Fix chat interface for mobile (full-width messages)
+- [x] Optimize call interface for mobile screens
+- [ ] Test touch interactions (tap, long-press, pinch-zoom)
+- [x] Adjust font sizes for mobile readability
+- [x] Fix header/footer spacing on mobile
+- [ ] Test on iOS Safari
+- [ ] Test on Android Chrome
+
+### Push Notification Subscription
+- [x] Create PushNotificationSetup component
+- [x] Request notification permission from user
+- [x] Subscribe user to push notifications via service worker
+- [x] Send subscription to backend (notifications.subscribe)
+- [x] Store subscription in pushSubscriptions table
+- [ ] Test push notification delivery for new messages
+- [ ] Test push notification for call invitations
+- [ ] Test push notification for mentions
+- [x] Add unsubscribe functionality
+- [x] Handle subscription renewal/expiry
+
+### QR Code for Mobile Installation
+- [x] Generate QR code pointing to PWA URL
+- [x] Create QR code display component (InstallQRCode)
+- [x] Add "Mobile App (PWA)" section in settings
+- [x] Display QR code with installation instructions
+- [ ] Test QR code scanning on iOS
+- [ ] Test QR code scanning on Android
+- [x] Add download QR code button
+
+### Cross-Device PWA Testing
+- [ ] Install PWA on iPhone via Safari
+- [ ] Install PWA on Android via Chrome
+- [ ] Test offline mode (airplane mode)
+- [ ] Verify cached pages load offline
+- [ ] Test background sync (send message offline, verify sync when online)
+- [ ] Test push notifications on mobile
+- [ ] Verify app shortcuts work from home screen
+- [ ] Test splash screen on both platforms
+- [ ] Verify service worker updates correctly
