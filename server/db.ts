@@ -1141,25 +1141,101 @@ export async function getContactsByCompany(companyId: number) {
   return await db.select().from(contacts).where(eq(contacts.companyId, companyId)).orderBy(contacts.name);
 }
 
-// Global search across people, companies, meetings, tasks
+// Global search across people, companies, meetings, tasks, messages, and calls
 export async function globalSearch(query: string, orgId?: number) {
   const db = await getDb();
-  if (!db) return { people: [], companies: [], meetings: [], tasks: [] };
+  if (!db) return [];
   const q = `%${query}%`;
+  const results: any[] = [];
   
-  const peopleSearch = or(like(contacts.name, q), like(contacts.email, q), like(contacts.organization, q), like(contacts.title, q));
-  const companySearch = or(like(companies.name, q), like(companies.domain, q), like(companies.industry, q));
-  const meetingSearch = or(like(meetings.meetingTitle, q), like(meetings.executiveSummary, q), like(meetings.participants, q));
-  const taskSearch = or(like(tasks.title, q), like(tasks.description, q), like(tasks.assignedName, q));
+  try {
+    // Search contacts
+    const peopleSearch = or(like(contacts.name, q), like(contacts.email, q), like(contacts.organization, q), like(contacts.title, q));
+    const people = await db.select().from(contacts).where(orgId ? and(peopleSearch, eq(contacts.orgId, orgId)) : peopleSearch).limit(10);
+    people.forEach(p => results.push({
+      type: "contact",
+      id: p.id,
+      title: p.name,
+      content: [p.title, p.organization].filter(Boolean).join(" · "),
+      subtitle: p.email || undefined,
+      metadata: p.phone || undefined,
+      relevance: 0.8,
+    }));
+
+    // Search companies
+    const companySearch = or(like(companies.name, q), like(companies.domain, q), like(companies.industry, q));
+    const companiesResult = await db.select().from(companies).where(orgId ? and(companySearch, eq(companies.orgId, orgId)) : companySearch).limit(10);
+    companiesResult.forEach(c => results.push({
+      type: "company",
+      id: c.id,
+      title: c.name,
+      content: c.industry || undefined,
+      subtitle: c.domain || undefined,
+      relevance: 0.8,
+    }));
+
+    // Search meetings
+    const meetingSearch = or(like(meetings.meetingTitle, q), like(meetings.executiveSummary, q), like(meetings.participants, q));
+    const meetingsResult = await db.select().from(meetings).where(orgId ? and(meetingSearch, eq(meetings.orgId, orgId)) : meetingSearch).orderBy(desc(meetings.meetingDate)).limit(10);
+    meetingsResult.forEach(m => results.push({
+      type: "meeting",
+      id: m.id,
+      title: m.meetingTitle,
+      content: m.executiveSummary?.substring(0, 150),
+      subtitle: m.meetingType,
+      metadata: new Date(m.meetingDate).toLocaleDateString(),
+      relevance: 0.8,
+    }));
+
+    // Search tasks
+    const taskSearch = or(like(tasks.title, q), like(tasks.description, q), like(tasks.assignedName, q));
+    const tasksResult = await db.select().from(tasks).where(orgId ? and(taskSearch, eq(tasks.orgId, orgId)) : taskSearch).orderBy(desc(tasks.createdAt)).limit(10);
+    tasksResult.forEach(t => results.push({
+      type: "task",
+      id: t.id,
+      title: t.title,
+      content: t.description,
+      subtitle: t.status,
+      metadata: t.dueDate ? new Date(t.dueDate).toLocaleDateString() : undefined,
+      relevance: 0.8,
+    }));
+
+    // Search messages
+    const messagesResult = await db.select().from(messages).where(and(like(messages.content, q), eq(messages.deleted, false))).limit(10);
+    for (const msg of messagesResult) {
+      const channel = await getChannelById(msg.channelId);
+      results.push({
+        type: "message",
+        id: msg.id,
+        channelId: msg.channelId,
+        title: channel?.name || "Unknown Channel",
+        content: msg.content,
+        metadata: new Date(msg.createdAt).toLocaleDateString(),
+        relevance: 0.7,
+      });
+    }
+
+    // Search call transcripts
+    const callsResult = await db.select().from(callLogs).where(like(callLogs.transcript, q)).limit(10);
+    for (const call of callsResult) {
+      const channel = await getChannelById(call.channelId);
+      results.push({
+        type: "call",
+        id: call.id,
+        title: `${call.callType === "video" ? "Video" : "Voice"} Call`,
+        content: call.transcript?.substring(0, 150),
+        subtitle: channel?.name || "Unknown Channel",
+        metadata: new Date(call.startedAt).toLocaleDateString(),
+        relevance: 0.7,
+      });
+    }
+  } catch (error) {
+    console.error("Global search error:", error);
+  }
   
-  const [people, companiesResult, meetingsResult, tasksResult] = await Promise.all([
-    db.select().from(contacts).where(orgId ? and(peopleSearch, eq(contacts.orgId, orgId)) : peopleSearch).limit(20),
-    db.select().from(companies).where(orgId ? and(companySearch, eq(companies.orgId, orgId)) : companySearch).limit(20),
-    db.select().from(meetings).where(orgId ? and(meetingSearch, eq(meetings.orgId, orgId)) : meetingSearch).orderBy(desc(meetings.meetingDate)).limit(20),
-    db.select().from(tasks).where(orgId ? and(taskSearch, eq(tasks.orgId, orgId)) : taskSearch).orderBy(desc(tasks.createdAt)).limit(20),
-  ]);
-  
-  return { people, companies: companiesResult, meetings: meetingsResult, tasks: tasksResult };
+  // Sort by relevance
+  results.sort((a, b) => b.relevance - a.relevance);
+  return results.slice(0, 50);
 }
 
 

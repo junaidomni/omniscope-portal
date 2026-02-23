@@ -1212,7 +1212,8 @@ function NewTaskDialog({ categories, open, onOpenChange }: { categories: string[
 // MAIN TODO PAGE
 
 export default function ToDo() {
-  const { data: allTasks, isLoading } = trpc.tasks.list.useQuery();
+  const { data: tasksData, isLoading } = trpc.tasks.list.useQuery();
+  const allTasks = tasksData?.tasks || [];
   const { data: categories } = trpc.tasks.categories.useQuery();
   const utils = trpc.useUtils();
 
@@ -1295,7 +1296,7 @@ export default function ToDo() {
   const allCategories = useMemo(() => {
     const set = new Set(DEFAULT_CATEGORIES);
     categories?.forEach(c => { if (c.category) set.add(c.category); });
-    allTasks?.forEach(t => { if (t.category) set.add(t.category); });
+    allTasks.forEach(t => { if (t.category) set.add(t.category); });
     return Array.from(set).sort();
   }, [categories, allTasks]);
 

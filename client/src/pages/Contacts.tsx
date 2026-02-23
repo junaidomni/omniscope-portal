@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TagManagement } from "@/components/contacts/TagManagement";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -129,6 +130,7 @@ export default function Contacts() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [healthFilter, setHealthFilter] = useState<string>("all");
   const [starredOnly, setStarredOnly] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [detailTab, setDetailTab] = useState("overview");
@@ -278,6 +280,18 @@ export default function Contacts() {
     if (categoryFilter !== "all") list = list.filter((c: any) => c.category === categoryFilter);
     if (healthFilter !== "all") list = list.filter((c: any) => getHealth(c.daysSinceLastMeeting, c.meetingCount) === healthFilter);
     if (starredOnly) list = list.filter((c: any) => c.starred);
+    if (selectedTags.length > 0) {
+      list = list.filter((c: any) => {
+        if (!c.tags) return false;
+        try {
+          const contactTags = JSON.parse(c.tags);
+          const tagNames = Array.isArray(contactTags) ? contactTags.map((t: any) => typeof t === "string" ? t : t.name) : [];
+          return selectedTags.some(tag => tagNames.includes(tag));
+        } catch {
+          return false;
+        }
+      });
+    }
     // Sort
     list = [...list].sort((a: any, b: any) => {
       let cmp = 0;
@@ -295,7 +309,7 @@ export default function Contacts() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
-  }, [contacts, searchQuery, categoryFilter, healthFilter, starredOnly, sortField, sortDir]);
+  }, [contacts, searchQuery, categoryFilter, healthFilter, starredOnly, selectedTags, sortField, sortDir]);
 
   const stats = useMemo(() => {
     if (!contacts) return { total: 0, starred: 0, strong: 0, warm: 0, cold: 0, newContacts: 0 };
@@ -401,6 +415,11 @@ export default function Contacts() {
             </div>
           </div>
 
+          {/* Tag Management */}
+          <div className="mb-4 px-1">
+            <TagManagement selectedTags={selectedTags} onTagsChange={setSelectedTags} />
+          </div>
+
           {/* Category Filter */}
           <div className="mb-4">
             <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest px-1 mb-2">Category</p>
@@ -440,8 +459,8 @@ export default function Contacts() {
             <span className="text-sm text-zinc-400">
               <span className="text-white font-semibold">{filteredContacts.length}</span> contacts
             </span>
-            {(categoryFilter !== "all" || healthFilter !== "all" || starredOnly || searchQuery) && (
-              <button onClick={() => { setCategoryFilter("all"); setHealthFilter("all"); setStarredOnly(false); setSearchQuery(""); }}
+            {(categoryFilter !== "all" || healthFilter !== "all" || starredOnly || searchQuery || selectedTags.length > 0) && (
+              <button onClick={() => { setCategoryFilter("all"); setHealthFilter("all"); setStarredOnly(false); setSearchQuery(""); setSelectedTags([]); }}
                 className="text-[10px] text-zinc-500 hover:text-yellow-500 transition-colors flex items-center gap-1">
                 <X className="h-3 w-3" />Clear filters
               </button>
