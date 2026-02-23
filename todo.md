@@ -584,3 +584,26 @@
 - [ ] Verify app shortcuts work from home screen
 - [ ] Test splash screen on both platforms
 - [ ] Verify service worker updates correctly
+
+
+## QR Code Install Prompts (Feb 23, 2026)
+
+### Add QR Code to Calls Section
+- [x] Create compact QR code banner component for Calls tab
+- [x] Show QR code with "Install OmniScope Mobile" message
+- [x] Add dismiss button to hide banner
+- [x] Store dismissal in localStorage
+- [x] Auto-hide after PWA installation detected
+
+### Add QR Code to Chat Section
+- [x] Add QR code banner to ChatModule
+- [x] Position banner above message list
+- [x] Match OmniScope gold/black branding
+- [x] Add "Scan to install on mobile" CTA
+- [x] Implement same dismissal logic as Calls
+
+### PWA Installation Detection
+- [x] Check if app is running in standalone mode
+- [x] Detect PWA installation via window.matchMedia
+- [x] Auto-hide QR code banners when installed
+- [x] Add "Already installed" state to QR components

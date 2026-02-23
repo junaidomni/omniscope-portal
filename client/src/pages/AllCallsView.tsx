@@ -11,6 +11,7 @@ import { Phone, Video, Clock, Users, Search, FileText, Sparkles, Filter } from "
 import { formatDistanceToNow, format, isToday, isYesterday, isThisWeek } from "date-fns";
 import { CallTranscriptView } from "@/components/CallTranscriptView";
 import { ContactSearchCallInitiator } from "@/components/communications/ContactSearchCallInitiator";
+import { InstallBanner } from "@/components/InstallBanner";
 
 type CallFilter = "all" | "voice" | "video" | "completed" | "missed";
 
@@ -20,6 +21,8 @@ export function AllCallsView() {
   const [selectedCall, setSelectedCall] = useState<{ id: number; transcriptUrl?: string | null; summaryUrl?: string | null } | null>(null);
   const [contactSearchQuery, setContactSearchQuery] = useState("");
   const [showContactSearch, setShowContactSearch] = useState(false);
+
+  // Show install banner at the top
 
   // Fetch all calls across all channels (no channelId filter)
   const { data: allCalls, isLoading } = trpc.communications.getCallHistory.useQuery({});
@@ -90,6 +93,9 @@ export function AllCallsView() {
             Start New Call
           </Button>
         </div>
+        
+        {/* Install Banner */}
+        <InstallBanner />
         
         {/* Contact Search Section */}
         {showContactSearch && (

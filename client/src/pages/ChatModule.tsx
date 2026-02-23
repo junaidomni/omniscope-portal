@@ -48,6 +48,7 @@ import { MemberManagementDialog } from "@/components/MemberManagementDialog";
 import { NotificationListener } from "@/components/NotificationListener";
 import { DeleteChannelDialog } from "@/components/DeleteChannelDialog";
 import { MessageSearch } from "@/components/MessageSearch";
+import { InstallBanner } from "@/components/InstallBanner";
 import { MessageReactions } from "@/components/MessageReactions";
 import { CallInterface } from "@/components/CallInterface";
 import { CallHistoryPanel } from "@/components/CallHistoryPanel";
@@ -414,6 +415,9 @@ export default function ChatModule() {
               </div>
             </div>
 
+            {/* Install Banner */}
+            <InstallBanner />
+            
             {/* Pinned Messages Banner */}
             <PinnedMessagesBanner channelId={selectedChannelId} />
 
