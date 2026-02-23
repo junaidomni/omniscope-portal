@@ -19,8 +19,11 @@ export function InstallBanner() {
     const isInApp = (window.navigator as any).standalone === true; // iOS
     setIsInstalled(isStandalone || isInApp);
     
+    console.log("[InstallBanner] Dismissed:", isDismissed, "Installed:", isStandalone || isInApp);
+    
     // Generate QR code
     if (!isDismissed && !isStandalone && !isInApp && canvasRef.current) {
+      console.log("[InstallBanner] Generating QR code for:", installUrl);
       generateQRCode();
     }
   }, [installUrl]);

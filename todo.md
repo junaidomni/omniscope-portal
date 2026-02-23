@@ -643,3 +643,22 @@
 - [x] Show installation instructions without login
 - [x] Add "Sign In to Get Started" button after PWA installation
 - [ ] Test QR code → /install → install app → login flow
+
+
+## Fix PWA Installation Issues (Feb 23, 2026)
+
+### Manual Installation Instructions
+- [x] Add iOS Safari manual installation steps (Share → Add to Home Screen)
+- [x] Add Android Chrome manual installation steps (Menu → Install App)
+- [x] Show browser-specific instructions based on user agent
+- [x] Remove automatic redirect to login when prompt not available
+- [x] Add visual guide with step-by-step instructions
+- [ ] Test on iOS Safari
+- [ ] Test on Android Chrome
+
+### Fix QR Code in ChatModule
+- [x] Check why InstallBanner is not rendering in ChatModule
+- [x] Verify InstallBanner import is correct
+- [x] Verify InstallBanner placement in component tree
+- [x] Add padding wrapper for proper spacing
+- [x] Test QR code visibility in Chat tab

@@ -416,7 +416,9 @@ export default function ChatModule() {
             </div>
 
             {/* Install Banner */}
-            <InstallBanner />
+            <div className="px-4 pt-2">
+              <InstallBanner />
+            </div>
             
             {/* Pinned Messages Banner */}
             <PinnedMessagesBanner channelId={selectedChannelId} />

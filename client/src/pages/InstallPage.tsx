@@ -10,8 +10,21 @@ export default function InstallPage() {
   const [isInstalled, setIsInstalled] = useState(false);
   
   useEffect(() => {
-    // Detect mobile
-    const checkMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    // Detect mobile - more comprehensive check
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(userAgent);
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isSmallScreen = window.innerWidth <= 768;
+    const checkMobile = isMobileUA || (isTouchDevice && isSmallScreen);
+    
+    console.log('[InstallPage] Mobile detection:', {
+      userAgent: userAgent.substring(0, 50),
+      isMobileUA,
+      isTouchDevice,
+      isSmallScreen,
+      checkMobile
+    });
+    
     setIsMobile(checkMobile);
     
     // Check if already installed
@@ -121,13 +134,55 @@ export default function InstallPage() {
                   Install App
                 </Button>
               ) : (
-                <div className="text-center p-4 bg-muted/50 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Installation prompt not available yet
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Try using Safari (iOS) or Chrome (Android)
-                  </p>
+                <div className="space-y-4">
+                  <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg p-4">
+                    <h4 className="font-semibold text-foreground mb-3">Manual Installation</h4>
+                    {/iPhone|iPad|iPod/i.test(navigator.userAgent) ? (
+                      <ol className="space-y-2 text-sm text-muted-foreground">
+                        <li className="flex gap-2">
+                          <span className="text-[#D4AF37] font-bold">1.</span>
+                          <span>Tap the Share button <span className="inline-block">⎙</span> at the bottom of Safari</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="text-[#D4AF37] font-bold">2.</span>
+                          <span>Scroll down and tap "Add to Home Screen"</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="text-[#D4AF37] font-bold">3.</span>
+                          <span>Tap "Add" in the top right corner</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="text-[#D4AF37] font-bold">4.</span>
+                          <span>Find OmniScope icon on your home screen</span>
+                        </li>
+                      </ol>
+                    ) : (
+                      <ol className="space-y-2 text-sm text-muted-foreground">
+                        <li className="flex gap-2">
+                          <span className="text-[#D4AF37] font-bold">1.</span>
+                          <span>Tap the menu button (⋮) in Chrome</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="text-[#D4AF37] font-bold">2.</span>
+                          <span>Tap "Install app" or "Add to Home screen"</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="text-[#D4AF37] font-bold">3.</span>
+                          <span>Tap "Install" to confirm</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="text-[#D4AF37] font-bold">4.</span>
+                          <span>Open OmniScope from your home screen</span>
+                        </li>
+                      </ol>
+                    )}
+                  </div>
+                  <Button
+                    onClick={() => window.location.href = getLoginUrl("/")}
+                    className="w-full bg-gradient-to-r from-[#D4AF37] to-[#F4D03F] text-black hover:from-[#C4A037] hover:to-[#E4C03F]"
+                  >
+                    Sign In After Installing
+                  </Button>
                 </div>
               )}
             </div>
