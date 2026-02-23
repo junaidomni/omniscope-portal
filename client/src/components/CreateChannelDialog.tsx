@@ -25,14 +25,14 @@ export function CreateChannelDialog({ open, onOpenChange, onChannelCreated }: Cr
   const utils = trpc.useUtils();
   const createDealRoom = trpc.communications.createDealRoom.useMutation({
     onSuccess: (data) => {
-      toast.success("Deal room created successfully!");
+      toast.success("Channel created successfully!");
       utils.communications.listChannels.invalidate();
       utils.communications.listDealRooms.invalidate();
       onChannelCreated?.(data.dealRoomId);
       handleClose();
     },
     onError: (error) => {
-      toast.error(error.message || "Failed to create deal room");
+      toast.error(error.message || "Failed to create channel");
     },
   });
 
@@ -119,7 +119,7 @@ export function CreateChannelDialog({ open, onOpenChange, onChannelCreated }: Cr
                   <Briefcase className="w-6 h-6 text-amber-500" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-foreground mb-1">Deal Room</h3>
+                  <h3 className="font-semibold text-foreground mb-1">Channel</h3>
                   <p className="text-sm text-muted-foreground">
                     Create a secure space for external collaboration with sub-channels
                   </p>
@@ -133,13 +133,13 @@ export function CreateChannelDialog({ open, onOpenChange, onChannelCreated }: Cr
               <DialogTitle>
                 {selectedType === "dm" && "New Direct Message"}
                 {selectedType === "group" && "New Group Chat"}
-                {selectedType === "deal_room" && "New Deal Room"}
+                {selectedType === "deal_room" && "New Channel"}
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">
-                  {selectedType === "deal_room" ? "Deal Room Name" : "Name"} *
+                  {selectedType === "deal_room" ? "Channel Name" : "Name"} *
                 </Label>
                 <Input
                   id="name"
@@ -176,8 +176,8 @@ export function CreateChannelDialog({ open, onOpenChange, onChannelCreated }: Cr
               {selectedType === "deal_room" && (
                 <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
                   <p className="text-sm text-amber-600 dark:text-amber-400">
-                    A #general channel will be automatically created inside this deal room.
-                    You can add more channels later.
+                    A #general sub-channel will be automatically created inside this channel.
+                    You can add more sub-channels later.
                   </p>
                 </div>
               )}

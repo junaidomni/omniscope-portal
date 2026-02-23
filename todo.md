@@ -2957,3 +2957,12 @@
 - [x] Add breadcrumb navigation in channel header (Deal Room > #sub-channel)
 - [x] Keep parent deal room highlighted when viewing sub-channels
 - [x] Ensure deal rooms have their own chat space (they do - click the deal room name)
+
+### CRITICAL BUG: Deal Rooms Not Showing in Sidebar
+- [x] createDealRoom procedure is working correctly (creates type='deal_room')
+- [x] Fix listDealRooms query - was using ctx.user.orgId (undefined) instead of ctx.orgId
+- [x] Update existing deal rooms in database to set orgId=1
+- [x] Fix createDealRoom to use ctx.orgId for future deal rooms
+- [x] Fix sidebar overflow issue (added h-full to Card for proper height constraint)
+- [x] Rename "Deal Rooms" to "Channels" throughout UI (tab, headers, badges, dialogs)
+- [ ] Test complete flow: Create channel → See it in sidebar → Add sub-channels

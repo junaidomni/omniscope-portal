@@ -495,7 +495,7 @@ export const communicationsRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const userId = ctx.user.id;
-      const orgId = ctx.user.orgId;
+      const orgId = ctx.orgId;
 
       // Only admins and platform owners can create deal rooms
       if (ctx.user.role !== "admin" && !ctx.user.platformOwner) {
@@ -769,7 +769,7 @@ export const communicationsRouter = router({
    * Get all deal rooms for current user's org
    */
   listDealRooms: protectedProcedure.query(async ({ ctx }) => {
-    const orgId = ctx.user.orgId;
+    const orgId = ctx.orgId;
     const dealRooms = await db.getDealRooms(orgId);
 
     // Enrich with sub-channel counts

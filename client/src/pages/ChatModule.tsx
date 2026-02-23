@@ -190,7 +190,7 @@ export default function ChatModule() {
                     )}
                     {selectedChannel?.type === "deal_room" && (
                       <Badge variant="outline" className="text-xs border-amber-500 text-amber-500">
-                        Deal Room
+                        Channel
                       </Badge>
                     )}
                   </div>
