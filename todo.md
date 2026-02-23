@@ -895,3 +895,41 @@
 - [ ] Test: Create DM from desktop → verify appears on mobile
 - [ ] Test: Send message from desktop → verify appears on mobile
 - [ ] Test: Delete channel from either platform → verify syncs
+
+
+## Critical ChatModule Error Fix (Feb 23, 2026)
+
+- [x] Fix ReferenceError: currentUserRole is not defined at ChatModule.tsx:668
+- [x] Added currentUserRole definition from channelDetails.members
+- [ ] Test desktop chat loads without errors (requires user to navigate to chat)
+- [ ] Verify mobile app still works after fix
+
+## User Invitation & Onboarding System (Feb 23, 2026)
+
+### Architecture Design
+- [ ] Define clear separation: CRM Contacts vs Messaging Users
+- [ ] Design invitation flow: Send invite → User onboards → Access granted
+- [ ] Define automatic contact creation when user sends first message
+- [ ] Design @username mention system for user discovery
+- [ ] Plan onboarding steps for new messaging users
+
+### Backend Implementation
+- [ ] Add messaging_enabled flag to users table
+- [ ] Create invitations table (inviter, invitee, status, expires_at)
+- [ ] Add sendInvitation tRPC procedure
+- [ ] Add acceptInvitation tRPC procedure
+- [ ] Add onboardForMessaging tRPC procedure
+- [ ] Update listUsers to filter by messaging_enabled
+
+### Frontend Implementation
+- [ ] Build invitation sending UI (email/phone input)
+- [ ] Create onboarding flow for new users
+- [ ] Add "Invite to Messaging" button in contacts
+- [ ] Show only messaging-enabled users in DM picker
+- [ ] Add invitation status tracking UI
+
+### Testing
+- [ ] Test: Send invitation → User receives email
+- [ ] Test: User clicks invite link → Onboarding flow
+- [ ] Test: After onboarding → User appears in messaging
+- [ ] Test: Create DM with onboarded user → Messages sync

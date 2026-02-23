@@ -140,6 +140,9 @@ export default function ChatModule() {
     { channelId: selectedChannelId! },
     { enabled: !!selectedChannelId }
   );
+  
+  // Get current user's role in the channel
+  const currentUserRole = channelDetails?.members?.find((m) => m.userId === user?.id)?.role || "member";
 
   // Fetch active call in channel
   const { data: activeCallData } = trpc.communications.getActiveCall.useQuery(
