@@ -15,6 +15,7 @@ import { serveStatic, setupVite } from "./vite";
 import { webhookRouter } from "../webhookRoute";
 import { calendarRouter } from "../calendarRoute";
 import { sdk } from "./sdk";
+import { initializeWebSocket } from "./websocket";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -97,6 +98,9 @@ async function startServer() {
   } else {
     serveStatic(app);
   }
+
+  // Initialize WebSocket server
+  initializeWebSocket(server);
 
   // Seed built-in integrations and feature toggles
   try {

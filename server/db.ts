@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, like, lte, or, sql, inArray, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink, emailThreadSummaries, InsertEmailThreadSummary, emailMessages, pendingSuggestions, InsertPendingSuggestion, activityLog, InsertActivityLog, contactAliases, InsertContactAlias, companyAliases, InsertCompanyAlias, documents, InsertDocument, documentEntityLinks, InsertDocumentEntityLink, documentFolders, InsertDocumentFolder, documentAccess, InsertDocumentAccess, documentFavorites, InsertDocumentFavorite, documentTemplates, InsertDocumentTemplate, signingProviders, InsertSigningProvider, signingEnvelopes, InsertSigningEnvelope, documentNotes, integrations, InsertIntegration, featureToggles, InsertFeatureToggle, designPreferences, InsertDesignPreference, accounts, InsertAccount, organizations, InsertOrganization, orgMemberships, InsertOrgMembership, plans, InsertPlan, subscriptions, InsertSubscription, planFeatures, InsertPlanFeature, billingEvents, InsertBillingEvent, platformAuditLog, InsertPlatformAuditLogEntry, loginHistory, InsertLoginHistory } from "../drizzle/schema";
+import { InsertUser, users, meetings, tasks, tags, meetingTags, contacts, meetingContacts, InsertMeeting, InsertTask, InsertTag, InsertMeetingTag, InsertContact, InsertMeetingContact, contactNotes, InsertContactNote, contactDocuments, InsertContactDocument, employees, InsertEmployee, payrollRecords, InsertPayrollRecord, hrDocuments, InsertHrDocument, companies, InsertCompany, interactions, InsertInteraction, userProfiles, InsertUserProfile, emailStars, InsertEmailStar, emailCompanyLinks, InsertEmailCompanyLink, emailThreadSummaries, InsertEmailThreadSummary, emailMessages, pendingSuggestions, InsertPendingSuggestion, activityLog, InsertActivityLog, contactAliases, InsertContactAlias, companyAliases, InsertCompanyAlias, documents, InsertDocument, documentEntityLinks, InsertDocumentEntityLink, documentFolders, InsertDocumentFolder, documentAccess, InsertDocumentAccess, documentFavorites, InsertDocumentFavorite, documentTemplates, InsertDocumentTemplate, signingProviders, InsertSigningProvider, signingEnvelopes, InsertSigningEnvelope, documentNotes, integrations, InsertIntegration, featureToggles, InsertFeatureToggle, designPreferences, InsertDesignPreference, accounts, InsertAccount, organizations, InsertOrganization, orgMemberships, InsertOrgMembership, plans, InsertPlan, subscriptions, InsertSubscription, planFeatures, InsertPlanFeature, billingEvents, InsertBillingEvent, platformAuditLog, InsertPlatformAuditLogEntry, loginHistory, InsertLoginHistory, channels, channelMembers, messages, messageReactions, messageAttachments, userPresence, typingIndicators, callLogs, callParticipants, channelInvites } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -3194,4 +3194,520 @@ export async function getRevenueSummary() {
   }));
   
   return { totalMrr, byPlan, accountCount: allAccounts.length };
+}
+
+
+// ============================================================================
+// COMMUNICATIONS
+// ============================================================================
+
+/**
+ * Get all channels for a user
+ */
+export async function getChannelsForUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const userChannels = await db
+    .select({
+      channel: channels,
+      membership: channelMembers,
+    })
+    .from(channelMembers)
+    .innerJoin(channels, eq(channelMembers.channelId, channels.id))
+    .where(eq(channelMembers.userId, userId))
+    .orderBy(desc(channels.lastMessageAt));
+  
+  return userChannels;
+}
+
+/**
+ * Get channel by ID
+ */
+export async function getChannelById(channelId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const [channel] = await db
+    .select()
+    .from(channels)
+    .where(eq(channels.id, channelId))
+    .limit(1);
+  
+  return channel || null;
+}
+
+/**
+ * Get channel members
+ */
+export async function getChannelMembers(channelId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db
+    .select({
+      membership: channelMembers,
+      user: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        profilePhotoUrl: users.profilePhotoUrl,
+      },
+    })
+    .from(channelMembers)
+    .innerJoin(users, eq(channelMembers.userId, users.id))
+    .where(eq(channelMembers.channelId, channelId));
+}
+
+/**
+ * Check if user is member of channel
+ */
+export async function isChannelMember(channelId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  
+  const [membership] = await db
+    .select()
+    .from(channelMembers)
+    .where(
+      and(
+        eq(channelMembers.channelId, channelId),
+        eq(channelMembers.userId, userId)
+      )
+    )
+    .limit(1);
+  
+  return !!membership;
+}
+
+/**
+ * Get user's membership in a channel
+ */
+export async function getChannelMembership(channelId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const [membership] = await db
+    .select()
+    .from(channelMembers)
+    .where(
+      and(
+        eq(channelMembers.channelId, channelId),
+        eq(channelMembers.userId, userId)
+      )
+    )
+    .limit(1);
+  
+  return membership || null;
+}
+
+/**
+ * Create a new channel
+ */
+export async function createChannel(data: {
+  orgId: number | null;
+  type: "dm" | "group" | "deal_room" | "announcement";
+  name?: string;
+  description?: string;
+  avatar?: string;
+  createdBy: number;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const [result] = await db.insert(channels).values({
+    orgId: data.orgId,
+    type: data.type,
+    name: data.name ?? null,
+    description: data.description ?? null,
+    avatar: data.avatar ?? null,
+    createdBy: data.createdBy,
+  });
+  
+  return result.insertId;
+}
+
+/**
+ * Add member to channel
+ */
+export async function addChannelMember(data: {
+  channelId: number;
+  userId: number;
+  role?: "owner" | "admin" | "member" | "guest";
+  isGuest?: boolean;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const [result] = await db.insert(channelMembers).values({
+    channelId: data.channelId,
+    userId: data.userId,
+    role: data.role ?? "member",
+    isGuest: data.isGuest ?? false,
+  });
+  
+  return result.insertId;
+}
+
+/**
+ * Remove member from channel
+ */
+export async function removeChannelMember(channelId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  
+  await db
+    .delete(channelMembers)
+    .where(
+      and(
+        eq(channelMembers.channelId, channelId),
+        eq(channelMembers.userId, userId)
+      )
+    );
+}
+
+/**
+ * Update channel
+ */
+export async function updateChannel(channelId: number, data: {
+  name?: string;
+  description?: string;
+  avatar?: string;
+  isPinned?: boolean;
+  isArchived?: boolean;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  
+  await db
+    .update(channels)
+    .set(data)
+    .where(eq(channels.id, channelId));
+}
+
+/**
+ * Get messages for a channel (paginated)
+ */
+export async function getChannelMessages(channelId: number, limit = 50, beforeMessageId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  let query = db
+    .select({
+      message: messages,
+      user: {
+        id: users.id,
+        name: users.name,
+        profilePhotoUrl: users.profilePhotoUrl,
+      },
+    })
+    .from(messages)
+    .innerJoin(users, eq(messages.userId, users.id))
+    .where(
+      and(
+        eq(messages.channelId, channelId),
+        eq(messages.isDeleted, false),
+        beforeMessageId ? sql`${messages.id} < ${beforeMessageId}` : undefined
+      )
+    )
+    .orderBy(desc(messages.createdAt))
+    .limit(limit + 1);
+  
+  return query;
+}
+
+/**
+ * Create a message
+ */
+export async function createMessage(data: {
+  channelId: number;
+  userId: number;
+  content: string;
+  type?: "text" | "file" | "system" | "call";
+  replyToId?: number;
+  linkedMeetingId?: number;
+  linkedContactId?: number;
+  linkedTaskId?: number;
+}) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const [result] = await db.insert(messages).values({
+    channelId: data.channelId,
+    userId: data.userId,
+    content: data.content,
+    type: data.type ?? "text",
+    replyToId: data.replyToId ?? null,
+    linkedMeetingId: data.linkedMeetingId ?? null,
+    linkedContactId: data.linkedContactId ?? null,
+    linkedTaskId: data.linkedTaskId ?? null,
+  });
+  
+  // Update channel lastMessageAt
+  await db
+    .update(channels)
+    .set({ lastMessageAt: new Date() })
+    .where(eq(channels.id, data.channelId));
+  
+  return result.insertId;
+}
+
+/**
+ * Mark messages as read for a user in a channel
+ */
+export async function markChannelAsRead(channelId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  
+  await db
+    .update(channelMembers)
+    .set({ lastReadAt: new Date() })
+    .where(
+      and(
+        eq(channelMembers.channelId, channelId),
+        eq(channelMembers.userId, userId)
+      )
+    );
+}
+
+/**
+ * Get unread count for a channel
+ */
+export async function getUnreadCount(channelId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  
+  const [membership] = await db
+    .select()
+    .from(channelMembers)
+    .where(
+      and(
+        eq(channelMembers.channelId, channelId),
+        eq(channelMembers.userId, userId)
+      )
+    )
+    .limit(1);
+  
+  if (!membership) return 0;
+  
+  const lastReadAt = membership.lastReadAt;
+  if (!lastReadAt) {
+    // Never read, count all messages
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.channelId, channelId),
+          eq(messages.isDeleted, false)
+        )
+      );
+    return Number(result?.count || 0);
+  }
+  
+  const [result] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.channelId, channelId),
+        sql`${messages.createdAt} > ${lastReadAt}`,
+        eq(messages.isDeleted, false)
+      )
+    );
+  
+  return Number(result?.count || 0);
+}
+
+/**
+ * Update user presence
+ */
+export async function updateUserPresence(userId: number, status: "online" | "away" | "offline") {
+  const db = await getDb();
+  if (!db) return;
+  
+  await db
+    .insert(userPresence)
+    .values({
+      userId,
+      status,
+      lastSeenAt: new Date(),
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        status,
+        lastSeenAt: new Date(),
+      },
+    });
+}
+
+/**
+ * Get presence for multiple users
+ */
+export async function getUsersPresence(userIds: number[]) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db
+    .select()
+    .from(userPresence)
+    .where(inArray(userPresence.userId, userIds));
+}
+
+/**
+ * Find existing DM channel between two users
+ */
+export async function findDMChannel(userId1: number, userId2: number) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  // Get all DM channels for userId1
+  const user1Channels = await db
+    .select({ channelId: channelMembers.channelId })
+    .from(channelMembers)
+    .innerJoin(channels, eq(channelMembers.channelId, channels.id))
+    .where(
+      and(
+        eq(channels.type, "dm"),
+        eq(channelMembers.userId, userId1)
+      )
+    );
+  
+  // Check each DM to see if userId2 is also a member
+  for (const { channelId } of user1Channels) {
+    const members = await db
+      .select()
+      .from(channelMembers)
+      .where(eq(channelMembers.channelId, channelId));
+    
+    const memberUserIds = members.map((m) => m.userId);
+    if (memberUserIds.length === 2 && memberUserIds.includes(userId2)) {
+      return channelId;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Create message attachment
+ */
+export async function createMessageAttachment(data: {
+  messageId: number | null;
+  fileKey: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  url: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const [result] = await db.insert(messageAttachments).values({
+    messageId: data.messageId,
+    fileKey: data.fileKey,
+    fileName: data.fileName,
+    mimeType: data.mimeType,
+    fileSize: data.fileSize,
+    url: data.url,
+  });
+  
+  return { id: result.insertId, ...data };
+}
+
+/**
+ * Get attachments for a message
+ */
+export async function getMessageAttachments(messageId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db
+    .select()
+    .from(messageAttachments)
+    .where(eq(messageAttachments.messageId, messageId));
+}
+
+/**
+ * Add reaction to message
+ */
+export async function addMessageReaction(data: {
+  messageId: number;
+  userId: number;
+  emoji: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  // Check if reaction already exists
+  const existing = await db
+    .select()
+    .from(messageReactions)
+    .where(
+      and(
+        eq(messageReactions.messageId, data.messageId),
+        eq(messageReactions.userId, data.userId),
+        eq(messageReactions.emoji, data.emoji)
+      )
+    )
+    .limit(1);
+  
+  if (existing.length > 0) {
+    return existing[0];
+  }
+  
+  const [result] = await db.insert(messageReactions).values({
+    messageId: data.messageId,
+    userId: data.userId,
+    emoji: data.emoji,
+  });
+  
+  return { id: result.insertId, ...data };
+}
+
+/**
+ * Remove reaction from message
+ */
+export async function removeMessageReaction(data: {
+  messageId: number;
+  userId: number;
+  emoji: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  
+  await db
+    .delete(messageReactions)
+    .where(
+      and(
+        eq(messageReactions.messageId, data.messageId),
+        eq(messageReactions.userId, data.userId),
+        eq(messageReactions.emoji, data.emoji)
+      )
+    );
+}
+
+/**
+ * Get reactions for a message
+ */
+export async function getMessageReactions(messageId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db
+    .select({
+      id: messageReactions.id,
+      emoji: messageReactions.emoji,
+      userId: messageReactions.userId,
+      createdAt: messageReactions.createdAt,
+      user: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        profilePhotoUrl: users.profilePhotoUrl,
+      },
+    })
+    .from(messageReactions)
+    .innerJoin(users, eq(messageReactions.userId, users.id))
+    .where(eq(messageReactions.messageId, messageId));
 }

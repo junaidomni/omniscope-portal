@@ -75,6 +75,7 @@ function WorkspaceRouter() {
 
         {/* Communications domain */}
         <Route path="/communications" component={Communications} />
+        <Route path="/chat" component={Communications} />
         <Route path="/mail" component={Communications} />
         <Route path="/mail/analytics" component={Communications} />
         <Route path="/calendar" component={Communications} />

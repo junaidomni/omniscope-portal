@@ -2740,3 +2740,144 @@
 - [x] Test webhook with sample Zapier payload
 - [x] Guide user through Zapier configuration
 - [ ] Test end-to-end flow with real Plaud recording (pending publish)
+
+
+
+## OmniScope Communications Platform (10-Week Build)
+
+### Phase 1: Week 1 - Database Schema + Backend Infrastructure
+- [x] Create channels table (DMs, groups, deal rooms)
+- [x] Create channel_members table (membership and roles)
+- [x] Create messages table (with reply threading and linking)
+- [x] Create message_reactions table (emoji reactions)
+- [x] Create message_attachments table (files, images, videos)
+- [x] Create user_presence table (online/away/offline status)
+- [x] Create typing_indicators table (who's typing)
+- [x] Create call_logs table (voice/video call history)
+- [x] Create call_participants table (who was on call)
+- [x] Build tRPC procedures for channel management
+- [x] Build tRPC procedures for messaging
+- [x] Build tRPC procedures for presence and typing)
+- [x] Set up Socket.io WebSocket server
+- [x] Implement WebSocket authentication and room-based broadcasting
+- [ ] Test backend with sample data
+
+### Phase 1: Week 2 - Core Chat UI
+- [x] Create /communications route
+- [x] Build CommunicationsLayout (3-column: channel list, messages, context)
+- [x] Build ChannelList component with search and filters
+- [x] Build MessageThread component with infinite scroll
+- [x] Build MessageBubble component with timestamps and read receipts
+- [x] Build MessageComposer with auto-resize input
+- [x] Build ContextSidebar with channel details
+- [x] Implement real-time message updates via WebSocket
+- [x] Add unread count badges
+- [ ] Test end-to-end messaging flow
+
+### Phase 1: Week 3 - Rich Features
+- [ ] Build @ mention autocomplete (users, meetings, contacts, tasks)
+- [ ] Implement clickable mention links
+- [ ] Build file attachment upload with S3 integration
+- [ ] Add inline image display with lightbox
+- [ ] Build emoji reaction picker and display
+- [ ] Implement typing indicators
+- [ ] Add read receipts (✓ sent, ✓✓ read)
+- [ ] Build message actions menu (reply, react, pin, delete)
+- [ ] Add message search functionality
+- [ ] Test all rich features
+
+### Phase 1: Week 4 - Deal Rooms + External Parties
+- [ ] Build deal room creation UI
+- [ ] Implement invite link generation for external parties
+- [ ] Build guest onboarding flow (create account, join deal room)
+- [ ] Add guest permissions (can message, can't see org data)
+- [ ] Build moderation tools (mute, kick, ban, delete messages)
+- [ ] Add announcement channels (read-only for guests)
+- [ ] Build deal room management dashboard
+- [ ] Test external party invite and access controls
+
+### Phase 2: Week 5 - WebRTC Voice/Video Calls
+- [ ] Set up WebRTC signaling via Socket.io
+- [ ] Build CallOverlay component (full-screen call UI)
+- [ ] Build CallControls (mute, camera, speaker, hang up)
+- [ ] Implement 1-on-1 voice calls
+- [ ] Implement 1-on-1 video calls
+- [ ] Add group voice calls (up to 10 participants)
+- [ ] Add group video calls (up to 4 video, 10 total)
+- [ ] Build incoming call notification UI
+- [ ] Test calls on different network conditions
+
+### Phase 2: Week 6 - Call Recording + Intelligence
+- [ ] Implement call recording (capture audio stream)
+- [ ] Upload recordings to S3 after call ends
+- [ ] Integrate Whisper API for transcription
+- [ ] Build LLM prompt for call intelligence extraction
+- [ ] Auto-create meeting records from calls
+- [ ] Send call summary to chat after call ends
+- [ ] Add call history view in context sidebar
+- [ ] Implement recording consent flow
+- [ ] Test full call intelligence pipeline
+
+### Phase 3: Week 7 - Mobile PWA Setup
+- [ ] Create manifest.json for PWA
+- [ ] Set up service worker for offline mode
+- [ ] Add PWA install prompt
+- [ ] Build responsive breakpoints (mobile < 768px)
+- [ ] Create MobileNav component (bottom navigation)
+- [ ] Create MobileHeader component (top bar with back button)
+- [ ] Test PWA installation on iOS and Android
+
+### Phase 3: Week 8 - Mobile Chat UI
+- [ ] Build mobile channel list layout
+- [ ] Build mobile message thread (full-screen)
+- [ ] Add swipe gestures (swipe right to go back)
+- [ ] Implement touch-optimized tap targets (44px minimum)
+- [ ] Add voice message recording (hold button)
+- [ ] Build mobile message actions (tap for menu)
+- [ ] Add pinch-to-zoom for images
+- [ ] Test mobile chat on iOS Safari and Android Chrome
+
+### Phase 3: Week 9 - Mobile Calls
+- [ ] Build mobile incoming call screen
+- [ ] Build mobile active call screen
+- [ ] Add proximity sensor (screen off when near ear)
+- [ ] Implement background audio (call continues if app closed)
+- [ ] Add Bluetooth headset support
+- [ ] Build picture-in-picture for video calls
+- [ ] Test mobile calls on real devices
+
+### Phase 3: Week 10 - Push Notifications + Offline
+- [ ] Set up Web Push API
+- [ ] Request notification permission on first login
+- [ ] Store push subscriptions in database
+- [ ] Send push notifications for messages, mentions, calls
+- [ ] Implement offline message caching
+- [ ] Build message queue for offline sends
+- [ ] Add sync indicator when back online
+- [ ] Test push notifications on mobile devices
+
+### Phase 3: Week 11 - Full Portal on Mobile
+- [ ] Make Dashboard responsive for mobile
+- [ ] Make Meetings tab responsive (list view)
+- [ ] Make Tasks tab responsive (Kanban or list)
+- [ ] Make Relationships tab responsive (people directory)
+- [ ] Make Calendar responsive
+- [ ] Make Admin Hub responsive
+- [ ] Add mobile bottom navigation for all tabs
+- [ ] Test full portal on mobile
+
+### Phase 3: Week 12 - Polish + Testing
+- [ ] Optimize performance (lazy loading, infinite scroll, caching)
+- [ ] Add smooth animations (200-300ms transitions)
+- [ ] Implement haptic feedback on mobile
+- [ ] Add accessibility features (keyboard nav, screen reader, high contrast)
+- [ ] Test on iOS Safari, Android Chrome, desktop browsers
+- [ ] Load test with 100+ concurrent users
+- [ ] Fix any bugs found during testing
+- [ ] Write documentation for users and admins
+
+### User Sync + Onboarding
+- [ ] Auto-populate existing users (name, email, avatar from accounts)
+- [ ] Build guest onboarding flow (name, email, password, avatar)
+- [ ] Sync user profile changes across platform
+- [ ] Test user sync and guest onboarding

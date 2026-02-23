@@ -1,0 +1,365 @@
+import { useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Search, 
+  Plus, 
+  MessageSquare, 
+  Users, 
+  Hash, 
+  Send,
+  Paperclip,
+  Smile,
+  MoreVertical,
+  Pin,
+  Archive,
+  X
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { MentionAutocomplete } from "@/components/MentionAutocomplete";
+import { useMentions, renderMentions } from "@/hooks/useMentions";
+import { useChannelSocket } from "@/hooks/useSocket";
+
+export default function ChatModule() {
+  const [selectedChannelId, setSelectedChannelId] = useState<number | null>(null);
+  const [messageInput, setMessageInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // WebSocket for real-time updates
+  const { isConnected, newMessage, userTyping, emitTyping } = useChannelSocket(selectedChannelId);
+  
+  // Mentions autocomplete
+  const {
+    mentionQuery,
+    mentionPosition,
+    handleMentionSelect,
+    closeMentionAutocomplete,
+  } = useMentions({
+    textareaRef,
+    value: messageInput,
+    onChange: setMessageInput,
+  });
+
+  // Fetch channels
+  const { data: channels, isLoading: channelsLoading } = trpc.communications.listChannels.useQuery();
+
+  // Fetch messages for selected channel
+  const { data: messagesData } = trpc.communications.listMessages.useQuery(
+    { channelId: selectedChannelId!, limit: 50 },
+    { enabled: !!selectedChannelId }
+  );
+
+  // Fetch channel details
+  const { data: channelDetails } = trpc.communications.getChannel.useQuery(
+    { channelId: selectedChannelId! },
+    { enabled: !!selectedChannelId }
+  );
+
+  // Send message mutation
+  const sendMessageMutation = trpc.communications.sendMessage.useMutation({
+    onSuccess: () => {
+      setMessageInput("");
+      // Refetch messages
+      trpc.useUtils().communications.listMessages.invalidate();
+      trpc.useUtils().communications.listChannels.invalidate();
+    },
+  });
+
+  // Mark as read mutation
+  const markReadMutation = trpc.communications.markRead.useMutation({
+    onSuccess: () => {
+      trpc.useUtils().communications.listChannels.invalidate();
+    },
+  });
+
+  const handleSendMessage = () => {
+    if (!messageInput.trim() || !selectedChannelId) return;
+
+    sendMessageMutation.mutate({
+      channelId: selectedChannelId,
+      content: messageInput,
+    });
+  };
+
+  const handleChannelSelect = (channelId: number) => {
+    setSelectedChannelId(channelId);
+    // Mark as read
+    markReadMutation.mutate({ channelId });
+  };
+
+  const filteredChannels = channels?.filter((channel) =>
+    channel.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const selectedChannel = channels?.find((c) => c.id === selectedChannelId);
+
+  return (
+    <div className="flex h-[calc(100vh-12rem)] gap-4">
+      {/* Left Column: Channel List */}
+      <Card className="w-80 flex flex-col">
+        <div className="p-4 border-b space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Messages</h2>
+            <Button size="sm" variant="ghost">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search channels..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
+
+        <ScrollArea className="flex-1">
+          {channelsLoading ? (
+            <div className="p-4 text-center text-muted-foreground">Loading...</div>
+          ) : filteredChannels?.length === 0 ? (
+            <div className="p-4 text-center text-muted-foreground">
+              No channels yet. Start a conversation!
+            </div>
+          ) : (
+            <div className="p-2 space-y-1">
+              {filteredChannels?.map((channel) => (
+                <button
+                  key={channel.id}
+                  onClick={() => handleChannelSelect(channel.id)}
+                  className={`w-full p-3 rounded-lg text-left hover:bg-accent transition-colors ${
+                    selectedChannelId === channel.id ? "bg-accent" : ""
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-10 w-10 flex-shrink-0">
+                      <AvatarImage src={channel.avatar || undefined} />
+                      <AvatarFallback>
+                        {channel.type === "dm" ? (
+                          <MessageSquare className="h-5 w-5" />
+                        ) : channel.type === "group" ? (
+                          <Users className="h-5 w-5" />
+                        ) : (
+                          <Hash className="h-5 w-5" />
+                        )}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium truncate">
+                          {channel.name || "Unnamed Channel"}
+                        </span>
+                        {channel.unreadCount > 0 && (
+                          <Badge variant="default" className="h-5 min-w-[20px] flex items-center justify-center">
+                            {channel.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {channel.lastMessageAt
+                          ? formatDistanceToNow(new Date(channel.lastMessageAt), { addSuffix: true })
+                          : "No messages"}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </Card>
+
+      {/* Center Column: Message Thread */}
+      <Card className="flex-1 flex flex-col">
+        {!selectedChannelId ? (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            <div className="text-center space-y-2">
+              <MessageSquare className="h-12 w-12 mx-auto opacity-50" />
+              <p>Select a channel to start messaging</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Channel Header */}
+            <div className="p-4 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={selectedChannel?.avatar || undefined} />
+                  <AvatarFallback>
+                    {selectedChannel?.type === "dm" ? (
+                      <MessageSquare className="h-5 w-5" />
+                    ) : selectedChannel?.type === "group" ? (
+                      <Users className="h-5 w-5" />
+                    ) : (
+                      <Hash className="h-5 w-5" />
+                    )}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="font-semibold">{selectedChannel?.name || "Unnamed Channel"}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {channelDetails?.members.length || 0} members
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="ghost">
+                  <Pin className="h-4 w-4" />
+                </Button>
+                <Button size="sm" variant="ghost">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <ScrollArea className="flex-1 p-4">
+              {!messagesData?.messages.length ? (
+                <div className="text-center text-muted-foreground py-8">
+                  No messages yet. Start the conversation!
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messagesData.messages.map((message) => (
+                    <div key={message.id} className="flex gap-3">
+                      <Avatar className="h-8 w-8 flex-shrink-0">
+                        <AvatarImage src={message.user.profilePhotoUrl || undefined} />
+                        <AvatarFallback>
+                          {message.user.name?.[0]?.toUpperCase() || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-medium text-sm">{message.user.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
+                          </span>
+                        </div>
+                        <div className="text-sm mt-1 whitespace-pre-wrap break-words">
+                          {renderMentions(message.content)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+
+            {/* Typing Indicator */}
+            {userTyping.length > 0 && (
+              <div className="px-4 py-2 text-xs text-muted-foreground">
+                {userTyping.length === 1 ? "Someone is" : `${userTyping.length} people are`} typing...
+              </div>
+            )}
+
+            {/* Message Input */}
+            <div className="p-4 border-t">
+              <div className="flex items-end gap-2">
+                <div className="flex-1 relative">
+                  <textarea
+                    ref={textareaRef}
+                    value={messageInput}
+                    onChange={(e) => {
+                      setMessageInput(e.target.value);
+                      emitTyping(e.target.value.length > 0);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                        emitTyping(false);
+                      }
+                    }}
+                    onBlur={() => emitTyping(false)}
+                    placeholder="Type a message..."
+                    className="w-full min-h-[44px] max-h-32 px-4 py-3 pr-20 rounded-lg border resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    rows={1}
+                  />
+                  <div className="absolute right-2 bottom-2 flex items-center gap-1">
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                      <Paperclip className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                      <Smile className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!messageInput.trim() || sendMessageMutation.isPending}
+                  size="icon"
+                  className="h-11 w-11"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </Card>
+
+      {/* Right Column: Context Sidebar */}
+      {selectedChannelId && (
+        <Card className="w-80 flex flex-col">
+          <div className="p-4 border-b">
+            <h3 className="font-semibold">Channel Details</h3>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-6">
+              {/* Channel Info */}
+              <div>
+                <h4 className="text-sm font-medium mb-2">About</h4>
+                <p className="text-sm text-muted-foreground">
+                  {selectedChannel?.description || "No description"}
+                </p>
+              </div>
+
+              <Separator />
+
+              {/* Members */}
+              <div>
+                <h4 className="text-sm font-medium mb-3">
+                  Members ({channelDetails?.members.length || 0})
+                </h4>
+                <div className="space-y-2">
+                  {channelDetails?.members.map((member) => (
+                    <div key={member.userId} className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={member.user.profilePhotoUrl || undefined} />
+                        <AvatarFallback>
+                          {member.user.name?.[0]?.toUpperCase() || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{member.user.name}</p>
+                        <p className="text-xs text-muted-foreground">{member.role}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        </Card>
+      )}
+
+      {/* Mention Autocomplete Popup */}
+      {mentionQuery !== null && mentionPosition && (
+        <MentionAutocomplete
+          query={mentionQuery}
+          position={mentionPosition}
+          onSelect={handleMentionSelect}
+          onClose={closeMentionAutocomplete}
+        />
+      )}
+    </div>
+  );
+}

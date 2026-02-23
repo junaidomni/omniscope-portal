@@ -40,6 +40,8 @@ import { adminHubRouter } from "./admin-hub";
 import { plansRouter } from "./plans";
 import { digestRouter } from "./digest";
 import { accountConsoleRouter } from "./account-console";
+import { communicationsRouter } from "./communications";
+import { fileUploadRouter } from "./fileUpload";
 
 export const appRouter = router({
   system: systemRouter,
@@ -88,6 +90,8 @@ export const appRouter = router({
   plans: plansRouter,
   digest: digestRouter,
   accountConsole: accountConsoleRouter,
+  communications: communicationsRouter,
+  fileUpload: fileUploadRouter,
 });
 
 export type AppRouter = typeof appRouter;

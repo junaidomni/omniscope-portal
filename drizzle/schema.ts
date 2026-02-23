@@ -1767,3 +1767,239 @@ export type InsertLoginHistory = typeof loginHistory.$inferInsert;
 export const loginHistoryRelations = relations(loginHistory, ({ one }) => ({
   user: one(users, { fields: [loginHistory.userId], references: [users.id] }),
 }));
+
+
+// ============================================================================
+// COMMUNICATIONS PLATFORM
+// ============================================================================
+
+/**
+ * Channels - DMs, group chats, and deal rooms
+ */
+export const channels = mysqlTable("channels", {
+  id: int("id").autoincrement().primaryKey(),
+  orgId: int("channelOrgId").references(() => organizations.id, { onDelete: "cascade" }), // NULL for cross-org DMs
+  type: mysqlEnum("channelType", ["dm", "group", "deal_room", "announcement"]).notNull(),
+  name: varchar("channelName", { length: 500 }),
+  description: text("channelDescription"),
+  avatar: varchar("channelAvatar", { length: 1000 }),
+  isPinned: boolean("channelIsPinned").default(false).notNull(),
+  isArchived: boolean("channelIsArchived").default(false).notNull(),
+  createdBy: int("channelCreatedBy").notNull().references(() => users.id),
+  createdAt: timestamp("channelCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("channelUpdatedAt").defaultNow().onUpdateNow().notNull(),
+  lastMessageAt: timestamp("channelLastMessageAt"),
+}, (table) => ({
+  orgIdx: index("channel_org_idx").on(table.orgId),
+  typeIdx: index("channel_type_idx").on(table.type),
+  createdByIdx: index("channel_created_by_idx").on(table.createdBy),
+}));
+
+export type Channel = typeof channels.$inferSelect;
+export type InsertChannel = typeof channels.$inferInsert;
+
+/**
+ * Channel members - who's in each channel
+ */
+export const channelMembers = mysqlTable("channel_members", {
+  id: int("id").autoincrement().primaryKey(),
+  channelId: int("cmChannelId").notNull().references(() => channels.id, { onDelete: "cascade" }),
+  userId: int("cmUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: mysqlEnum("cmRole", ["owner", "admin", "member", "guest"]).default("member").notNull(),
+  isGuest: boolean("cmIsGuest").default(false).notNull(), // External party (not in org)
+  joinedAt: timestamp("cmJoinedAt").defaultNow().notNull(),
+  lastReadAt: timestamp("cmLastReadAt"), // For unread count calculation
+  isMuted: boolean("cmIsMuted").default(false).notNull(),
+}, (table) => ({
+  channelUserIdx: uniqueIndex("cm_channel_user_idx").on(table.channelId, table.userId),
+  channelIdx: index("cm_channel_idx").on(table.channelId),
+  userIdx: index("cm_user_idx").on(table.userId),
+}));
+
+export type ChannelMember = typeof channelMembers.$inferSelect;
+export type InsertChannelMember = typeof channelMembers.$inferInsert;
+
+/**
+ * Messages - all chat messages
+ */
+export const messages = mysqlTable("messages", {
+  id: int("id").autoincrement().primaryKey(),
+  channelId: int("msgChannelId").notNull().references(() => channels.id, { onDelete: "cascade" }),
+  userId: int("msgUserId").notNull().references(() => users.id),
+  content: text("msgContent").notNull(),
+  type: mysqlEnum("msgType", ["text", "file", "system", "call"]).default("text").notNull(),
+  replyToId: int("msgReplyToId").references(() => messages.id), // For threaded replies
+  linkedMeetingId: int("msgLinkedMeetingId").references(() => meetings.id),
+  linkedContactId: int("msgLinkedContactId").references(() => contacts.id),
+  linkedTaskId: int("msgLinkedTaskId").references(() => tasks.id),
+  isPinned: boolean("msgIsPinned").default(false).notNull(),
+  isEdited: boolean("msgIsEdited").default(false).notNull(),
+  isDeleted: boolean("msgIsDeleted").default(false).notNull(),
+  createdAt: timestamp("msgCreatedAt").defaultNow().notNull(),
+  editedAt: timestamp("msgEditedAt"),
+}, (table) => ({
+  channelIdx: index("msg_channel_idx").on(table.channelId),
+  userIdx: index("msg_user_idx").on(table.userId),
+  createdAtIdx: index("msg_created_at_idx").on(table.createdAt),
+}));
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = typeof messages.$inferInsert;
+
+/**
+ * Message reactions - emoji reactions on messages
+ */
+export const messageReactions = mysqlTable("message_reactions", {
+  id: int("id").autoincrement().primaryKey(),
+  messageId: int("mrMessageId").notNull().references(() => messages.id, { onDelete: "cascade" }),
+  userId: int("mrUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  emoji: varchar("mrEmoji", { length: 50 }).notNull(),
+  createdAt: timestamp("mrCreatedAt").defaultNow().notNull(),
+}, (table) => ({
+  messageUserEmojiIdx: uniqueIndex("mr_msg_user_emoji_idx").on(table.messageId, table.userId, table.emoji),
+  messageIdx: index("mr_message_idx").on(table.messageId),
+}));
+
+export type MessageReaction = typeof messageReactions.$inferSelect;
+export type InsertMessageReaction = typeof messageReactions.$inferInsert;
+
+/**
+ * Message attachments - files, images, videos
+ */
+export const messageAttachments = mysqlTable("message_attachments", {
+  id: int("id").autoincrement().primaryKey(),
+  messageId: int("maMessageId").notNull().references(() => messages.id, { onDelete: "cascade" }),
+  fileUrl: varchar("maFileUrl", { length: 1000 }).notNull(),
+  fileName: varchar("maFileName", { length: 500 }).notNull(),
+  fileSize: int("maFileSize").notNull(), // bytes
+  mimeType: varchar("maMimeType", { length: 100 }).notNull(),
+  thumbnailUrl: varchar("maThumbnailUrl", { length: 1000 }),
+  createdAt: timestamp("maCreatedAt").defaultNow().notNull(),
+}, (table) => ({
+  messageIdx: index("ma_message_idx").on(table.messageId),
+}));
+
+export type MessageAttachment = typeof messageAttachments.$inferSelect;
+export type InsertMessageAttachment = typeof messageAttachments.$inferInsert;
+
+/**
+ * User presence - online/away/offline status
+ */
+export const userPresence = mysqlTable("user_presence", {
+  userId: int("upUserId").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  status: mysqlEnum("upStatus", ["online", "away", "offline"]).default("offline").notNull(),
+  lastSeenAt: timestamp("upLastSeenAt").defaultNow().notNull(),
+});
+
+export type UserPresence = typeof userPresence.$inferSelect;
+export type InsertUserPresence = typeof userPresence.$inferInsert;
+
+/**
+ * Typing indicators - who's typing in which channel
+ */
+export const typingIndicators = mysqlTable("typing_indicators", {
+  id: int("id").autoincrement().primaryKey(),
+  channelId: int("tiChannelId").notNull().references(() => channels.id, { onDelete: "cascade" }),
+  userId: int("tiUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  startedAt: timestamp("tiStartedAt").defaultNow().notNull(),
+}, (table) => ({
+  channelUserIdx: uniqueIndex("ti_channel_user_idx").on(table.channelId, table.userId),
+  channelIdx: index("ti_channel_idx").on(table.channelId),
+}));
+
+export type TypingIndicator = typeof typingIndicators.$inferSelect;
+export type InsertTypingIndicator = typeof typingIndicators.$inferInsert;
+
+/**
+ * Call logs - voice/video call history
+ */
+export const callLogs = mysqlTable("call_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  channelId: int("clChannelId").notNull().references(() => channels.id, { onDelete: "cascade" }),
+  initiatorId: int("clInitiatorId").notNull().references(() => users.id),
+  type: mysqlEnum("clType", ["voice", "video"]).notNull(),
+  status: mysqlEnum("clStatus", ["ringing", "ongoing", "ended", "missed", "declined"]).notNull(),
+  startedAt: timestamp("clStartedAt").defaultNow().notNull(),
+  endedAt: timestamp("clEndedAt"),
+  duration: int("clDuration"), // in seconds
+  recordingUrl: varchar("clRecordingUrl", { length: 1000 }), // S3 URL to call recording
+  transcriptUrl: varchar("clTranscriptUrl", { length: 1000 }), // S3 URL to transcript
+  meetingId: int("clMeetingId").references(() => meetings.id), // Link to auto-generated meeting
+}, (table) => ({
+  channelIdx: index("cl_channel_idx").on(table.channelId),
+  initiatorIdx: index("cl_initiator_idx").on(table.initiatorId),
+  startedAtIdx: index("cl_started_at_idx").on(table.startedAt),
+}));
+
+export type CallLog = typeof callLogs.$inferSelect;
+export type InsertCallLog = typeof callLogs.$inferInsert;
+
+/**
+ * Call participants - who was on the call
+ */
+export const callParticipants = mysqlTable("call_participants", {
+  id: int("id").autoincrement().primaryKey(),
+  callId: int("cpCallId").notNull().references(() => callLogs.id, { onDelete: "cascade" }),
+  userId: int("cpUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  joinedAt: timestamp("cpJoinedAt").defaultNow().notNull(),
+  leftAt: timestamp("cpLeftAt"),
+}, (table) => ({
+  callIdx: index("cp_call_idx").on(table.callId),
+  userIdx: index("cp_user_idx").on(table.userId),
+}));
+
+export type CallParticipant = typeof callParticipants.$inferSelect;
+export type InsertCallParticipant = typeof callParticipants.$inferInsert;
+
+/**
+ * Channel invite links - for external parties to join deal rooms
+ */
+export const channelInvites = mysqlTable("channel_invites", {
+  id: int("id").autoincrement().primaryKey(),
+  channelId: int("ciChannelId").notNull().references(() => channels.id, { onDelete: "cascade" }),
+  token: varchar("ciToken", { length: 64 }).notNull().unique(),
+  createdBy: int("ciCreatedBy").notNull().references(() => users.id),
+  expiresAt: timestamp("ciExpiresAt"),
+  maxUses: int("ciMaxUses"), // NULL = unlimited
+  usedCount: int("ciUsedCount").default(0).notNull(),
+  isActive: boolean("ciIsActive").default(true).notNull(),
+  createdAt: timestamp("ciCreatedAt").defaultNow().notNull(),
+}, (table) => ({
+  tokenIdx: index("ci_token_idx").on(table.token),
+  channelIdx: index("ci_channel_idx").on(table.channelId),
+}));
+
+export type ChannelInvite = typeof channelInvites.$inferSelect;
+export type InsertChannelInvite = typeof channelInvites.$inferInsert;
+
+// Communications relations
+export const channelsRelations = relations(channels, ({ one, many }) => ({
+  creator: one(users, { fields: [channels.createdBy], references: [users.id] }),
+  members: many(channelMembers),
+  messages: many(messages),
+  calls: many(callLogs),
+  invites: many(channelInvites),
+}));
+
+export const channelMembersRelations = relations(channelMembers, ({ one }) => ({
+  channel: one(channels, { fields: [channelMembers.channelId], references: [channels.id] }),
+  user: one(users, { fields: [channelMembers.userId], references: [users.id] }),
+}));
+
+export const messagesRelations = relations(messages, ({ one, many }) => ({
+  channel: one(channels, { fields: [messages.channelId], references: [channels.id] }),
+  user: one(users, { fields: [messages.userId], references: [users.id] }),
+  replyTo: one(messages, { fields: [messages.replyToId], references: [messages.id] }),
+  linkedMeeting: one(meetings, { fields: [messages.linkedMeetingId], references: [meetings.id] }),
+  linkedContact: one(contacts, { fields: [messages.linkedContactId], references: [contacts.id] }),
+  linkedTask: one(tasks, { fields: [messages.linkedTaskId], references: [tasks.id] }),
+  reactions: many(messageReactions),
+  attachments: many(messageAttachments),
+}));
+
+export const callLogsRelations = relations(callLogs, ({ one, many }) => ({
+  channel: one(channels, { fields: [callLogs.channelId], references: [channels.id] }),
+  initiator: one(users, { fields: [callLogs.initiatorId], references: [users.id] }),
+  meeting: one(meetings, { fields: [callLogs.meetingId], references: [meetings.id] }),
+  participants: many(callParticipants),
+}));
