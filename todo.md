@@ -721,3 +721,20 @@
 - [ ] Test offline functionality
 - [ ] Optimize performance for mobile
 - [ ] Save checkpoint
+
+
+## Mobile UI Bug Fixes (Feb 23, 2026)
+
+### Critical Bugs
+- [x] Fix + button error - shows toast message instead
+- [x] Fix Profile tab errors - replaced with toast messages for coming soon features
+- [x] Fix Calls tab error - use getCallHistory from all channels
+- [x] Add call initiation from mobile Calls tab - added callback buttons
+- [x] Test all mobile navigation flows
+
+### Missing Features
+- [ ] New message/channel creation from mobile
+- [ ] Settings page for mobile
+- [ ] Notifications page for mobile
+- [ ] Privacy page for mobile
+- [ ] Help page for mobile

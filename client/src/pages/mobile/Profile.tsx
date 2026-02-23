@@ -1,10 +1,9 @@
 import { LogOut, Settings, Bell, Shield, HelpCircle, ChevronRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { useLocation } from "wouter";
+import { toast } from "sonner";
 
 export default function MobileProfile() {
   const { data: user } = trpc.auth.me.useQuery();
-  const [, setLocation] = useLocation();
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => {
       window.location.href = "/";
@@ -12,10 +11,10 @@ export default function MobileProfile() {
   });
   
   const menuItems = [
-    { icon: Settings, label: "Settings", path: "/mobile/settings" },
-    { icon: Bell, label: "Notifications", path: "/mobile/notifications" },
-    { icon: Shield, label: "Privacy & Security", path: "/mobile/privacy" },
-    { icon: HelpCircle, label: "Help & Support", path: "/mobile/help" },
+    { icon: Settings, label: "Settings", action: () => toast.info("Settings coming soon") },
+    { icon: Bell, label: "Notifications", action: () => toast.info("Notifications coming soon") },
+    { icon: Shield, label: "Privacy & Security", action: () => toast.info("Privacy settings coming soon") },
+    { icon: HelpCircle, label: "Help & Support", action: () => toast.info("Help coming soon") },
   ];
   
   return (
@@ -53,8 +52,8 @@ export default function MobileProfile() {
             
             return (
               <button
-                key={item.path}
-                onClick={() => setLocation(item.path)}
+                key={item.label}
+                onClick={item.action}
                 className="w-full px-4 py-4 flex items-center gap-3 hover:bg-[#D4AF37]/5 active:bg-[#D4AF37]/10 transition-colors"
               >
                 <Icon className="h-5 w-5 text-[#D4AF37]" />

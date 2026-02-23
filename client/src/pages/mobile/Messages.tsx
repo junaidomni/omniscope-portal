@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Search, Plus, MessageSquare } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
+import { toast } from "sonner";
 
 export default function MobileMessages() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,8 +38,9 @@ export default function MobileMessages() {
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-xl font-semibold text-[#D4AF37]">Messages</h1>
             <button
-              onClick={() => setLocation("/mobile/new-message")}
-              className="p-2 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37]/30 transition-colors"
+              onClick={() => toast.info("Tap on a channel to start messaging")}
+              className="p-2 rounded-full bg-[#D4AF37] text-black hover:bg-[#F4D03F] active:bg-[#C9A428] transition-colors"
+              title="New message"
             >
               <Plus className="h-5 w-5" />
             </button>
