@@ -509,8 +509,10 @@ export const communicationsRouter = router({
         return { channelId: existingDM.id, existed: true };
       }
 
-      // Get recipient details
+      // Get both users' details for name generation
+      const currentUser = await db.getUserById(userId);
       const recipient = await db.getUserById(input.recipientId);
+      
       if (!recipient) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -518,11 +520,21 @@ export const communicationsRouter = router({
         });
       }
 
+      if (!currentUser) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Current user not found",
+        });
+      }
+
+      // Generate DM name from both users' names
+      const dmName = `${currentUser.name || "User"} & ${recipient.name || "User"}`;
+
       // Create DM channel (orgId is NULL for cross-org DMs)
       const channelId = await db.createChannel({
         orgId: null, // DMs can be cross-org
         type: "dm",
-        name: null, // DMs don't have names
+        name: dmName,
         description: null,
         createdBy: userId,
       });
