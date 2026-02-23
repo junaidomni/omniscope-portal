@@ -196,3 +196,43 @@
 - [x] Format summaries with sections (Overview, Key Points, Decisions, Action Items)
 - [x] Show assignees for action items
 - [x] Upload summary JSON to S3 storage
+
+## Week 5 Completion (Feb 23, 2026)
+
+### Calls Tab in Communications
+- [x] Add "Calls" tab alongside Chat, Inbox, Calendar, Analytics
+- [x] Create AllCallsView component showing calls across all channels
+- [x] Add filters: call type (voice/video), status (completed/missed/ongoing)
+- [x] Add search functionality for calls
+- [x] Click call to view details/transcript/summary
+- [x] Show channel name for each call
+- [x] Integrate with CallTranscriptView component
+- [x] Add date grouping (Today, Yesterday, This Week, etc.)
+- [x] Show participant avatars and count
+
+### WebRTC Signaling
+- [x] Add WebSocket events: webrtc_offer, webrtc_answer, webrtc_ice_candidate
+- [x] Update WebSocket server to handle WebRTC signaling
+- [x] Add call-joined and call-left events for participant notifications
+- [ ] Add peer connection management in CallInterface (IN PROGRESS)
+- [ ] Handle ICE candidate exchange between participants
+- [ ] Handle SDP offer/answer exchange
+- [ ] Add connection state management (connecting, connected, disconnected)
+- [ ] Handle participant join/leave during active call
+
+### Automatic Call Recording
+- [ ] Integrate MediaRecorder API in CallInterface
+- [ ] Start recording when call begins
+- [ ] Stop recording when call ends
+- [ ] Upload audio to S3 automatically
+- [ ] Update callLogs with audioUrl
+- [ ] Trigger transcription automatically after upload
+- [ ] Add recording indicator in call UI
+
+### Call Notifications
+- [ ] Add real-time notification when call starts in channel
+- [ ] Show "Call in progress" banner in channel
+- [ ] Add "Join Call" button in notification
+- [ ] Show participant count in real-time
+- [ ] Add sound notification for incoming calls
+- [ ] Add notification in sidebar for active calls

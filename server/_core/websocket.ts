@@ -76,6 +76,51 @@ export function initializeWebSocket(httpServer: HTTPServer) {
       });
     });
 
+    // WebRTC Signaling Events
+    socket.on("webrtc-offer", ({ callId, offer, targetUserId }) => {
+      console.log(`[WebRTC] User ${userId} sending offer to ${targetUserId} for call ${callId}`);
+      socket.to(`user:${targetUserId}`).emit("webrtc-offer", {
+        callId,
+        offer,
+        fromUserId: userId,
+      });
+    });
+
+    socket.on("webrtc-answer", ({ callId, answer, targetUserId }) => {
+      console.log(`[WebRTC] User ${userId} sending answer to ${targetUserId} for call ${callId}`);
+      socket.to(`user:${targetUserId}`).emit("webrtc-answer", {
+        callId,
+        answer,
+        fromUserId: userId,
+      });
+    });
+
+    socket.on("webrtc-ice-candidate", ({ callId, candidate, targetUserId }) => {
+      console.log(`[WebRTC] User ${userId} sending ICE candidate to ${targetUserId} for call ${callId}`);
+      socket.to(`user:${targetUserId}`).emit("webrtc-ice-candidate", {
+        callId,
+        candidate,
+        fromUserId: userId,
+      });
+    });
+
+    // Handle call join/leave notifications
+    socket.on("call-joined", ({ callId, channelId }) => {
+      console.log(`[WebRTC] User ${userId} joined call ${callId}`);
+      socket.to(`channel:${channelId}`).emit("call-participant-joined", {
+        callId,
+        userId,
+      });
+    });
+
+    socket.on("call-left", ({ callId, channelId }) => {
+      console.log(`[WebRTC] User ${userId} left call ${callId}`);
+      socket.to(`channel:${channelId}`).emit("call-participant-left", {
+        callId,
+        userId,
+      });
+    });
+
     // Handle disconnect
     socket.on("disconnect", () => {
       console.log(`[WebSocket] User ${userId} disconnected`);
