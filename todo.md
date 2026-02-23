@@ -71,3 +71,9 @@
 - [x] Rename first "CHANNELS" section label to "GROUPS" (for group chats)
 - [x] Keep second "CHANNELS" section for actual channels (deal rooms)
 - [x] Update filter logic: Messages shows DMs+Groups, Groups shows Groups only, Channels shows Deal Rooms only
+
+## Messages Filter Fix (Feb 23, 2026)
+
+- [x] Update Messages filter to show ONLY Direct Messages (not groups)
+- [x] Groups filter should show Groups only
+- [x] Channels filter should show Channels (Deal Rooms) only
