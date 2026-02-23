@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Users, Briefcase } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MessageSquare, Users, Briefcase, Search, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
@@ -21,8 +23,17 @@ export function CreateChannelDialog({ open, onOpenChange, onChannelCreated }: Cr
   const [selectedType, setSelectedType] = useState<ChannelType | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
 
   const utils = trpc.useUtils();
+
+  // Fetch users for DM creation
+  const { data: users, isLoading: usersLoading } = trpc.users.list.useQuery(
+    undefined,
+    { enabled: open && selectedType === "dm" }
+  );
+
   const createDealRoom = trpc.communications.createDealRoom.useMutation({
     onSuccess: (data) => {
       toast.success("Channel created successfully!");
@@ -41,6 +52,8 @@ export function CreateChannelDialog({ open, onOpenChange, onChannelCreated }: Cr
     setSelectedType(null);
     setName("");
     setDescription("");
+    setSelectedUserId(null);
+    setUserSearchQuery("");
     onOpenChange(false);
   };
 
@@ -66,7 +79,11 @@ export function CreateChannelDialog({ open, onOpenChange, onChannelCreated }: Cr
       toast.info("Group chat creation coming soon!");
       handleClose();
     } else if (selectedType === "dm") {
-      // TODO: Implement DM creation (need user selector)
+      if (!selectedUserId) {
+        toast.error("Please select a person");
+        return;
+      }
+      // TODO: Implement DM creation backend
       toast.info("Direct message creation coming soon!");
       handleClose();
     }
@@ -137,24 +154,74 @@ export function CreateChannelDialog({ open, onOpenChange, onChannelCreated }: Cr
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">
-                  {selectedType === "deal_room" ? "Channel Name" : "Name"} *
-                </Label>
-                <Input
-                  id="name"
-                  placeholder={
-                    selectedType === "deal_room"
-                      ? "e.g., Dubai Gold Q1 2026"
-                      : selectedType === "group"
-                      ? "e.g., Marketing Team"
-                      : "Select a person..."
-                  }
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={selectedType === "dm"}
-                />
-              </div>
+              {selectedType === "dm" ? (
+                <>
+                  <div className="grid gap-2">
+                    <Label>Select a person *</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search users..."
+                        value={userSearchQuery}
+                        onChange={(e) => setUserSearchQuery(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+                  <ScrollArea className="h-[250px] border rounded-lg">
+                    {usersLoading ? (
+                      <div className="flex items-center justify-center h-full">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <div className="p-2 space-y-1">
+                        {users
+                          ?.filter(
+                            (u) =>
+                              u.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                              u.email?.toLowerCase().includes(userSearchQuery.toLowerCase())
+                          )
+                          .map((user) => (
+                            <button
+                              key={user.id}
+                              onClick={() => setSelectedUserId(user.id)}
+                              className={`w-full p-3 rounded-lg hover:bg-accent transition-colors flex items-center gap-3 ${
+                                selectedUserId === user.id ? "bg-accent border-2 border-amber-500" : ""
+                              }`}
+                            >
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={user.avatar || undefined} />
+                                <AvatarFallback>
+                                  {user.name?.charAt(0).toUpperCase() || "U"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 text-left">
+                                <p className="font-medium">{user.name || "Unnamed User"}</p>
+                                <p className="text-sm text-muted-foreground">{user.email}</p>
+                              </div>
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </>
+              ) : (
+                <div className="grid gap-2">
+                  <Label htmlFor="name">
+                    {selectedType === "deal_room" ? "Channel Name" : "Name"} *
+                  </Label>
+                  <Input
+                    id="name"
+                    placeholder={
+                      selectedType === "deal_room"
+                        ? "e.g., Dubai Gold Q1 2026"
+                        : "e.g., Marketing Team"
+                    }
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+              )}
 
               {selectedType !== "dm" && (
                 <div className="grid gap-2">

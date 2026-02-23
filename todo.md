@@ -3041,3 +3041,9 @@
 - [x] Fix user search in DirectInviteDialog (was using wrong procedure name getChannelDetails → getChannel)
 - [ ] Add validation to prevent accidental organization creation
 - [x] Ensure only "OmniScope" organization exists
+
+### Direct Message Creation Bug
+- [x] Fix CreateChannelDialog to show user selector dropdown for DMs instead of text input
+- [x] Add user search/filter in DM creation dialog
+- [ ] Implement DM creation backend (currently shows "coming soon" toast)
+- [ ] Test DM creation flow end-to-end
